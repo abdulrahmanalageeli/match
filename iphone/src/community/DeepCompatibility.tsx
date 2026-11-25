@@ -134,7 +134,7 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
     </div>}
     {open && sheet(<div ref={panel} className={`wd-deep${status === 'shared' ? ' wd-deep-shared' : ''}`} aria-busy={busy}>
       {hidden ? <p className="wd-deep-note"><LockKeyhole size={18}/> التقرير مخفي أثناء مغادرة التطبيق.</p> : <>
-        {status !== 'shared' && <><div className="wd-deep-intro"><span className="wd-deep-eyebrow">أنت و{peerName}</span><h3>ما الذي يستحق أن تتحدثا عنه؟</h3><p>ترسم القراءة ملامح كلٍّ منكما من إجاباتكما، وتقترح أسئلة تساعدكما على معرفة ما يهمّ كل طرف قبل القرار.</p></div>
+        {status !== 'shared' && <><div className="wd-deep-intro"><span className="wd-deep-eyebrow">أنت و{peerName}</span><h3>ما الذي يستحق أن تتحدثا عنه؟</h3></div>
         <ol className="wd-deep-steps" aria-label="مراحل التحليل">{['الموافقة', 'التحليل', 'المراجعة', 'تقريركما'].map((label, index) => <li key={label} data-current={index === step || undefined} data-done={index < step || undefined} aria-current={index === step ? 'step' : undefined}><span>{count.format(index + 1)}</span>{label}</li>)}</ol></>}
         {error && <div className="wd-deep-error" role="alert"><p>{error}</p><button className="btn-text" onClick={() => void refresh()} disabled={busy}>تحديث الحالة</button></div>}
         {!source && <p className="wd-deep-note">طلب التحليل غير متاح في هذه المحادثة.</p>}
@@ -149,25 +149,24 @@ export function DeepCompatibility({ source, watch, connectionId, peerName, open,
             : <p className="wd-deep-note">طلب تحليل جديد غير متاح الآن. يلزم اكتمال إجابات الطرفين وتوفّر طلب ضمن حد الاستخدام.</p>}
         </>}
         {status === 'requested' && <>
-          <div className="wd-deep-state"><Sparkles size={22}/><h3>{snapshot?.requestedByMe ? 'دعوتك وصلت' : `دعوة من ${peerName} لتحليل التوافق`}</h3><p>{snapshot?.requestedByMe ? 'يبدأ التحليل بعد موافقة الطرف الآخر. لا تحتاجان إلى إجابات جديدة.' : 'المشاركة اختيارية ومجانية لك. راجع ما سيُستخدم وما يمكن مشاركته قبل الموافقة.'}</p></div>
+          <div className="wd-deep-state"><Sparkles size={22}/><h3>{snapshot?.requestedByMe ? 'دعوتك وصلت' : `دعوة من ${peerName} لتحليل التوافق`}</h3><p>{snapshot?.requestedByMe ? 'بانتظار موافقة الطرف الآخر.' : 'المشاركة مجانية لك.'}</p></div>
           {!snapshot?.requestedByMe && <><ConsentCopy local={source?.localProcessing?.()}/><button className="btn-primary" disabled={busy} onClick={() => void act('accept')}>أوافق وأبدأ التحليل</button><button className="btn-text" disabled={busy} onClick={() => void act('decline')}>لا أرغب بالمشاركة</button></>}
         </>}
         {(status === 'ready' || status === 'generating' || status === 'failed') && <div className="wd-deep-state" role="status">
           <span className="wd-deep-reading" data-moving={busy || status === 'generating' || undefined}><BookOpen size={26}/></span>
           <h3>{busy || status === 'generating' ? 'لونا تربط بين إجاباتكما' : status === 'failed' ? 'لم يكتمل التحليل' : 'موافقتكما مكتملة'}</h3>
-          <p>تبحث عن نقاط القوة والاختلاف وما يحتاج إلى نقاش. يمكنك متابعة المحادثة والعودة هنا؛ لا يُشارك شيء قبل مراجعتكما.</p>
+          {status === 'generating' && <p>يمكنك متابعة المحادثة أثناء إعداد القراءة.</p>}
           {snapshot?.canGenerate && <button className="btn-primary" disabled={busy} onClick={() => void act('generate')}>{busy ? 'جارٍ التحليل…' : status === 'ready' ? 'بدء التحليل' : 'إعادة محاولة التحليل'}</button>}
           {status === 'failed' && !snapshot?.canGenerate && <p>تعذّر إكمال هذا الطلب. يمكنك إلغاءه والمحاولة لاحقًا.</p>}
         </div>}
         {status === 'review' && (snapshot?.myReviewed ? <div className="wd-deep-state"><LockKeyhole size={24}/><h3>حُفظت اختياراتك</h3><p>بانتظار مراجعة الطرف الآخر. يُفتح التقرير بالنقاط التي وافقتما عليها معًا فقط.</p></div> : <>
-          <div className="wd-deep-review-intro"><h3>قراءتك الخاصة قبل المشاركة</h3><p>هذه قراءة لإجاباتك وحدك، دون معلومات الطرف الآخر أو نص التقرير المشترك. اختر ما تسمح للتقرير باستنتاجه ومشاركته عنك. الرفض يحذف النقطة وأي نتائج تعتمد على مصادرها، بما فيها الملخص.</p></div>
+          <div className="wd-deep-review-intro"><h3>قراءتك الخاصة قبل المشاركة</h3><p>حدّد ما توافق على مشاركته عنك. تُحجب النقاط التي تستبعدها وما يعتمد عليها، حتى في الملخص.</p></div>
           <div className="wd-deep-review-tools"><span>{count.format(selected)} من {count.format(snapshot?.review.length ?? 0)} نقطة محددة</span><button type="button" className="btn-text" onClick={() => setDecisions(Object.fromEntries((snapshot?.review ?? []).map(item => [item.id, selected !== snapshot?.review.length])))} disabled={busy}>{selected === snapshot?.review.length ? 'إلغاء التحديد' : 'تحديد جميع النقاط'}</button></div>
           <div className="wd-deep-review-list">{Object.entries(deepSections).map(([key, label]) => {
             const items = snapshot?.review.filter(item => item.section === key) ?? [];
             return items.length ? <details key={key} open={key === 'summary'}><summary>{label}<span>{count.format(items.length)}</span></summary>{items.map((item, index) => <div className="wd-deep-disclosure" key={item.id}><label className="wd-deep-choice"><input type="checkbox" checked={decisions[item.id] === true} disabled={busy} onChange={event => setDecisions(value => ({ ...value, [item.id]: event.target.checked }))}/><span><strong>السماح بمشاركة القراءة {count.format(index + 1)}</strong><small>{item.ownInterpretation}</small></span></label><details className="wd-deep-evidence"><summary>إجاباتك التي تستند إليها</summary><p>{item.ownEvidence.length ? item.ownEvidence.map(entry => entry.value ? `${entry.label}: ${entry.value}` : entry.label).join(' · ') : 'لا تتضمن إجابة خاصة بك.'}</p></details></div>)}</details> : null;
           })}</div>
           <button className="btn-primary" disabled={busy} onClick={() => void act('review')}>{selected ? 'اعتماد اختيارات المشاركة' : 'عدم مشاركة أي نقطة'}</button>
-          <small className="wd-deep-footnote">لن تُشارك النقاط غير المحددة. لا حاجة للإجابة عن أي سؤال.</small>
         </>)}
         {status === 'shared' && snapshot && <>
           <DeepReport snapshot={snapshot} peerName={peerName} save={() => void saveReport()} saving={saving}/>
@@ -185,7 +184,7 @@ function ConsentCopy({local=false}: {local?:boolean}) {
     <details><summary>ما الذي تشمله القراءة؟</summary>
       <p>تشمل الإجابات المحفوظة عن متطلبات الشريك والشخصية والسكن والإنجاب والمصاريف. تبقى المحادثات والصور وبيانات التواصل ومدينة الأصل ونص «بيننا» خارج القراءة.</p>
     </details>
-    <p>قد تعكس النتائج تفضيلات خاصة. تختاران معًا ما تشاركانه من التقرير. يمكنك رفض الدعوة أو سحب الوصول لاحقًا. تبقى أي نسخة حفظها الطرف الآخر لديه.</p>
+    <p>قد تكشف القراءة تفضيلات خاصة. لكل منكما رفض الدعوة واختيار ما يشاركه وسحبه لاحقًا. تبقى النسخ المحفوظة خارج التطبيق.</p>
   </div>;
 }
 

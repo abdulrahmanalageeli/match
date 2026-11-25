@@ -39,17 +39,16 @@ export function JourneyCompletion({ paused, busy, demo, canPause, onBack, onPaus
     <header className="st-top"><button className="st-back" onClick={onBack}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header>
     <span className="st-dialog-icon" aria-hidden="true"><HeartHandshake/></span>
     <h1 ref={title} tabIndex={-1}>نحو بداية جديدة</h1>
-    <p>وجدتما ما يستحق الاستمرار؟ رتّب خطواتك وظهور ملفك واشتراكك بهدوء. هذه مساحة خاصة بك، ولا تنشر قصة نجاح أو تتخذ قرارًا نيابة عن الطرف الآخر.</p>
     <label className="st-completion-stage">ما الخطوة التي ترتّب لها؟<select value={stage} onChange={event => setStage(event.target.value)}>
       <option value="proceeding">نرغب في التقدم معًا</option><option value="engaged">تمت الخطوبة</option><option value="married">تم الزواج</option>
     </select></label>
-    <p className="st-completion-note">اختيارك يعرض إرشادًا لهذه الزيارة فقط؛ لا يسجّل حالة علاقة ولا يرسل إشعارًا.</p>
+    <p className="st-completion-note">هذا الاختيار خاص بهذه الزيارة فقط.</p>
     <section className="st-completion-card"><h2>١ · اتفقا على الخطوة القادمة</h2>
-      <p>{stage === 'married' ? 'نتمنى لكما حياة طيبة. راجعا ما تريدان الاحتفاظ به من بياناتكما، وأغلقا المشاركة التي لم تعودا تحتاجانها، كلٌّ من حسابه.' : stage === 'engaged' ? 'نتمنى لكما بداية موفقة. اتفقا على التواصل مع العائلتين وترتيبات المرحلة القادمة، وما تريدان إبقاءه داخل التطبيق.' : 'تأكدا معًا من الرغبة في الاستمرار، وحددا من يتواصل مع من، والغرض من اللقاء أو الاتصال وموعدًا مقترحًا. إعلان الخطوبة أو الزواج يحتاج اتفاقكما خارج هذه الصفحة.'}</p>
+      <p>{stage === 'married' ? 'راجعا ما تريدان الاحتفاظ به من بياناتكما، كلّ من حسابه.' : stage === 'engaged' ? 'اتفقا على ترتيبات الخطوبة مع العائلتين.' : 'حدّدا موعدًا للقاء العائلتين ومن يتولى التنسيق.'}</p>
       <div className="st-completion-actions">{onFamily && <button className="btn-secondary" onClick={onFamily}>ترتيب الخطوة مع الأهل</button>}{onReadiness && <button className="btn-secondary" onClick={onReadiness}>مراجعة استعداداتي الخاصة</button>}</div>
     </section>
     <section className="st-completion-card"><h2>٢ · اختر ظهور ملفك</h2>
-      {paused ? <p role="status" className="st-completion-status"><Check size={18}/> الترشيحات متوقفة وملفك مخفي عن الطلبات الجديدة؛ تبقى المحادثات المقبولة متاحة مع صلاحية العضوية.</p> : <><p>إيقاف الترشيحات يخفي ملفك عن الطلبات الجديدة ويحافظ على المحادثات المقبولة وجسر الأهل مع صلاحية العضوية. لا يُوقف حساب الطرف الآخر تلقائيًا.</p>{canPause ? <button className="btn-primary" disabled={busy} onClick={() => setConfirmPause(true)}>مراجعة إيقاف الترشيحات</button> : <p>تحكم إيقاف الترشيحات متاح مع العضوية الفعّالة. يمكنك مراجعة حالة حسابك من الإعدادات أو التواصل مع الفريق.</p>}</>}
+      {paused ? <p role="status" className="st-completion-status"><Check size={18}/> الترشيحات متوقفة وملفك مخفي عن الطلبات الجديدة؛ تبقى المحادثات المقبولة متاحة مع صلاحية العضوية.</p> : <><p>يمكنك إخفاء ملفك عن طلبات التعارف الجديدة.</p>{canPause ? <button className="btn-primary" disabled={busy} onClick={() => setConfirmPause(true)}>مراجعة إيقاف الترشيحات</button> : <p>إيقاف الترشيحات متاح مع العضوية الفعّالة.</p>}</>}
     </section>
     <section className="st-completion-card"><h2>٣ · راجع الاشتراك والبيانات</h2>
       <p>{demo ? 'هذه تجربة مجانية ولا توجد دفعة لإلغائها. في الحساب الحقيقي، إيقاف الترشيحات أو حذف الحساب لا يلغي اشتراك Apple.' : 'إيقاف الترشيحات أو حذف الحساب لا يلغي اشتراك Apple. افتح عضويتك ثم إدارة الاشتراك لإيقاف التجديد، وتحقق من تأكيد Apple.'}</p>

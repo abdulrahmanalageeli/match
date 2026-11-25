@@ -59,7 +59,7 @@ export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [],
   return <section className="cm-chat-insights" aria-labelledby={headingId}>
     <div className="cm-insights-heading">
       <h3 id={headingId}>اقتراح للحديث مع <bdi>{name}</bdi></h3>
-      <p>{!premium ? 'أسئلة عامة لبداية الحديث بينكما.' : result.source === 'general' ? 'أسئلة عامة للبداية. تتخصّص الاقتراحات عند اكتمال تقييميكما.' : 'أسئلة من نقاط اتفاقكما والمواضيع التي تحتاج إلى نقاش.'}</p>
+      {premium && result.source === 'general' && <p>تظهر الأسئلة الخاصة بكما بعد اكتمال تقييميكما.</p>}
     </div>
     {!premium && <button type="button" className="wi-link wd-chat-upgrade" onClick={()=>upgrade('premium')}><LockKeyhole size={15} aria-hidden="true"/>افتح الأسئلة المبنية على توافقكما</button>}
     {kinds.length > 1 && <div className="cm-insights-filters" role="group" aria-label="نوع بداية الحديث">
@@ -79,8 +79,8 @@ export function ChatInsights({ fit, name, disabled, hasDraft, usedMessages = [],
         <button type="button" disabled={currentIndex === filtered.length - 1} onClick={() => moveTo(currentIndex + 1)} aria-label="الاقتراح التالي"><span>التالي</span><ChevronLeft size={17} aria-hidden="true" /></button>
       </div>
       <MotionPressButton className="cm-insights-use" disabled={locked} onClick={() => { if (!locked) choose(current.prompt); }}><PenLine size={17} strokeWidth={1.7} aria-hidden="true" />أضف إلى مسودتي</MotionPressButton>
-      <p className="cm-insights-draft-note" role={hasDraft ? 'status' : undefined}>{hasDraft ? 'لديك مسودة محفوظة. أكملها أو امسحها أولًا؛ لن نستبدل كلماتك.' : disabled ? 'يمكنك إضافة السؤال بعد إتاحة الكتابة في المحادثة.' : 'يمكنك تعديل السؤال قبل إرساله. لا يُرسل تلقائيًا.'}</p>
-    </> : <div className="cm-insights-empty"><CheckCheck size={28} strokeWidth={1.4} aria-hidden="true" /><h4>أعطيتما هذه المواضيع مساحة</h4><p>الاقتراحات المتاحة موجودة بالفعل في الرسائل المحمّلة. واصلا من حيث وصل حديثكما، أو عودا بعد تحديث تقييمكما.</p></div>}
+      {(hasDraft || disabled) && <p className="cm-insights-draft-note" role="status">{hasDraft ? 'أرسل مسودتك أو امسحها لإضافة السؤال.' : 'تتاح الأسئلة عند فتح المراسلة.'}</p>}
+    </> : <div className="cm-insights-empty"><CheckCheck size={28} strokeWidth={1.4} aria-hidden="true" /><h4>أعطيتما هذه المواضيع مساحة</h4><p>سبق أن طرحتما الأسئلة المتاحة.</p></div>}
     <details className="cm-insights-context">
       <summary>مواضيع خاصة أختار وقت طرحها</summary>
       <label>موضوع الحديث<select value={discussion} onChange={event => setDiscussion(event.target.value)}>

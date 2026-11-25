@@ -9,6 +9,6 @@ export function NewsPreference({owner}:{owner:string}) {
     catch{setError('تعذّر حفظ التفضيل. حاول مجددًا.');}finally{setBusy(false);}
   }
   return <><button type="button" className="st-row st-switch" role="switch" aria-checked={choice===true} disabled={busy||choice===null} onClick={()=>void change()}>
-    <span className="st-row-copy"><strong>أخبار وُدَين وعروضها</strong><small>أرغب في تلقي إشعارات بالجديد والعروض. أقدر أوقفها متى شئت.</small></span><span className="st-switch-track" aria-hidden="true"><i/></span>
+    <span className="st-row-copy"><strong>إشعارات أخبار وُدَين وعروضها</strong></span><span className="st-switch-track" aria-hidden="true"><i/></span>
   </button>{error&&<p className="st-notice" role="status">{error}</p>}</>;
 }

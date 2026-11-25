@@ -66,14 +66,13 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
           <textarea id="luna-discovery-query" rows={2} maxLength={600} minLength={3} required value={query} disabled={busy} onChange={event=>setQuery(event.target.value)} placeholder="مثلًا: شخص من الرياض ذكر التصوير في نبذته"/>
           <div className="luna-search-compose"><small>{query.length} / 600</small><button disabled={busy||query.trim().length<3} type="submit"><Sparkles size={16}/>{busy?'لونا تبحث…':'بحث'}</button></div>
         </form>
-        <p className="luna-search-privacy">تبحث لونا ضمن التبويب والفلاتر الحالية وشروط الطرفين · ٣٠ بحثًا يوميًا</p>
+        <p className="luna-search-privacy">٣٠ بحثًا يوميًا ضمن الفلاتر الحالية</p>
         {error&&<p role="alert" className="flow-error">{error}</p>}
-        {busy&&<p role="status" className="luna-search-loading">أرتّب تفضيلاتك وأبحث في الملفات المؤهلة…</p>}
+        {busy&&<p role="status" className="luna-search-loading">جارٍ البحث…</p>}
         {result&&<div className="luna-search-results" aria-live="polite"><p>{result.summary}</p>
           <p className="luna-search-privacy">{result.options.mode==='recommended'?'ضمن الترشيحات':'ضمن جميع الملفات المؤهلة'}</p>
           <div className="luna-search-criteria">{result.criteria.map((item,index)=><span key={index}>{item.kind==='must'?'شرط · ':item.kind==='exclude'?'استبعاد · ':'تفضيل · '}{item.label}</span>)}</div>
-          <p className="luna-search-privacy">{filters.sort==='youngest'||filters.sort==='oldest'?'الترتيب حسب العمر الذي اخترته، ثم مطابقة الوصف والتوافق.':'الترتيب حسب مطابقة الوصف ثم التوافق.'} تُطبّق الشروط الإلزامية على المعلومات المصرّح بها.</p>
-          {result.people.length===0?<><p>لم أجد ملفًا يحقق وصفك والفلاتر الحالية وشروط الطرفين.</p>
+          {result.people.length===0?<><p>لا توجد نتائج تطابق بحثك.</p>
             {result.options.mode==='recommended'&&<button className="btn-secondary" type="button" onClick={()=>void search(true)}>ابحث في جميع الملفات المؤهلة</button>}
           </>:<><h3>أقرب الملفات لبحثك{result.people.length===24?' · أول ٢٤ نتيجة':''}</h3>{result.people.map(person=><button key={person.id} type="button" className="luna-search-person" onClick={()=>open(person,result.options.mode)}><span><strong>{person.alias}{person.isDemo?' · تجريبي':''}</strong><small>{person.age} عامًا · {person.city} · {person.occupation}</small></span><ArrowRight size={18}/></button>)}</>}
         </div>}

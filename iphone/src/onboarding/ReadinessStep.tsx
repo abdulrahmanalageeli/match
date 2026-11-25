@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronDown, HeartHandshake, LockKeyhole, ShieldCheck } from '../BrandIcons';
+import { Check, ChevronDown, HeartHandshake, ShieldCheck } from '../BrandIcons';
 import { dimensionsForVersion } from '../compatibility/model';
 import { marriageTimelineLabels } from '../compatibility/marriage';
 import { MotionReveal } from '../motion/Reanimated';
@@ -22,7 +22,6 @@ export function ReadinessResult({ value, familyPreference, formalTiming, answers
       <div><small>لونا · ملخصك الخاص</small><h3>{complete ? 'اكتملت مراجعة توقعاتك' : 'ملامح الشراكة اللي تناسبك'}</h3></div>
       {edit && <button type="button" onClick={edit}>مراجعة</button>}
     </div>
-    {complete && <p className="nf-readiness-result-note">إجاباتك واتفاقك جاهزة للإرسال لمراجعة العضوية.</p>}
     <dl className="nf-readiness-declarations">
       <div><dt>إشراك الأهل</dt><dd>{value.family && (value.clarifications?.family && conflicts.includes('family') ? readinessClarifications.family.options[value.clarifications.family] : readinessScenarios.family.options[value.family])}</dd></div>
       <div><dt>خطوتك القادمة</dt><dd>{value.nextStep && (value.clarifications?.nextStep && conflicts.includes('nextStep') ? readinessClarifications.nextStep.options[value.clarifications.nextStep] : readinessScenarios.nextStep.options[value.nextStep])}</dd></div>
@@ -41,7 +40,6 @@ export function ReadinessResult({ value, familyPreference, formalTiming, answers
       <h4>نقاط تستحق حوارًا مبكرًا</h4>
       <ul>{blueprint.discussion.map(point => <li key={point}>{point}</li>)}</ul>
     </div>}
-    <p className="nf-readiness-private"><LockKeyhole size={13} aria-hidden="true"/> هذا الملخص من إجاباتك، ويظهر لك وحدك.</p>
   </section>;
 }
 

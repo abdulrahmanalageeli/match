@@ -18,18 +18,18 @@ export function PersonalityAnalysis({fit,id,panelRef}:{fit:MatchFit;id:string;pa
   const strength=analysis?.strengths[0],discussion=analysis?.discussion[0];
 
   return <details ref={panelRef} id={id} className="nf-personality-reading">
-    <summary tabIndex={0}><span className="nf-personality-seal"><Fingerprint size={22} strokeWidth={1.5}/></span><span><strong>ما وراء انسجام الشخصية</strong><small>{unverifiable?'تفصيل النتيجة غير متاح حاليًا':percentage===null?'ما الذي نحتاجه لقراءة أوضح؟':'من الإجابات إلى معنى يمكن مناقشته'}</small></span></summary>
+    <summary tabIndex={0}><span className="nf-personality-seal"><Fingerprint size={22} strokeWidth={1.5}/></span><span><strong>ما وراء انسجام الشخصية</strong></span></summary>
     <div className="nf-personality-body">
-      {percentage===null?<div className="nf-personality-pending"><ScanLine size={24} strokeWidth={1.5}/><h3>{unverifiable?'نحتاج قراءة محدّثة':'نحتاج صوتكما معًا'}</h3>{unverifiable?<p>تعذّر التحقق من تفاصيل النتيجة. حدّث الملف للمحاولة مجددًا. لا نعرض نسبة لا تدعمها تفاصيل الحساب.</p>:<><p>تظهر النسبة وقراءتها عندما يجيب كلاكما عن عبارات الشخصية {fit.personality?.version === 'personality-v2' ? 'الخمس عشرة' : 'الاثنتي عشرة'}. لا نُكمل الإجابات الناقصة بالتخمين.</p><small>يمكن استكمال التقييم من الإعدادات ← ملفي وتفضيلاتي.</small></>}</div>
+      {percentage===null?<div className="nf-personality-pending"><ScanLine size={24} strokeWidth={1.5}/><h3>{unverifiable?'نحتاج قراءة محدّثة':'نحتاج صوتكما معًا'}</h3>{unverifiable?<p>تعذّر التحقق من تفاصيل النتيجة. حدّث الملف للمحاولة مجددًا.</p>:<><p>تظهر النسبة وقراءتها عندما يجيب كلاكما عن عبارات الشخصية {fit.personality?.version === 'personality-v2' ? 'الخمس عشرة' : 'الاثنتي عشرة'}.</p><small>يمكن استكمال التقييم من الإعدادات ← ملفي وتفضيلاتي.</small></>}</div>
         : evidence&&analysis?<>
-          <div className="nf-personality-lead"><span className="nf-personality-eyebrow">قراءة مبنية على إجاباتكما</span><h3>{arabic.format(close)} من {arabic.format(total)} عبارة متقاربة</h3><p>{close===total?'تتقارب درجات إجاباتكما في جميع العبارات. ابدآ بمثال من الحياة لترَيا كيف يظهر هذا التقارب بينكما.':`${arabic.format(total-close)} من العبارات تحمل اختلافًا أوضح. هذه مواضيع لفهم احتياجاتكما، وليست حكمًا على إمكانية العلاقة.`}</p></div>
+          <div className="nf-personality-lead"><h3>{arabic.format(close)} من {arabic.format(total)} عبارة متقاربة</h3></div>
           <div className="nf-personality-domains" aria-label="تقارب الإجابات في محاور الشخصية">
             {evidence.domains.map(domain=>{
               const definition=[...personalityDomains, ...currentPersonalityDomains].find(item=>item.id===domain.id)!;
               return <div className="nf-personality-domain" key={domain.id}>
                 <div className="nf-personality-domain-heading"><h4>{definition.title}</h4><strong>{arabic.format(domain.percentage!)}<small>٪</small></strong></div>
                 <div className="nf-analysis-meter" role="meter" aria-label={`تقارب ${definition.title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={domain.percentage!}><span style={{width:`${domain.percentage}%`}}/></div>
-                <p>{definition.description}</p><small>{arabic.format(domain.covered)} من {arabic.format(domain.total)} عبارات لدى الطرفين</small>
+                <p>{definition.description}</p>
               </div>;
             })}
           </div>
@@ -38,10 +38,9 @@ export function PersonalityAnalysis({fit,id,panelRef}:{fit:MatchFit;id:string;pa
             {discussion&&<article className="nf-personality-insight nf-personality-discussion"><span><MessageCircle size={17}/> مساحة لفهم أعمق</span><h4>{discussion.title}</h4><p>{discussion.interpretation}</p><blockquote>{discussion.prompt}</blockquote></article>}
           </div>
           <details className="nf-personality-method"><summary><CircleHelp size={18}/><span>كيف نقرأ انسجام الشخصية؟</span></summary>
-            <div><p>نستند إلى إجاباتكما {fit.personality?.version === 'personality-v2' ? 'في محاور الضغط، والتنظيم، ومراعاة الآخرين، والطاقة الاجتماعية، والانفتاح على التجربة' : 'عن أسلوب التواصل، والقرب العاطفي، وإيقاع الحياة، والتعامل مع الضغط'}. نلخّص جوانب التقارب والاختلاف لتبدآ حديثًا أوضح عن احتياجاتكما.</p><p>تظهر النسبة بعد اكتمال التقييم لدى الطرفين. التقارب لا يعني التطابق، والاختلاف لا يمنع وجود علاقة مناسبة.</p></div>
+            <p>تصف النسبة مدى تشابه إجاباتكما عن الشخصية. تبقى إجابات كل طرف خاصة.</p>
           </details>
-        </>:<div className="nf-personality-legacy"><h3>قراءة موجزة متاحة</h3><p>تعكس النسبة تقارب إجاباتكما. تفصيل الحساب والمحاور غير متاح لهذه النتيجة حاليًا، لذلك لا نعرض درجات تقديرية.</p>{legacyTopics.length>0&&<p><strong>مواضيع شملها التقييم: </strong>{legacyTopics.join('، ')}.</p>}</div>}
-      <p className="nf-personality-boundary">تصف النسبة مدى تقارب إجاباتكما. تبقى إجابات كل طرف خاصة، ويمكنكما استخدام المواضيع لبدء الحديث.</p>
+        </>:<div className="nf-personality-legacy"><h3>قراءة موجزة متاحة</h3><p>تفاصيل المحاور غير متاحة لهذا التقييم.</p>{legacyTopics.length>0&&<p><strong>مواضيع شملها التقييم: </strong>{legacyTopics.join('، ')}.</p>}</div>}
     </div>
   </details>;
 }

@@ -62,7 +62,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
       <button className="st-row st-switch" type="button" role="switch" aria-label="إشعارات التعارف والرسائل" aria-checked={enabled}
         disabled={!available || busy} onClick={() => void toggle()}>
         <span className="st-icon" aria-hidden="true"><Bell /></span>
-        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح وُدَين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل وُدَين.' : 'يسري هذا الاختيار على أجهزتك. ويمكنك تخصيص ما يظهر على شاشة القفل.'}</small></span>
+        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح وُدَين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل وُدَين.' : 'يسري على أجهزتك.'}</small></span>
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
       {owner && !demo && <NewsPreference key={owner} owner={owner}/>}
@@ -73,7 +73,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
         catch { setPermission((await pushStatus()).permission);setError('تحقق من إذن الإشعارات لهذا الجهاز.'); }
         finally { setBusy(false); }
       }}>تفعيل التنبيهات على هذا الجهاز</button>}
-      {nativePush&&available&&enabled&&<><label className="st-row"><span className="st-row-copy"><strong>معاينة الإشعارات</strong><small>اختر ما يظهر على شاشة القفل.</small></span>
+      {nativePush&&available&&enabled&&<><label className="st-row"><span className="st-row-copy"><strong>المعاينة على شاشة القفل</strong></span>
         <select aria-label="معاينة الإشعارات" value={preview??''} disabled={busy} onChange={async event=>{
           const next=event.target.value as PushPreview;if(!owner)return;setBusy(true);setError('');
           try{setPreview((await pushPrivacy(owner,next)).preview);}catch{setError('لم يُحفظ إعداد المعاينة. حاول مجددًا.');}finally{setBusy(false);}
@@ -89,7 +89,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
         {switches.filter(([key])=>key!=='analysis'||!testerSession).map(([key,label])=><button key={key} type="button" className="st-row st-switch"
           role="switch" aria-label={label} aria-checked={controls[key]} disabled={busy}
           onClick={()=>void saveControls(key==='quiet' ? {quiet:!controls.quiet,zone:Intl.DateTimeFormat().resolvedOptions().timeZone || defaultPushControls.zone} : {[key]:!controls[key]})}>
-          <span className="st-row-copy"><strong>{label}</strong>{key==='quiet'&&<small>تصل التنبيهات بهدوء خلال الساعات التي تختارها.</small>}</span>
+          <span className="st-row-copy"><strong>{label}</strong></span>
           <span className="st-switch-track" aria-hidden="true"><i /></span>
         </button>)}
         {controls.quiet && <>{(['start','end'] as const).map(key=><label key={key} className="st-row">
@@ -101,7 +101,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
         </label>)}<small className="st-push-zone">بتوقيت {controls.zone==='Asia/Riyadh'?'الرياض':controls.zone}</small></>}
       </details>}
       {nativePush && available && (enabled || permission === 'denied') && <button type="button" className="st-row" onClick={() => void openPushSettings().catch(() => setError('تعذّر فتح إعدادات الجهاز.'))}>
-        <span className="st-icon"><Settings2 /></span><span className="st-row-copy"><strong>إعدادات إشعارات iPhone</strong><small>يتحكم iPhone في عرض المعاينات على شاشة القفل. وللمكالمات إعداد مستقل لعرض اسم المتصل.</small></span>
+        <span className="st-icon"><Settings2 /></span><span className="st-row-copy"><strong>إعدادات إشعارات iPhone</strong><small>إذن الإشعارات ومعايناتها على هذا الجهاز.</small></span>
       </button>}
       {!nativePush && available && permission === 'denied' && <p className="st-notice" role="status">السماح بالإشعارات متوقف في إعدادات جهازك أو متصفحك. غيّر الإذن لوُدَين، ثم فعّله هنا.</p>}
     </div>

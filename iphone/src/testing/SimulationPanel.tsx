@@ -31,8 +31,8 @@ export function SimulationPanel({ source, paused }: { source: CommunitySource; p
   }
   return <section className="nf-simulation" aria-label="محاكاة الاستخدام">
     <div className="nf-simulation-title"><FlaskConical size={17}/><strong>محاكاة الاستخدام</strong><span>{state.running ? 'تعمل الآن' : 'متوقفة'}</span></div>
-    <p>زيارات واهتمام وطلبات تتدرّج بشكل طبيعي، ومحادثات تتذكّر كلامك. تعمل المحاكاة أثناء استخدامك للتطبيق، وتحترم حدّ التعارفين.</p>
-    <small>هذه شخصيات افتراضية لعبدالرحمن فقط. تُرسل محادثات المحاكاة النصية إلى OpenAI لتوليد الردود، وتبقى رهام ومحادثتكما خارج المحاكاة. تُحفظ الذاكرة على هذا المتصفح. المكالمات الصوتية الفعلية بينكما فقط.</small>
+    <p>تظهر الزيارات والطلبات أثناء تشغيل المحاكاة.</p>
+    <small>الشخصيات افتراضية. تُرسل رسائل المحاكاة وحدها إلى مزوّد الذكاء الاصطناعي، وتُحفظ محليًا في هذا المتصفح.</small>
     <div className="nf-simulation-actions">
       <button type="button" disabled={paused || (state.busy && !state.running)} onClick={() => { savePreference(!state.running); state.running ? simulation.pause() : simulation.start(); setState(simulation.snapshot()); }}>
         {state.running ? <Pause size={14}/> : <Play size={14}/>} {state.running ? 'إيقاف مؤقت' : 'تشغيل المحاكاة'}

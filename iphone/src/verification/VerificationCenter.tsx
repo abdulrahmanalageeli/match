@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowRight, Check, ChevronDown, CircleAlert, FileCheck2, LoaderCircle, LockKeyhole, RefreshCw, ShieldCheck, Trash2 } from "../BrandIcons";
+import { ArrowRight, Check, ChevronDown, CircleAlert, FileCheck2, LoaderCircle, LockKeyhole, RefreshCw, Trash2 } from "../BrandIcons";
 import { Brand } from '../Brand';
 import type { Profile } from '../types';
 import { VerifiedBadge } from './VerifiedBadge';
-import { currentVerificationClaims, verificationDate, verificationKinds, verificationStatusLabels, verificationSubmissionUnavailable, type ManualVerificationRequest, type ManualVerificationSource, type ManualVerificationState } from './model';
+import { currentVerificationClaims, verificationDate, verificationKinds, verificationStatusLabels, type ManualVerificationRequest, type ManualVerificationSource, type ManualVerificationState } from './model';
 import './verification.css';
 
 const emptyState: ManualVerificationState = { requests: [], claims: [], isTest: false };
@@ -82,18 +82,17 @@ export function VerificationCenter({ source, onBack }: { source: ManualVerificat
 
   return <main className="app-screen mv-screen" dir="rtl"><div className="screen-content mv-content">
     <header className="mv-navigation"><button type="button" onClick={onBack}><ArrowRight size={18} />الإعدادات</button><Brand compact /></header>
-    <section className="mv-cover" aria-labelledby="mv-title"><span className="mv-eyebrow"><ShieldCheck size={15} />خطوة تمنح التعارف وضوحًا</span><h1 id="mv-title">بيانات أوضح.<br /><em>بداية أكثر اطمئنانًا.</em></h1><p>تابع طلباتك السابقة ونطاق الشارات التي تمت مراجعتها.</p><div className="mv-cover-foot"><LockKeyhole size={15} /><span>المراجعة محددة النطاق وليست توثيقًا حكوميًا</span></div></section>
+    <section className="mv-cover" aria-labelledby="mv-title"><h1 id="mv-title">توثيق بياناتك</h1><div className="mv-cover-foot"><LockKeyhole size={15} /><span>المراجعة محددة النطاق وليست توثيقًا حكوميًا</span></div></section>
     {test ? <p className="mv-test-note"><CircleAlert size={17} />حساب تجريبي · الطلبات والشارات هنا للاختبار فقط.</p> : null}
     {!available ? <div className="mv-notice"><LockKeyhole size={20} /><h2>التوثيق مرتبط بحسابك</h2><p>سجّل الدخول بحسابك للوصول إلى المراجعة الخاصة. لا يمكن إرسال مستندات من العرض التجريبي العام.</p></div> : null}
-    <div className="mv-notice" role="status"><LockKeyhole size={20} /><h2>إرسال المستندات متوقف مؤقتًا</h2><p>{verificationSubmissionUnavailable}</p><p>يمكنك متابعة طلباتك السابقة أو سحبها من هنا. لا ترسل المستندات في المحادثات أو إلى الدعم كبديل.</p><p>اعتماد ملف العضوية لا يعني التحقق من الهوية أو الحالة الاجتماعية.</p></div>
+    <div className="mv-notice" role="status"><LockKeyhole size={20} /><h2>إرسال المستندات متوقف مؤقتًا</h2><p>يمكنك متابعة طلباتك السابقة أو سحبها من هنا. لا ترسل المستندات في المحادثات أو إلى الدعم كبديل.</p><p>اعتماد ملف العضوية لا يعني التحقق من الهوية أو الحالة الاجتماعية.</p></div>
     {loading ? <div className="mv-loading" role="status"><LoaderCircle size={20} className="mv-spin" />جارٍ تحميل طلباتك…</div> : null}
     {error ? <div className="mv-feedback mv-error" role="alert"><CircleAlert size={17} /><p>{error}</p></div> : null}
     {success ? <div className="mv-feedback mv-success" role="status"><Check size={17} /><p>{success}</p></div> : null}
     {validClaims.length ? <section className="mv-current"><div><span className="mv-eyebrow">الشارة الظاهرة في ملفك</span><VerifiedBadge claims={validClaims} /></div><p>اضغط على الشارة لعرض البيانات التي تمت مراجعتها وتاريخ صلاحيتها.</p></section> : null}
     {available ? <>
-      <section className="mv-section mv-history" aria-labelledby="mv-history-title"><div className="mv-section-heading"><div><span className="mv-eyebrow">كل خطوة واضحة</span><h2 id="mv-history-title">طلباتك</h2></div><button className="mv-icon-button" type="button" aria-label="تحديث حالة الطلبات" disabled={busy || loading} onClick={refresh}><RefreshCw size={18} /></button></div>{!loading && !state.requests.length ? <p className="mv-empty">لا توجد طلبات توثيق سابقة.</p> : state.requests.map(request => <RequestCard key={request.id} request={request} busy={busy} onWithdraw={setWithdraw} />)}</section>
+      <section className="mv-section mv-history" aria-labelledby="mv-history-title"><div className="mv-section-heading"><div><h2 id="mv-history-title">طلباتك</h2></div><button className="mv-icon-button" type="button" aria-label="تحديث حالة الطلبات" disabled={busy || loading} onClick={refresh}><RefreshCw size={18} /></button></div>{!loading && !state.requests.length ? <p className="mv-empty">لا توجد طلبات توثيق سابقة.</p> : state.requests.map(request => <RequestCard key={request.id} request={request} busy={busy} onWithdraw={setWithdraw} />)}</section>
     </> : null}
-    <p className="mv-bottom-note">الشارة تخص البيان الذي تمت مراجعته فقط، ولا تضمن السلوك أو التوافق أو نجاح الزواج.</p>
     {withdraw ? <WithdrawDialog busy={busy} onCancel={() => setWithdraw(null)} onConfirm={() => void confirmWithdraw()} /> : null}
   </div></main>;
 }

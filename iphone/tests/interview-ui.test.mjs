@@ -138,7 +138,7 @@ test('the first turn invites one rich introduction before switching to compact g
   assert.equal(input.props.rows,4);
   assert.match(input.props.placeholder,/أهم شيء عندي/);
   assert.match(textOf(tree),/عنّك.*حياتك اليوم.*الشريك الذي تبحث عنه.*استعدادك للزواج/);
-  assert.match(textOf(tree),/بعد رسالتك الأولى ننتقل للاختيارات.*تكتب نبذة ملفك لاحقًا/);
+  assert.match(textOf(tree),/تكتب نبذة ملفك لاحقًا/);
   find(tree,'كيف أبدأ؟').props.onClick();tree=ui.render();
   assert.match(textOf(tree),/اختر شيئًا واحدًا يهمّك/);
   ui.unmount();
@@ -170,7 +170,7 @@ test('withdrawing staff sharing does not reapply saved assessment answers', asyn
   nodes(sharing).find(node=>node.type==='input').props.onChange({target:{checked:false}});tree=ui.render();
   find(tree,'سحب مشاركة الملخص فقط').props.onClick();await tick();tree=ui.render();
   assert.equal(ui.calls.at(-1).action,'confirm');assert.equal(ui.calls.at(-1).shareReview,false);assert.equal(ui.applied.length,0);
-  assert.match(textOf(tree),/دون تغيير إجابات ملفك/);ui.unmount();
+  assert.match(textOf(tree),/حُفظ خيار المشاركة/);ui.unmount();
 });
 
 test('one explicit confirmation applies the whole summary without per-answer approval checkboxes', async () => {
@@ -178,7 +178,7 @@ test('one explicit confirmation applies the whole summary without per-answer app
   const ui=mount({document,revision:2});ui.render();await tick();let tree=ui.render();assert.equal(ui.applied.length,0);
   const rows=nodes(tree).filter(node=>typeof node.type==='function'&&node.type.name==='ProposalReview');assert.equal(rows.length,1);
   assert.equal(nodes(rows[0].type(rows[0].props)).filter(node=>node.type==='input'&&node.props.type==='checkbox').length,0);
-  find(tree,'اعتماد الملخص').props.onClick();await tick();tree=ui.render();assert.equal(ui.applied.length,1);assert.equal(ui.applied[0][0].values[0],'A');assert.match(textOf(tree),/مسودة ملفك/);
+  find(tree,'اعتماد الملخص').props.onClick();await tick();tree=ui.render();assert.equal(ui.applied.length,1);assert.equal(ui.applied[0][0].values[0],'A');assert.match(textOf(tree),/تمّ حفظ ملخصك/);
   find(tree,'عرض الملخص').props.onClick();ui.render();assert.equal(ui.applied.length,1);ui.unmount();
 });
 

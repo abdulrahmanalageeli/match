@@ -45,7 +45,7 @@ export function RegistrationWait({owner, subscribed, onSettings, onRefresh}: Pro
       <div className="wd-wait-intro">
         <p className="wd-wait-receipt"><Check size={14} aria-hidden="true"/> وصلنا طلبك</p>
         <h1 id="wd-launch-title">نلتقي عند الإطلاق<span aria-hidden="true">.</span></h1>
-        <p className="wd-wait-description">نستقبل طلبات الانضمام الآن. قريبًا تقدر تكتشف مين يشاركك نظرتك للزواج.</p>
+        <p className="wd-wait-description">قريبًا تقدر تكتشف مين يشاركك نظرتك للزواج.</p>
       </div>
       <section className="wd-wait-gallery" aria-label="من داخل وُدَين">
         <figure className="wd-wait-exhibit" id="wd-wait-preview">

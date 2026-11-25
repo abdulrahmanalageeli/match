@@ -408,7 +408,7 @@ export function OpeningInsights({openingTurnId, openingText, proposals, choices,
   const progress = assessmentProgress(layout.fields, layout.choices, savedChoices, proposals, openingTurnId);
   const highlights = openingHighlights(openingText, openingTurnId, proposals, progress.extracted);
   const proposed = new Set(highlights.flatMap(part => part.sources.map(source => source.id))).size;
-  if (!highlights.length) return <p className="wi-opening-empty">نكمّل اختياراتك سؤالًا سؤالًا، ولن نحفظ عنك إجابة لم تقلها.</p>;
+  if (!highlights.length) return <p className="wi-opening-empty">نكمّل بالأسئلة.</p>;
   return <details className="wi-opening-insights">
     <summary><OpeningCounts progress={progress} proposed={proposed} total={layout.fields.length}/><ChevronDown size={16} aria-hidden="true"/></summary>
     <OpeningWords text={openingText} fields={layout.fields} highlights={highlights} proposals={proposals} saved={savedChoices}

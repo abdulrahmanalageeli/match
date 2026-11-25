@@ -144,11 +144,11 @@ export function DeepReport({ snapshot, peerName, save, saving }: {
           {active.section === 'summary' && conversation >= 0 && <button type="button" className="wd-deep-discuss" onClick={() => go(conversation)}>انتقل إلى سؤال الحوار <ArrowLeft size={16}/></button>}
           {active.kind === 'incompatibility' && <small className="wd-deep-condition"><CircleAlert size={15}/> تعارض مع شرط أساسي · يستحق نقاشًا واضحًا بينكما</small>}
         </article>
-      </div> : view === 'contents' ? <div className="wd-deep-index"><span className="wd-deep-story-kicker">الصورة كاملة، في مكان واحد</span><h3>محاور تحليلكما</h3><p className="wd-deep-index-lead">{count.format(findings.length)} نقاط وافقتما على مشاركتها. اختارا أي نقطة للعودة إليها.</p><div className="wd-deep-index-grid">{findings.map((item, position) => {
+      </div> : view === 'contents' ? <div className="wd-deep-index"><h3>محاور تحليلكما</h3><p className="wd-deep-index-lead">{count.format(findings.length)} نقاط مشتركة.</p><div className="wd-deep-index-grid">{findings.map((item, position) => {
         const ItemIcon = findingKinds[item.kind].icon;
         return <button key={item.id} type="button" data-kind={item.kind} onClick={() => go(position)}><span className="wd-deep-index-icon"><ItemIcon size={17}/></span><span><small>{deepSections[item.section]}</small><b>{readingCopy(item.text).title || deepSections[item.section]}</b></span><ArrowLeft size={17}/></button>;
-      })}</div><p className="wd-deep-index-privacy"><LockKeyhole size={14}/> تظهر فقط النقاط التي وافقتما على مشاركتها.</p></div>
-      : view === 'method' ? <div className="wd-deep-method"><span className="wd-deep-story-kicker">شفافية وُدَين</span><h3>كيف نقرأ إجاباتكما؟</h3><section><p>{deepMethodCopy}</p></section><section><h4>المرجع البحثي وحدوده</h4><p>{deepResearchCopy}</p><a href={deepResearchUrl} target="_blank" rel="noreferrer">Joel وآخرون · PNAS · 2020</a></section><section><h4>مشاركتكما، باختياركما</h4><p>لا يظهر إلا ما وافقتما على مشاركته. أسئلة الحوار اختيارية. النسخة المحفوظة تبقى خارج التطبيق حتى بعد سحب المشاركة.</p></section></div>
+      })}</div></div>
+      : view === 'method' ? <div className="wd-deep-method"><h3>كيف نقرأ إجاباتكما؟</h3><section><p>{deepMethodCopy}</p></section><section><h4>المرجع البحثي وحدوده</h4><p>{deepResearchCopy}</p><a href={deepResearchUrl} target="_blank" rel="noreferrer">Joel وآخرون · PNAS · 2020</a></section><section><h4>مشاركتكما، باختياركما</h4><p>يعرض التقرير النقاط التي وافقتما عليها. سحب المشاركة لا يحذف النسخ التي سبق حفظها.</p></section></div>
       : <p className="wd-deep-note">لم تتفقا على مشاركة نقاط. بقيت الإجابات خاصة بكل طرف.</p>}
     </div>
     <div className="wd-deep-navigation">

@@ -191,7 +191,7 @@ function ReportReceipt({ demo, close }: { demo: boolean; close: () => void }) {
 function RequestWaiting({ connection }: { connection: Connection }) {
   const sentDate = connection.createdAt && messageDay(connection.createdAt);
   const expiryDate = connection.expiresAt && messageDay(connection.expiresAt);
-  return <div className="cm-request-waiting"><strong>{connection.direction === 'outgoing' ? 'الخطوة التالية لدى الطرف الآخر' : 'هذه دعوة للتعارف، والقرار لك'}</strong>{sentDate && <p>أُرسل الطلب في <time dateTime={connection.createdAt}>{sentDate}</time>.</p>}{expiryDate && <p>تنتهي مهلة الرد في <time dateTime={connection.expiresAt}>{expiryDate}، {time.format(new Date(connection.expiresAt!))}</time>. بعدها ينتقل الطلب إلى السجل المغلق.</p>}<p>{connection.direction === 'outgoing' ? 'يظهر الرد في الإشعارات داخل التطبيق. تأخر الرد وحده لا يوضح سبب الانتظار، ويمكنك سحب طلبك متى شئت.' : 'يمكنك قراءة الملف ثم القبول أو الاعتذار. بعد قبول الطلب، تبدأ المراسلة عند الموافقة على شروط التعارف ومدته.'}</p><small>تنبيهات الويب تظهر أثناء فتحه؛ إشعارات iPhone تعتمد على تفعيل الخدمة وإذن جهازك.</small></div>;
+  return <div className="cm-request-waiting"><strong>{connection.direction === 'outgoing' ? 'الخطوة التالية لدى الطرف الآخر' : 'هذه دعوة للتعارف، والقرار لك'}</strong>{sentDate && <p>أُرسل الطلب في <time dateTime={connection.createdAt}>{sentDate}</time>.</p>}{expiryDate && <p>تنتهي مهلة الرد في <time dateTime={connection.expiresAt}>{expiryDate}، {time.format(new Date(connection.expiresAt!))}</time>. بعدها ينتقل الطلب إلى السجل المغلق.</p>}<p>{connection.direction === 'outgoing' ? 'سنخبرك عند وصول الرد. يمكنك سحب الطلب قبل قبوله.' : 'يمكنك قراءة الملف ثم القبول أو الاعتذار. بعد قبول الطلب، تبدأ المراسلة عند الموافقة على شروط التعارف ومدته.'}</p></div>;
 }
 
 function messageDay(createdAt: string) {
@@ -317,11 +317,10 @@ function FilterSheet({
     <Sheet title="تصفية الملفات" onClose={close} className="dr-filter-sheet">
       <form className="cm-filter dr-filter-form" onSubmit={submit}>
         <div className="dr-filter-body">
-          <p>الفلاتر مؤقتة. عند الاستبعاد نعرض فقط من أفصح عن المعلومة المطلوبة.</p>
+          <p>تطبّق الفلاتر على الملفات التي ذكرت المعلومة المطلوبة.</p>
           <label>ترتيب النتائج<select value={extra.sort??''} onChange={e=>setExtra(current=>({...current,sort:(e.target.value||undefined) as Filters['sort']}))}>
             <option value="">الترتيب الافتراضي</option><option value="compatibility">حسب التوافق</option><option value="youngest">الأصغر سنًا</option><option value="oldest">الأكبر سنًا</option>
           </select></label>
-          <small>الترشيحات الأسبوعية مرتبة بالتوافق. في «جميع الملفات» يخلط الترتيب الافتراضي الملفات الظاهرة ويمنح وسام الجدية فرصة ظهور أعلى.</small>
           <SheetChoiceSelect label="المدينة" value={extra.city ?? ""} options={cityOptions} placeholder="كل المدن" allowClear onChange={city => setExtra(current => ({ ...current, city: city || undefined }))} />
           <fieldset className="dr-filter-age" aria-label="العمر">
             <div className="dr-filter-age-row">
@@ -354,20 +353,17 @@ function FilterSheet({
             <div className="dr-filter-fields">
         <details className="dr-filter-section" open={!!extra.language}><summary><span>اللغات</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
           <ChoiceSelect label="يتحدث اللغة" value={extra.language ?? ''} options={languageOptions.map(value => ({value,label:value}))} placeholder="جميع اللغات" allowClear onChange={language => setExtra(current => ({...current,language:language || undefined}))}/>
-          <small>تظهر الملفات التي ذكرت هذه اللغة فقط.</small>
         </div></details>
         <details className="dr-filter-section" open={!!(extra.education||extra.profession||extra.children)}><summary><span>الدراسة والعمل والعائلة</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
           <ChoiceSelect label="المؤهل التعليمي" value={extra.education??''} options={educationOptions} placeholder="كل المؤهلات" allowClear onChange={education=>setExtra(current=>({...current,education:education||undefined}))}/>
           <ChoiceSelect label="مجال العمل أو الوضع المهني" value={extra.profession??''} options={professionOptions} placeholder="كل المجالات" allowClear onChange={profession=>setExtra(current=>({...current,profession:profession||undefined}))}/>
           <label>الأبناء<select value={extra.children??''} onChange={event=>setExtra(current=>({...current,children:event.target.value as Filters['children']||undefined}))}><option value="">بدون تحديد</option><option value="none">ليس لديه / لديها أبناء</option><option value="has">لديه / لديها أبناء</option></select></label>
-          <small>عند اختيار شرط، يظهر فقط من ذكر معلومة تطابقه. هذه الفلاتر لا تعدّل تفضيلات التوافق الخاصة بك.</small>
         </div></details>
         <details className="dr-filter-section" open={[extra.minHeight,extra.maxHeight,extra.minWeight,extra.maxWeight].some(value=>value!==undefined)}><summary><span>الطول والوزن</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
           {([{label:'الطول',minKey:'minHeight',maxKey:'maxHeight',options:filterHeightOptions},{label:'الوزن',minKey:'minWeight',maxKey:'maxWeight',options:filterWeightOptions}] as const).map(({label,minKey,maxKey,options})=><div className="cm-age-fields" key={label}>
             <ChoiceSelect label={label+' من'} value={extra[minKey]?.toString()??''} options={options.filter(option=>extra[maxKey]===undefined||Number(option.value)<=extra[maxKey]!)} placeholder="دون حد أدنى" allowClear onChange={value=>setExtra(current=>({...current,[minKey]:value?Number(value):undefined}))}/>
             <ChoiceSelect label={label+' إلى'} value={extra[maxKey]?.toString()??''} options={options.filter(option=>extra[minKey]===undefined||Number(option.value)>=extra[minKey]!)} placeholder="دون حد أعلى" allowClear onChange={value=>setExtra(current=>({...current,[maxKey]:value?Number(value):undefined}))}/>
           </div>)}
-          <small>تُستبعد الإجابات غير المذكورة عند تحديد نطاق.</small>
         </div></details>
         <div className="cm-age-fields"><label>الحالة الاجتماعية<select value={extra.maritalStatus??''} onChange={e=>setExtra({...extra,maritalStatus:e.target.value})}><option value="">الكل</option><option value="never_married">لم يسبق الزواج</option><option value="divorced">مطلق / مطلقة</option><option value="widowed">أرمل / أرملة</option><option value="married">متزوج</option></select></label>
         <label>التدخين<select value={extra.smoking??''} onChange={e=>setExtra({...extra,smoking:e.target.value})}><option value="">الكل</option><option value="never">لا يدخّن</option><option value="cigarettes">سجائر</option><option value="vape">فيب</option><option value="shisha">شيشة</option><option value="sometimes">أحيانًا · غير محدد</option><option value="yes">يدخّن · غير محدد</option></select></label></div>
@@ -382,7 +378,6 @@ function FilterSheet({
             </div>
           </details>
         <details className="dr-filter-section dr-filter-group dr-filter-exclusions"><summary><span>ما لا أرغب برؤيته</span><ChevronLeft size={17} aria-hidden="true" /></summary><div className="dr-filter-fields">
-          <p>الاستبعاد يتقدّم على التصفية؛ الملفات المطابقة لا تظهر لك.</p>
           <div className="dr-exclusion-picker">
             <ChoiceSelect label="إخفاء مدن" value="" options={cityOptions.filter(option=>!excludedCities.includes(option.value))} placeholder="أضف مدينة للاستبعاد" disabled={excludedCities.length>=20} onChange={city=>{if(city)setExcludedCities(current=>current.includes(city)?current:[...current,city].slice(0,20));}}/>
             <div className="dr-selected-filters" aria-label="المدن المستبعدة">{excludedCities.map(city=><button type="button" key={city} onClick={()=>setExcludedCities(current=>current.filter(value=>value!==city))} aria-label={`إزالة استبعاد ${city}`}><span>{city}</span><X size={13} aria-hidden="true"/></button>)}</div>
@@ -1167,7 +1162,7 @@ function SafetySheet({
             placeholder="ماذا حدث، ومتى تقريبًا؟ لا تضف أرقام الهوية أو بيانات لا تتعلق بالبلاغ."
           />
         </label>
-        <p className="cm-step-note">بعد نجاح إرسال البلاغ، يُغلق أي طلب أو تعارف قائم مع هذا العضو ويتوقف التواصل بينكما. يُرسل السبب والتفاصيل التي تضيفها للإدارة للمراجعة. لا تحتاج إلى شرح قرارك للطرف الآخر أو إضافة معلومات خاصة لا تتعلق بالمشكلة.</p>
+        <p className="cm-step-note">بإرسال البلاغ، يُغلق أي طلب أو تعارف قائم ويتوقف التواصل بينكما. يراجع فريق وُدَين السبب والتفاصيل التي ترفقها.</p>
         <SupportContact subject="المساعدة بشأن بلاغ" context="إذا احتجت مساعدة في تقديم البلاغ أو متابعته."/>
         </div>
       )}

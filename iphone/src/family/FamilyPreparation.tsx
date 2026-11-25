@@ -34,20 +34,20 @@ export function FamilyPreparation({ room, guardian, open, onDraft, onClose }: { 
   const fields = kind === 'plan' ? planFields : introductionFields;
   const lines = fields.flatMap(([id, label]) => values[id]?.trim() ? [`${label}: ${values[id].trim()}`] : []);
   const chosenQuestions = kind === 'plan' ? questions : [];
-  const body = [kind === 'plan' ? 'اقتراح للخطوة العائلية التالية' : 'تعريف أختار مشاركته مع الأسرة', ...lines, ...(chosenQuestions.length ? ['أسئلة نناقشها معًا:', ...chosenQuestions.map(question => `• ${question}`)] : []), kind === 'plan' ? 'هذا اقتراح للنقاش، وليس موعدًا أو اتفاقًا نهائيًا. ننتظر رأي كل شخص معني.' : 'هذه إفادتي الشخصية، وليست بيانات تحققت منها وُدَين.'].join('\n');
+  const body = [kind === 'plan' ? 'اقتراح للخطوة العائلية التالية' : 'تعريف أختار مشاركته مع الأسرة', ...lines, ...(chosenQuestions.length ? ['أسئلة نناقشها معًا:', ...chosenQuestions.map(question => `• ${question}`)] : [])].join('\n');
   const canPrepare = consent && (lines.length > 0 || chosenQuestions.length > 0) && body.length <= 1000;
   useEffect(() => { const element = dialog.current; setConsent(false); if (open) element?.showModal(); else element?.close(); return () => element?.close(); }, [open]);
   return <dialog ref={dialog} className="fb-preparation" dir="rtl" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }}>
     <header><button type="button" className="fb-back" onClick={onClose}><ArrowRight size={18}/> رجوع</button><ClipboardList size={22}/></header>
     <h2 id={titleId}>جهّزوا خطوة واضحة</h2>
-    <p>اكتب ما تختار مشاركته فقط. ستراجع النص في خانة الرسالة قبل إرساله بنفسك.</p>
-    <p className="fb-preparation-audience"><strong>سيرى الرسالة المشاركون الحاليون في هذه المساحة:</strong> {room.participants.filter(person => !person.left).map(person => person.name).join('، ')}</p>
-    <p className="fb-caption">يبقى ما تكتبه عند تغيير نوع الرسالة أو إغلاق هذه النافذة. يُمسح عند مغادرة المحادثة أو إغلاق التطبيق.</p>
+    <p>اكتب في الحقول التي تناسبك، ثم راجع الرسالة قبل إرسالها.</p>
+    <p className="fb-preparation-audience"><strong>المستلمون:</strong> {room.participants.filter(person => !person.left).map(person => person.name).join('، ')}</p>
+    <p className="fb-caption">تُمسح المسودة عند مغادرة المحادثة أو إغلاق التطبيق.</p>
     {!guardian && <label className="fb-field">نوع الرسالة<select value={kind} onChange={event => { setKind(event.target.value as 'plan' | 'introduction'); setConsent(false); }}><option value="plan">تنسيق الخطوة القادمة</option><option value="introduction">تعريف أختار مشاركته عن نفسي</option></select></label>}
     <form onSubmit={event => { event.preventDefault(); if (canPrepare) onDraft(body); }}>
-      {fields.map(([id, label, placeholder]) => <label className="fb-field" key={`${kind}-${id}`}><span>{label} <small>اختياري</small></span><textarea value={values[id] ?? ''} onChange={event => { const value = event.target.value; setDrafts(current => ({ ...current, [kind]: { ...current[kind], [id]: value } })); setConsent(false); }} maxLength={kind === 'introduction' ? 180 : 120} rows={2} placeholder={placeholder}/></label>)}
-      {kind === 'plan' && <fieldset className="fb-practical-topics"><legend>موضوع عملي نختار مناقشته <small>اختياري</small></legend>{practicalQuestions.map(question => <label key={question}><input type="checkbox" checked={questions.includes(question)} onChange={event => { setQuestions(current => event.target.checked ? [...current, question] : current.filter(item => item !== question)); setConsent(false); }}/><span>{question}</span></label>)}</fieldset>}
-      <p className="fb-caption">لا ننسخ ملفًا أو محادثة أو جواز جاهزية. لا تكتب بيانات شخص آخر أو وثائقه دون إذنه. لا يمكن سحب نسخة يحتفظ بها أحد خارج التطبيق.</p>
+      {fields.map(([id, label, placeholder]) => <label className="fb-field" key={`${kind}-${id}`}><span>{label}</span><textarea value={values[id] ?? ''} onChange={event => { const value = event.target.value; setDrafts(current => ({ ...current, [kind]: { ...current[kind], [id]: value } })); setConsent(false); }} maxLength={kind === 'introduction' ? 180 : 120} rows={2} placeholder={placeholder}/></label>)}
+      {kind === 'plan' && <fieldset className="fb-practical-topics"><legend>أسئلة للنقاش</legend>{practicalQuestions.map(question => <label key={question}><input type="checkbox" checked={questions.includes(question)} onChange={event => { setQuestions(current => event.target.checked ? [...current, question] : current.filter(item => item !== question)); setConsent(false); }}/><span>{question}</span></label>)}</fieldset>}
+      <p className="fb-caption">استأذن قبل مشاركة بيانات غيرك. قد يحتفظ المستلم بنسخة.</p>
       <label className="fb-preparation-consent"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>راجعت الأسماء وأختار مشاركة هذا النص معهم عند الضغط على إرسال.</span></label>
       {body.length > 1000 && <p className="fb-error" role="alert">اختصر النص أو قلّل الأسئلة ليكون في حدود ١٠٠٠ حرف.</p>}
       <KeyboardDismiss/>

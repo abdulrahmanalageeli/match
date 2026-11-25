@@ -38,8 +38,7 @@ function SmsDialog({email,deviceId,done,correction=false}:{email:string;deviceId
  return <dialog ref={dialog} className="nf-sms-dialog" dir="rtl" aria-labelledby="signup-sms-title" aria-describedby="signup-sms-description" onCancel={e=>{e.preventDefault();if(!busy)done(null);}}>
   <button type="button" className="nf-sms-close" aria-label="إلغاء تأكيد الجوال" disabled={busy} onClick={()=>done(null)}><X size={20}/></button>
   <h2 id="signup-sms-title">{proof?'أدخل رمز التحقق':'تأكيد رقم الجوال'}</h2>
-  <p id="signup-sms-description">{proof?<>أرسلنا الرمز إلى <bdi dir="ltr">{phone}</bdi>.</>:'نرسل رمزًا للتأكد من ملكيتك للرقم. رقمك لا يظهر للأعضاء.'}</p>
-  {!proof&&<p className="nf-sms-precision">تأكيد الجوال يحمي الحساب، لكنه لا يُعد تحققًا من الهوية الوطنية.</p>}
+  <p id="signup-sms-description">{proof?<>أرسلنا الرمز إلى <bdi dir="ltr">{phone}</bdi>.</>:'رقمك لا يظهر للأعضاء.'}</p>
   {duplicate&&<div className="nf-sms-duplicate" role="status"><strong>سبق التسجيل من هذا الجهاز</strong><span>يمكنك المتابعة وإنشاء حساب آخر خلال فترة الاختبار.</span></div>}
   <form onSubmit={e=>{e.preventDefault();void(proof?verify():send());}}>
    {!proof && <label>رقم الجوال<input ref={phoneInput} type="tel" dir="ltr" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="05XXXXXXXX" required value={phone} disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setPhone(e.target.value);setError('');}}/></label>}

@@ -64,10 +64,11 @@ test('actual discovery row and portrait card contain no nested buttons with a va
   }
 });
 
-test('full profile provides an interactive scoped badge outside all other controls', () => {
+test('the profile opens on About with Details available for verified claims', () => {
   const html = render(MemberProfile, { person, source: null, back: noop, backText: 'رجوع' });
-  assert.match(html, /class="mv-badge/);
-  assert.match(html, /aria-haspopup="dialog"/);
+  assert.match(html, /<button aria-pressed="true"[^>]*>(?:(?!<\/button>)[\s\S])*?نبذة<\/button>/);
+  assert.match(html, /<button aria-pressed="false"[^>]*>(?:(?!<\/button>)[\s\S])*?التفاصيل<\/button>/);
+  assert.doesNotMatch(html, /class="mv-badge/);
   noNestedButtons(html);
 });
 

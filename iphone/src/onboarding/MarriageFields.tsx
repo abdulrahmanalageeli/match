@@ -1,7 +1,7 @@
 import { CriteriaQuestion as Mode, CriteriaFeedback } from './CriteriaQuestion';
 import { familyContext } from './familyContext';
 import { useId, useLayoutEffect, useRef, useState, type ReactNode, type FocusEvent } from "react";
-import { BookOpen, Check, ChevronLeft, ChevronRight, Clock3, Heart, Home, Leaf, LockKeyhole, UserRound, Users, type LucideIcon } from "../BrandIcons";
+import { BookOpen, Check, ChevronLeft, ChevronRight, Clock3, Heart, Home, LockKeyhole, UserRound, Users, type LucideIcon } from "../BrandIcons";
 import { languageOptions, languageOpennessLabels, requiredPartnerCriteria, validPartnerCriteria, polygynyLabels, religiousAffiliationLabels, prayerPracticeLabels, marriageTimelineLabels, meetingPreferenceLabels, type MarriageBasics, type PartnerCriteria, type RangeCriterion } from "../compatibility/marriage";
 import { personalityQuestionsFor, personalityVersion } from "../compatibility/personality";
 import { normalizeNationality } from "../compatibility/model";
@@ -113,9 +113,8 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
   const selfMaritalLabels = gender === "man" ? maritalLabels : { never_married: "لم يسبق لي الزواج", divorced: "مطلّقة", widowed: "أرملة" };
   const pluralMarriageLabels = gender === "woman" ? { not_open: "لا أقبل التعدد", open_to_discussion: "منفتحة على النقاش", open: "منفتحة على التعدد", prefer_not_to_say: "أفضل مناقشته لاحقًا" } : polygynyLabels;
   return <div className="nf-marriage-fields" data-slideshow={Boolean(activeSection) || undefined} data-field="marriageBasics" tabIndex={-1} onFocus={revealMissing}>
-    <div className="nf-detail-intro"><Leaf size={20} strokeWidth={1.5} aria-hidden="true"/><p><strong>تفاصيل تُكمل الصورة.</strong><span>{required ? "لمسات بسيطة تُكمل ملفك. راجع ما يظهر عنك قبل إرساله." : "افتح ما ترغب بإضافته. هذه التفاصيل اختيارية وتظهر للأعضاء المؤهلين."}</span></p></div>
+    {!activeSection && !required && <p className="nf-detail-intro">اختر التفاصيل التي تود مشاركتها في ملفك.</p>}
     <Group activeSection={activeSection} title="خطط الحياة الزوجية" note="السكن، والمصاريف، وحفل الزواج، وتوقيت الإنجاب" icon={Home}>
-      <small>أضف من هذه الخطط ما حسمته.</small>
       {marriagePlanKeys.map(key => <Choices key={key} title={marriagePlanQuestions[key].question} value={value[key]} labels={marriagePlanQuestions[key].options} onChange={answer => change({[key]:answer})}/>)}
       <small>سؤال توقيت الإنجاب لمن يرغب فيه؛ اتركه دون إجابة إن لم يكن مناسبًا لك.</small>
     </Group>
@@ -132,20 +131,17 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       {show('originCity') && <label>مدينة الأصل — اختياري<input value={value.originCity ?? ''} maxLength={80} onChange={event => change({originCity:event.target.value.trim() ? event.target.value : undefined})} placeholder="المدينة التي ترجع إليها بالأصل" /></label>}
       {!fields && sensitiveAllowed && <Choices title={required ? "الخلفية القبلية · اختياري" : "الخلفية القبلية"} value={value.tribalBackground} labels={tribalLabels} onChange={tribalBackground => change({ tribalBackground, tribeName: undefined })} />}
       {!fields && sensitiveAllowed && value.tribalBackground === "tribal" && <label>اسم القبيلة — اختياري<input value={value.tribeName ?? ""} maxLength={80} onChange={e => change({ tribeName: e.target.value })} placeholder="أضفه فقط إن رغبت بإظهاره" /></label>}
-      <small>هذه معلومات عنك، وليست شروطًا للشريك. حدّد ما تقبله في «ما يهمك في الشريك»؛ لا نستنتج خلفيتك من اسمك أو صورتك.</small>
     </Group>
-    <Group activeSection={activeSection} title="بداية تناسبك" note="توقيت إتمام الزواج وطريقتك المفضلة للقاء. يحدّد استبيان التوافق توقيت أول خطوة رسمية." icon={Clock3} open={reveal === "بداية تناسبك"} summary={value.marriageTimeline ? `الزواج ${marriageTimelineLabels[value.marriageTimeline]}` : value.meetingPreference ? 'تفضيل اللقاء محدد' : undefined}>
+    <Group activeSection={activeSection} title="بداية تناسبك" note="توقيت الزواج وطريقة اللقاء" icon={Clock3} open={reveal === "بداية تناسبك"} summary={value.marriageTimeline ? `الزواج ${marriageTimelineLabels[value.marriageTimeline]}` : value.meetingPreference ? 'تفضيل اللقاء محدد' : undefined}>
       {show('marriageTimeline') && <Choices title="متى تود إتمام الزواج إذا وجدت الشخص المناسب؟" required={required} value={value.marriageTimeline} labels={marriageTimelineLabels} onChange={marriageTimeline => change({ marriageTimeline })} />}
       {show('meetingPreference') && <Choices title="كيف تفضّل ترتيب اللقاء والخطوة الرسمية؟" required={required} value={value.meetingPreference} labels={meetingPreferenceLabels} onChange={meetingPreference => change({ meetingPreference })} />}
-      {show('meetingPreference') && <small>ترتيب أي لقاء يحتاج إلى موافقتكما.</small>}
     </Group>
     <Group activeSection={activeSection} title="الزواج والتعدد" note="وضعك الحالي وما تقبله مستقبلًا" icon={Heart} open={reveal === "الزواج والتعدد"} summary={[value.maritalStatus && maritalLabels[value.maritalStatus], value.currentWives && (value.currentWives === 1 ? 'زوجة واحدة' : value.currentWives === 2 ? 'زوجتان' : `${arabicNumber(value.currentWives)} زوجات`)].filter(Boolean).join(' · ')}>
       {show('maritalStatus') && <Choices title="حالتي الاجتماعية الآن" required={required} value={value.maritalStatus} labels={selfMaritalLabels} onChange={maritalStatus => change({ maritalStatus, currentWives: maritalStatus === "married" ? value.currentWives : undefined })} />}
-      {family.askWifeCount && (show('currentWives') || show('maritalStatus')) && <div className="nf-family-disclosure"><label>عدد الزوجات حاليًا<select value={value.currentWives ?? ""} onChange={event => change({ currentWives: event.target.value ? Number(event.target.value) as MarriageBasics['currentWives'] : undefined })}><option value="">اختر العدد</option>{([1,2,3,4] as const).map(count=><option key={count} value={count}>{count === 1 ? "زوجة واحدة" : count === 2 ? "زوجتان" : count === 3 ? "ثلاث زوجات" : "أربع زوجات"}</option>)}</select></label><small>يظهر وضعك الحالي وعدد الزوجات بوضوح في ملفك. هذه معلومة منفصلة عن رغبتك في الزواج مستقبلًا.</small></div>}
+      {family.askWifeCount && (show('currentWives') || show('maritalStatus')) && <div className="nf-family-disclosure"><label>عدد الزوجات حاليًا<select value={value.currentWives ?? ""} onChange={event => change({ currentWives: event.target.value ? Number(event.target.value) as MarriageBasics['currentWives'] : undefined })}><option value="">اختر العدد</option>{([1,2,3,4] as const).map(count=><option key={count} value={count}>{count === 1 ? "زوجة واحدة" : count === 2 ? "زوجتان" : count === 3 ? "ثلاث زوجات" : "أربع زوجات"}</option>)}</select></label><small>يظهر عدد الزوجات في ملفك.</small></div>}
       {!eligibilityOnly && <>
       {show('polygynyPreference') && <Choices title={gender === "woman" ? "موقفي من الزواج برجل متزوج أو التعدد لاحقًا" : "موقفي من التعدد مستقبلًا"} required={required} value={value.polygynyPreference} labels={pluralMarriageLabels} onChange={polygynyPreference => change({ polygynyPreference })} />}
       {gender==='woman' && value.polygynyPreference==='not_open' && <small>ستقتصر الترشيحات الجديدة على رجل غير متزوج صرّح بأنه لا يرغب في التعدد مستقبلًا.</small>}
-      <small>هذا وصف لموقفك، ولا يعني موافقة على تغيير رأيك. حدّد أيضًا الحالات الاجتماعية المقبولة في «ما يهمك في الشريك» لتؤثر في الترشيحات.</small>
       </>}
     </Group>
     <Group activeSection={activeSection} title="الأبناء والعادات" note="تفاصيل من حياتك اليومية" icon={Home} open={reveal === "الأبناء والعادات"} summary={[value.childrenCount !== undefined && (value.childrenCount ? `${arabicNumber(value.childrenCount)} أبناء` : 'دون أبناء'), value.smoking && smokingLabels[value.smoking]].filter(Boolean).join(' · ')}>
@@ -154,10 +150,9 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       {show('smoking') && <Choices title="التدخين · ما الذي تستخدمه غالبًا؟" required={required} value={value.smoking} labels={{never:smokingLabels.never,cigarettes:smokingLabels.cigarettes,vape:smokingLabels.vape,shisha:smokingLabels.shisha,...(value.smoking==='yes'||value.smoking==='sometimes'?{[value.smoking]:smokingLabels[value.smoking]}:{})}} onChange={smoking => change({ smoking })} />}
     </Group>
     {sensitiveAllowed ? <Group activeSection={activeSection} title="الدين في حياتي" note="معلومات حساسة، تختار مشاركتها أو تركها" icon={BookOpen} open={reveal === "الدين في حياتي"} summary={[value.religiousAffiliation && value.religiousAffiliation !== 'prefer_not_to_say' && religiousAffiliationLabels[value.religiousAffiliation], value.prayerPractice && value.prayerPractice !== 'prefer_not_to_say' && 'موقفك من الصلاة محدد'].filter(Boolean).join(' · ')}>
-      <p className="nf-sensitive-note"><LockKeyhole size={16} aria-hidden="true"/><span>هذه الإجابات اختيارية وحساسة. تُعرض في ملفك فقط إذا اخترت إضافتها ووافقت على مشاركتها. لا نستنتجها من اسمك أو صورتك، ولا نستخدمها لتقييم تدينك.</span></p>
+      <p className="nf-sensitive-note"><LockKeyhole size={16} aria-hidden="true"/><span>الإجابة اختيارية. تظهر في ملفك بموافقتك على المشاركة.</span></p>
       <Choices title="المذهب" value={value.religiousAffiliation} labels={religiousAffiliationLabels} onChange={religiousAffiliation => change({ religiousAffiliation })} />
       <Choices title="الصلاة في حياتي" value={value.prayerPractice} labels={prayerPracticeLabels} onChange={prayerPractice => change({ prayerPractice })} />
-      <small>«أفضل عدم الإفصاح» لا يظهر كصفة في ملفك. يمكنك إكمال التعارف دون الإجابة عن هذه الأسئلة.</small>
     </Group> : <p className="nf-sensitive-note"><LockKeyhole size={16} aria-hidden="true"/><span>أسئلة البشرة والخلفية القبلية والدين متاحة بعد موافقتك الاختيارية على معالجة المعلومات الحساسة. يمكنك المتابعة دونها.</span></p>}
     <small className="nf-detail-footnote">{required ? "يمكنك مراجعة أي اختيار قبل المتابعة." : "يمكنك تغيير اختياراتك أو إزالتها في أي وقت. اضغط الاختيار مرة أخرى لإزالته."}</small>
   </div>;
@@ -231,7 +226,7 @@ export function PartnerCriteriaFields({ confirmedKeys = [], reviewing = false, f
       {sensitiveAllowed && show('tribalBackground') && <Mode criterion="tribalBackground" title="هل تقبل شريكًا قبليًا أو غير قبلي؟" anyLabel="أقبل الحالتين" value={value.tribalBackground?.mode ?? "any"} onChange={mode => change({ tribalBackground: mode === "any" ? { mode } : { target: "tribal", ...value.tribalBackground, mode } })}>
         <label>التفضيل<select value={value.tribalBackground?.target ?? "tribal"} onChange={e => change({ tribalBackground: { mode: value.tribalBackground?.mode ?? "prefer", target: e.target.value as "tribal" | "non_tribal" | "same_tribe" } })}>
           <option value="tribal">قبلي</option><option value="non_tribal">غير قبلي</option><option value="same_tribe" disabled={basics?.tribalBackground !== "tribal" || !basics.tribeName?.trim()}>من نفس قبيلتي</option></select></label>
-        <small>خيار «نفس قبيلتي» يتطلب اسم القبيلة في تفاصيلك. لا نرتّب القبائل أو نستنتج الأنساب.</small>
+        <small>لاختيار «نفس قبيلتي»، أضف اسم القبيلة في تفاصيلك.</small>
       </Mode>}
       {show('nationality') && <Mode criterion="nationality" title="جنسية الشريك" value={nationality?.mode}
         onChange={mode => change({nationality:{...nationality,mode}})}
@@ -263,7 +258,7 @@ export function PartnerCriteriaFields({ confirmedKeys = [], reviewing = false, f
         <p>اختر الحالات التي تناسبك:</p><div className="nf-criterion-checks">{(Object.keys(maritalLabels) as Array<keyof typeof maritalLabels>).filter(status=>status !== 'married' || gender === 'woman').map(status => <label key={status}><input type="checkbox" checked={value.maritalStatus?.values?.includes(status) ?? false} onChange={e => change({ maritalStatus: { mode: value.maritalStatus?.mode ?? "prefer", values: e.target.checked ? [...(value.maritalStatus?.values ?? []), status] : value.maritalStatus?.values?.filter(v => v !== status) } })} />{maritalLabels[status]}</label>)}</div>
         {gender === 'woman' && <small>يسري اختيار «لا أقبل التعدد» تلقائيًا على الترشيحات الجديدة حتى إذا تركتِ الحالة الاجتماعية مفتوحة.</small>}
       </Mode>}
-      {show('children') && <Mode criterion="children" title="وجود أبناء" value={value.children?.mode ?? (required ? undefined : "any")} onChange={mode => change({ children: mode === "any" ? { mode } : { target: "none", ...value.children, mode } })}><p>أفضل أن يكون الطرف الآخر دون أبناء.</p><small>اختر «لا يهمني» إذا كنت منفتحًا على الحالتين.</small></Mode>}
+      {show('children') && <Mode criterion="children" title="وجود أبناء" value={value.children?.mode ?? (required ? undefined : "any")} onChange={mode => change({ children: mode === "any" ? { mode } : { target: "none", ...value.children, mode } })}><p>أفضل أن يكون الطرف الآخر دون أبناء.</p></Mode>}
       {show('smoking') && <Mode criterion="smoking" title="التدخين" value={value.smoking?.mode ?? (required ? undefined : "any")} onChange={mode => change({ smoking: mode === "any" ? { mode } : { target: "never", mode } })}><p>أفضل شريكًا لا يدخّن.</p></Mode>}
     </section>
     {!sensitiveAllowed && <p className="nf-sensitive-note"><LockKeyhole size={16} aria-hidden="true"/><span>{required ? 'تفضيلات البشرة والخلفية القبلية تحتاج موافقتك على معالجة المعلومات الحساسة في «تفاصيلك» لإكمال التسجيل.' : 'تفضيلات البشرة والخلفية القبلية تحتاج موافقتك على معالجة المعلومات الحساسة.'}</span></p>}

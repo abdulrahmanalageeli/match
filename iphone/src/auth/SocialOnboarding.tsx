@@ -37,8 +37,8 @@ export function SocialOnboarding({ email, userId, initialReceipt, busy, onComple
     } finally { setPending(false); }
   }
   return <Frame title="إكمال الحساب" back={onLogout} backDisabled={pending || busy} className="nf-auth-frame">
-    <section className="nf-auth-hero"><h1>خطوة أخيرة لحماية حسابك</h1>
-      <p className="flow-intro">نؤكّد رقم جوالك السعودي لربط طلب العضوية بحسابك.</p></section>
+    <section className="nf-auth-hero"><h1>أكّد جوالك السعودي</h1>
+      </section>
     <section className="nf-auth-panel">
       {!previouslyAgreed && <RegistrationAgreements value={agreed} change={setAgreed} onPrivacy={onPrivacy} disabled={pending || busy}/>}
       {error && <p role="alert" className="form-error">{error}</p>}

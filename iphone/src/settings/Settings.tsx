@@ -195,13 +195,13 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
         <h1 className="st-title">الإعدادات</h1>
         {state?.user.id&&<p className="flow-note">معرّف العضو <code dir="ltr" style={{overflowWrap:"anywhere",userSelect:"all"}}>{state.user.id}</code></p>}
         <section className="st-member-card" aria-label="ملفي الشخصي">
-          <div className="st-member-identity"><span className="st-member-avatar">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}<MemberBadge tier={state?.membership.tier} active={state?.membership.active}/></span><div><span className="st-profile-kicker">مساحتك في وُدَين</span><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
+          <div className="st-member-identity"><span className="st-member-avatar">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}<MemberBadge tier={state?.membership.tier} active={state?.membership.active}/></span><div><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
           <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>
           <div className="st-discovery-state" data-visibility={visibility}><span role="status">{visibilityText ?? (summary.error?'تعذّر التحقق من ظهور ملفك.':'جارٍ التحقق من ظهور ملفك…')}</span>
             {summary.error && !visibilityText && <button className="btn-text" onClick={summary.refresh}>إعادة المحاولة</button>}
             {canManageMatching && <button type="button" className="btn-text" disabled={busy} aria-label={paused?'استئناف الظهور':'إيقاف الترشيحات مؤقتًا'} onClick={()=>paused?onToggle():setConfirm('pause')}>{paused?'استئناف الظهور':'إيقاف مؤقت'}</button>}</div>
           {state?.user.profileReviewPending && <p className="st-note" role="status">تعديلاتك قيد المراجعة. تعرض المعاينة النسخة المعتمدة التي يراها من سبق لك التعارف معهم.</p>}
-          {source?.gallery&&<button className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span><strong>صوري وخصوصيتها</strong><small>إدارة الصور التي تظهر في ملفي</small></span><ChevronLeft size={16}/></button>}
+          {source?.gallery&&<button className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span><strong>صوري وخصوصيتها</strong></span><ChevronLeft size={16}/></button>}
         </section>
         {canSeeMembership && <section className="st-section" aria-labelledby="st-membership-title"><h2 id="st-membership-title">العضوية</h2><div className="st-group">
           <SettingRow icon={<CreditCard/>} title="عضويتي" detail={membershipDetail} action={onMembership} disabled={busy}/>
@@ -216,11 +216,11 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
         {Boolean(hasPreviousVerification || onBeena || source?.readiness || source?.family || member) && <section className="st-section" aria-labelledby="st-marriage-title">
           <h2 id="st-marriage-title">ملفك وخطوات الزواج</h2>
           <div className="st-group st-marriage-group">
-            {hasPreviousVerification&&<div className="st-verification-entry"><SettingRow icon={<ShieldCheck/>} title="طلبات التوثيق السابقة" detail="متابعة طلباتك السابقة أو سحبها" action={()=>openPanel('verification')} disabled={busy||!member}/></div>}
-            {onBeena&&<div className="st-beena-entry"><SettingRow icon={<BookOpen/>} title="بيننا · سؤال وجواب" detail={member?.beena?.story?.text.trim() ? member.beena.story.share ? "إجابتك ظاهرة في ملفك" : "إجابتك خاصة · المشاركة باختيارك" : "اختياري · أضف إجابة تعبّر عنك"} action={onBeena} disabled={busy}/></div>}
-            {source?.readiness&&<div className="st-readiness-entry"><SettingRow icon={<ShieldCheck/>} title="جواز الجاهزية للزواج" detail="نيّتك واستعدادك وإفاداتك · خاص وبإذنك" action={()=>openPanel('readiness')} disabled={busy}/></div>}
-            {source?.family&&<div className="st-family-entry"><SettingRow icon={<UsersRound/>} title="جسر الأهل" detail="اربط أفراد أسرتك، وخطّطوا للخطوة الرسمية بخصوصية" action={()=>openPanel('family')} disabled={busy}/></div>}
-            {member&&<div className="st-completion-entry"><SettingRow icon={<UsersRound/>} title="الخطوة الرسمية" detail="التقدم معًا، الخطوبة أو الزواج · خطوات خاصة لحسابك" action={()=>setShowCompletion(true)} disabled={busy}/></div>}
+            {hasPreviousVerification&&<div className="st-verification-entry"><SettingRow icon={<ShieldCheck/>} title="طلبات التوثيق السابقة" action={()=>openPanel('verification')} disabled={busy||!member}/></div>}
+            {onBeena&&<div className="st-beena-entry"><SettingRow icon={<BookOpen/>} title="بيننا · سؤال وجواب" detail={member?.beena?.story?.text.trim() ? member.beena.story.share ? "إجابتك ظاهرة في ملفك" : "إجابتك خاصة" : "أضف إجابتك"} action={onBeena} disabled={busy}/></div>}
+            {source?.readiness&&<div className="st-readiness-entry"><SettingRow icon={<ShieldCheck/>} title="جواز الجاهزية للزواج" detail="استعدادك للزواج وخيارات مشاركته" action={()=>openPanel('readiness')} disabled={busy}/></div>}
+            {source?.family&&<div className="st-family-entry"><SettingRow icon={<UsersRound/>} title="جسر الأهل" detail="دعوات الأسرة ومحادثاتها" action={()=>openPanel('family')} disabled={busy}/></div>}
+            {member&&<div className="st-completion-entry"><SettingRow icon={<UsersRound/>} title="الخطوة الرسمية" detail="التقدّم أو الخطوبة أو الزواج" action={()=>setShowCompletion(true)} disabled={busy}/></div>}
           </div>
         </section>}
         {!state?.user.profileReviewPending && state?.user.nextPublicProfileEditAt && new Date(state.user.nextPublicProfileEditAt).getTime() > Date.now() && <p>التعديل التالي لبيانات ملفك العامة متاح في {new Date(state.user.nextPublicProfileEditAt).toLocaleDateString('ar-SA')}. يمكنك مراجعة التفضيلات وإيقاف مشاركة صورك من أدواتها.</p>}
@@ -242,12 +242,12 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
             <PreferenceSwitch icon={<Type />} title="تكبير النص" checked={value.largeText} onChange={() => setPreference("largeText", !value.largeText)} />
             <PreferenceSwitch icon={<Feather />} title="تقليل الحركة" detail={systemReduced ? "مفعّل من إعدادات جهازك" : undefined} checked={systemReduced || value.reducedMotion} disabled={systemReduced} onChange={() => setPreference("reducedMotion", !value.reducedMotion)} />
             <PreferenceSwitch icon={<Volume2 />} title="صوت التوافق" detail="نغمة قصيرة للتوافق والخطوات المتبادلة" checked={value.matchSound} onChange={() => setPreference("matchSound", !value.matchSound)} />
-            {hasHaptics() && <PreferenceSwitch icon={<Vibrate />} title="تأكيد باللمس" detail="لمسة خفيفة عند الحفظ والقرارات، دون اهتزاز أثناء التصفح" checked={value.haptics} onChange={() => setPreference('haptics', !value.haptics)} />}
+            {hasHaptics() && <PreferenceSwitch icon={<Vibrate />} title="تأكيد باللمس" detail="لمسة خفيفة عند تأكيد الاختيار" checked={value.haptics} onChange={() => setPreference('haptics', !value.haptics)} />}
           </div>
         </details>
         <PushSettings owner={owner ?? null} demo={demo} testerSession={testerSession} />
         <NativePrivacy owner={testerSession ? 'tester:'+testerSession : !demo ? owner??null : null} />
-        <details className="st-section st-fold"><summary>المساعدة والدعم</summary><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="التوافق، الصور، المكالمات، الحصرية، والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div><SupportContact/></details>
+        <details className="st-section st-fold"><summary>المساعدة والدعم</summary><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="الميزات والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div><SupportContact/></details>
         <details className="st-section st-fold st-access"><summary>الحساب</summary>
           <div className="st-group">
             <SettingRow icon={<LogOut />} title={demo ? "إنهاء التجربة" : "تسجيل الخروج"} action={() => setConfirm("exit")} disabled={busy} />

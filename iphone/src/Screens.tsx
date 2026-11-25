@@ -64,6 +64,19 @@ export function Frame({
 
 export { Welcome } from "./Welcome";
 
+function AppleProviderMark() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.1 12.5c0-2.4 2-3.6 2.1-3.7a4.6 4.6 0 0 0-3.6-1.9c-1.6-.2-3 .9-3.8.9-.8 0-2-1-3.3-1-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3 0 1.8-.8 3.4-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5a11 11 0 0 0 1.4-2.9 4.1 4.1 0 0 1-2-4.1ZM14.6 5.3A4.2 4.2 0 0 0 15.6 2a4.5 4.5 0 0 0-3 1.6 4 4 0 0 0-1 3.1c1.1.1 2.2-.5 3-1.4Z"/></svg>;
+}
+
+function GoogleProviderMark() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#4285f4" d="M22.6 12.2c0-.7-.1-1.5-.2-2.2H12v4.3h6a5.1 5.1 0 0 1-2.2 3.3v2.8h3.6c2.1-1.9 3.2-4.8 3.2-8.2Z"/>
+    <path fill="#34a853" d="M12 23c3 0 5.5-1 7.4-2.6l-3.6-2.8c-1 .7-2.3 1-3.8 1a6.5 6.5 0 0 1-6.1-4.5H2.2V17A11.2 11.2 0 0 0 12 23Z"/>
+    <path fill="#fbbc05" d="M5.9 14.1a6.7 6.7 0 0 1 0-4.2V7H2.2a11 11 0 0 0 0 10l3.7-2.9Z"/>
+    <path fill="#ea4335" d="M12 5.4c1.7 0 3.2.6 4.4 1.7l3.1-3.1A10.4 10.4 0 0 0 12 1 11.2 11.2 0 0 0 2.2 7l3.7 2.9A6.5 6.5 0 0 1 12 5.4Z"/>
+  </svg>;
+}
+
 export function Auth({
   login,
   back,
@@ -99,6 +112,8 @@ export function Auth({
   const locked = busy || phonePending;
   const accepted = login || registrationComplete(agreements);
   const nativeSocial = ready && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+  const socialMode = nativeSocial && !emailMode && !phoneMode;
+  const entryMode = socialMode ? 'social' : phoneMode ? 'phone' : 'email';
   useLayoutEffect(() => {
     setAgreements(emptyRegistrationChoices());
     setAgreementError("");
@@ -135,19 +150,27 @@ export function Auth({
   const consentReview = ready && !login && <RegistrationAgreements value={agreements} change={setAgreements} onPrivacy={onPrivacy} disabled={locked}/>;
   return (
     <Frame back={back} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
-      <section className="nf-auth-hero">
+      <section key={`${login ? 'login' : 'signup'}-${entryMode}`} className="nf-auth-hero" data-auth-stage={login ? 'login' : 'signup'} data-auth-mode={entryMode}>
+        <div className="nf-auth-signature" aria-hidden="true">
+          <span />
+          <img src="/brand/wudayn-emblem-v2.png" alt="" width="34" height="40" />
+          <span />
+        </div>
         <h1 ref={heading} tabIndex={-1}>{login ? "أهلًا بعودتك" : "حسابك في وُدَين"}</h1>
-        <p className="flow-intro">{login ? "سجّل الدخول لمتابعة محادثاتك." : "أكّد جوالك السعودي واحفظ تقدّمك في طلب العضوية."}</p>
         {!login && <details className="nf-auth-brief">
           <summary><ShieldCheck size={17} aria-hidden="true"/><span>طلب العضوية مجاني</span><ChevronDown size={15} aria-hidden="true"/></summary>
-          <p>بعد جلسة التوافق، راجع إجاباتك وأرسل ملفك. إذا اكتمل التحقق، يفتح لك الاستكشاف المجاني مباشرة. إذا بقيت خطوة للاعتماد، تتابعها من حالة الطلب. تقدر تختار باقة مدفوعة لاحقًا.</p>
+          <p>إذا اكتمل التحقق من ملفك، تقدر تستكشف مجانًا. الباقات المدفوعة باختيارك.</p>
         </details>}
       </section>
-      <section className="nf-auth-panel">
+      <section key={`${login ? 'login' : 'signup'}-${entryMode}-panel`} className="nf-auth-panel" data-auth-mode={entryMode}>
       {nativeSocial && !emailMode && !phoneMode && consentReview}
       {nativeSocial && !emailMode && !phoneMode && <div className="nf-social-login" aria-label="خيارات تسجيل الدخول">
-        <button type="button" disabled={locked || !accepted} onClick={() => onSocial('apple', receipt)}>المتابعة باستخدام Apple</button>
-        <button type="button" disabled={locked || !accepted} onClick={() => onSocial('google', receipt)}>المتابعة باستخدام Google</button>
+        <button type="button" className="nf-provider-button nf-provider-button--apple" disabled={locked || !accepted} onClick={() => onSocial('apple', receipt)}>
+          <span className="nf-provider-mark"><AppleProviderMark/></span><span>المتابعة باستخدام Apple</span><ArrowLeft size={17}/>
+        </button>
+        <button type="button" className="nf-provider-button nf-provider-button--google" disabled={locked || !accepted} onClick={() => onSocial('google', receipt)}>
+          <span className="nf-provider-mark"><GoogleProviderMark/></span><span>المتابعة باستخدام Google</span><ArrowLeft size={17}/>
+        </button>
       </div>}
       {phoneMode && consentReview}
       {ready && phoneMode ? <PhoneAuth login={login} onVerified={onPhoneVerified} busy={locked || !accepted} setBusy={setPhonePending} /> : ready && (!nativeSocial || emailMode) ? (
@@ -180,7 +203,7 @@ export function Auth({
                 name="password"
                 value={credentials.password}
                 onChange={event => setCredentials(current => ({ ...current, password: event.target.value }))}
-                placeholder={login ? "كلمة المرور" : "١٠ أحرف على الأقل"}
+                placeholder="كلمة المرور"
                 minLength={login ? 1 : 10}
                 maxLength={128}
                 required
@@ -197,7 +220,7 @@ export function Auth({
               </button>
             </span>
           </label></div>}
-          {!login && <p id="nf-password-help" className="nf-auth-field-help">اختر كلمة مرور من ١٠ أحرف على الأقل، خاصة بهذا الحساب.</p>}
+          {!login && <p id="nf-password-help" className="nf-auth-field-help">١٠ أحرف على الأقل.</p>}
           {consentReview}
           {agreementError && <p role="alert" className="form-error">{agreementError}</p>}
           <div className="nf-auth-submit">
@@ -255,7 +278,7 @@ export function Pending({
     <Frame title="حالة الطلب" back={back} className="nf-signup-status">
       <h1><ShieldCheck size={23} aria-hidden="true"/> طلبك قيد المراجعة</h1>
       <p className="flow-intro">
-        وصلنا ملفك. نتحقّق من الطلب، ويتولى الفريق مراجعته عند الحاجة. تتحدّث حالته هنا تلقائيًا.
+        تتحدّث حالة طلبك هنا تلقائيًا.
       </p>
       <div className="flow-card timeline">
         <strong>

@@ -13,7 +13,7 @@ export function ConnectionNotice() {
   }, []);
   if (!offline) return null;
   return <MotionReveal className="nf-connection-notice" dir="rtl" role="status" distance={4} duration={220}>
-    <WifiOff size={18} aria-hidden="true"/><span><strong>اتصالك غير متاح الآن</strong><small>نحدّث البيانات عند عودة الاتصال. تبقى مسودة حديثك محفوظة في هذه الجلسة.</small></span>
+    <WifiOff size={18} aria-hidden="true"/><span><strong>اتصالك غير متاح الآن</strong><small>سنحدّث المحادثة عند عودة الاتصال.</small></span>
     <MotionPressButton onClick={() => { setOffline(!navigator.onLine); window.dispatchEvent(new CustomEvent(retryReadsEvent)); }}>إعادة المحاولة</MotionPressButton>
   </MotionReveal>;
 }

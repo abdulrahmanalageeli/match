@@ -97,9 +97,9 @@ function OpeningExample({ nextStep = false }: { nextStep?: boolean }) {
 export function InterviewEntry({ available, open, registration = false }: { available: boolean; open: () => void; registration?: boolean }) {
   if (!available) return null;
   return <section className="wi-entry" data-registration={registration || undefined} aria-labelledby={registration ? undefined : 'wi-entry-title'} aria-label={registration ? 'بدء الحوار مع لونا' : undefined}>
-    {!registration && <div className="wi-entry-heading"><span className="wi-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="30" height="35" alt=""/></span><div><span className="wi-eyebrow">بكلماتك، وعلى راحتك</span><h2 id="wi-entry-title">جلسة التوافق</h2></div></div>}
-    <p>احكِ للونا عنك وعن الشريك اللي تتمناه. إذا وضّحت إجابة في كلامك، تجهّزها لونا للمراجعة. بعدها تختار إجابات التوافق المتبقية وتكمل تفاصيل ملفك.</p>
-    <div className="wi-entry-footer"><span><LockKeyhole size={13} aria-hidden="true"/> خاصة بك · يمكنك إكمالها لاحقًا</span><MotionPressButton className="wi-button wi-button-primary" onClick={open}>ابدأ الحوار مع لونا <ArrowLeft size={17} aria-hidden="true"/></MotionPressButton></div>
+    {!registration && <div className="wi-entry-heading"><span className="wi-mark" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="30" height="35" alt=""/></span><div><h2 id="wi-entry-title">جلسة التوافق</h2></div></div>}
+    <p>احكِ للونا عنك وعن الشريك اللي تتمناه.</p>
+    <div className="wi-entry-footer"><span><LockKeyhole size={13} aria-hidden="true"/> جلسة خاصة</span><MotionPressButton className="wi-button wi-button-primary" onClick={open}>ابدأ الحوار مع لونا <ArrowLeft size={17} aria-hidden="true"/></MotionPressButton></div>
   </section>;
 }
 
@@ -602,7 +602,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
   const responding = (!refining && ['answer', 'retry', 'clarify'].includes(busy)) || queuedIntent === 'answer';
   const showPendingReply = pendingReply && doc?.lastRequestId !== pendingReply.id;
   const reviewMode = fallbackReview || doc?.status === 'review' || doc?.status === 'confirmed';
-  const saveMessage = busy === 'draft' || draftState === 'pending' ? 'نحفظ كتابتك…' : draftState === 'error' ? 'تعذّر الحفظ — إجابتك ما زالت هنا' : answer.trim() ? 'كتابتك محفوظة' : '';
+  const saveMessage = draftState === 'error' ? 'تعذّر حفظ المسودة' : '';
   const actionBlocked = !!queuedIntent || (!!busy && busy !== 'draft');
   const unavailable = snapshot.fallbackAvailable === true && doc?.pendingAnalysis === true;
   const unresolved = validProposals.filter(proposal => !(selections[proposal.id] ?? (proposal.needsClarification ? [] : proposal.values)).length).length;
@@ -669,23 +669,22 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
         : !doc ? <section className="wi-welcome">
           <span className="wi-welcome-emblem" aria-hidden="true"><img src="/brand/wudayn-emblem-v2.png" width="42" height="49" alt=""/></span>
           <h1 id="wi-title" ref={heading} tabIndex={-1}>{direct ? 'اختياراتك للتوافق' : 'نتعرّف إليك، بكلماتك.'}</h1>
-          <p className="wi-lead">{direct ? 'اختر إجاباتك عن حياتك وشريكك وشخصيتك، ثم راجعها واعتمدها. مساعدة لونا متاحة عند الطلب.' : 'ابدأ بما يهمّك في الزواج. بعد رسالتك الأولى، تقدر تكمل بالاختيارات.'}</p>
-          <p className="wi-screening-note"><HeartHandshake size={16} aria-hidden="true"/>جزء من طلب العضوية، لتوضيح نية الزواج وتوقعاتك.</p>
+          <p className="wi-lead">{direct ? 'اختر ما يناسب حياتك وشريكك.' : 'ابدأ بما يهمّك في الزواج. بعد رسالتك الأولى، تقدر تكمل بالاختيارات.'}</p>
           {!consentGranted && <div className="wi-consent"><label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/><span>أوافق على استخدام إجاباتي لإعداد ملخص التوافق وحفظ الجلسة في حسابي.</span></label><details><summary>خصوصية الجلسة <ChevronDown size={13}/></summary><p>إذا اخترت الحوار، تعالج OpenAI رسائلك لتقترح لونا إجابات يمكنك تعديلها. لا يظهر الحوار للأعضاء. تُحفظ الجلسة الخاصة لمدة ٣٠ يومًا من آخر تحديث، ويمكنك حذفها.</p></details></div>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={(!consent && !consentGranted) || !!busy} onClick={() => void call('start', { consentVersion: 'wudayn-interview-v1', ...(hybridEnabled ? { hybrid: true } : {}) }, true)}>{busy === 'start' ? 'نجهّز جلستك…' : direct ? 'ابدأ الاختيارات' : 'ابدأ الحوار'}<ArrowLeft size={18}/></MotionPressButton>
         </section>
         : profileReview ? <section className="wi-profile-review">
           <button className="wi-link" type="button" onClick={()=>setProfileReview(false)} disabled={actionBlocked}>العودة إلى الحوار <ArrowLeft size={15}/></button>
           <h1 id="wi-title" ref={heading} tabIndex={-1}>ملفك يتشكّل من كلامك</h1>
-          <p className="wi-lead">هذه التفاصيل التي فهمناها. عدّل ما يحتاج، ثم أضفها إلى مسودتك بخطوة واحدة. لا تُنشر قبل إرسال الملف.</p>
+          <p className="wi-lead">اختر ما تضيفه لمسودتك. لا تُنشر قبل إرسال الملف.</p>
           <div className="wi-profile-capture-list">{profileProposals.map(proposal=><ProfileProposalReview key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]} restricted={Boolean(profileField(proposal.fieldId)?.sensitive&&!sensitiveProfileAllowed)} ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice} onIgnore={()=>setIgnoredProfile(previous=>previous.includes(proposal.id)?previous.filter(id=>id!==proposal.id):[...previous,proposal.id])}/>)}</div>
-          {profileChoices.length<profileProposals.length-ignoredProfile.length && <p className="wi-review-attention">التفاصيل غير الواضحة تبقى معلّقة حتى توضّحها؛ لن نملأها بالتخمين.</p>}
+          {profileChoices.length<profileProposals.length-ignoredProfile.length && <p className="wi-review-attention">بعض التفاصيل تحتاج توضيحك.</p>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={actionBlocked || doc.pendingAnalysis || !profileChoices.length} onClick={()=>void saveProfileCapture()}>{busy==='profileConfirm'?'نحفظ التعديلات…':`إضافة ${number(profileChoices.length)} تفاصيل إلى مسودتي`}<Check size={17}/></MotionPressButton>
         </section>
         : (applied || (structuredReceipt && !receiptDraft && !showReceiptSummary)) && !needsParenting ? <section className="wi-complete">
           {structuredReceipt && !direct && <LunaSessionSteps current="complete"/>}
           <h1 id="wi-title" ref={heading} tabIndex={-1}><Check size={21} aria-hidden="true"/>تمّ حفظ ملخصك</h1>
-          <p className="wi-lead">{snapshot.structuredConfirmation ? `حفظنا ${number(doc.confirmed.length)} إجابة في مسودة ملفك.` : 'حفظنا إجاباتك في مسودة ملفك.'} {structuredReceipt ? 'تقدر تراجع إجاباتك وتعدّلها.' : 'يمكنك مراجعتها قبل إرسال الملف.'}</p>
+          {snapshot.structuredConfirmation && <p className="wi-lead">{number(doc.confirmed.length)} إجابة مؤكدة</p>}
           {snapshot.structuredConfirmation && doc.status === 'confirmed' && <ConfirmedAnswers confirmed={doc.confirmed} inferredPartnerIds={snapshot.inferredPartnerIds} gender={gender} onEdit={structuredReceipt ? reviseReceipt : undefined}
             onDetails={structuredReceipt ? () => { setShowReceiptSummary(true); setApplied(false); } : undefined}/>}
           <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={onClose}>{onboarding ? 'متابعة إعداد الملف' : 'العودة إلى ملفي'} <ArrowLeft size={18}/></MotionPressButton>
@@ -721,7 +720,6 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
           {clarifying && <form className="wi-clarification" onSubmit={event => { event.preventDefault(); void send(); }}>
             <label htmlFor="wi-clarification">{clarifying === 'nextStep' ? 'عدّل وصف خطوتك الجاية' : clarifying === 'followUp' ? 'ردّك على لونا' : 'وش تحب توضّح عن إجاباتك؟'}</label>
             {clarifying === 'correction' && <p>اذكر الموضوع والإجابة التي تعبّر عنك. اختياراتك اليدوية تبقى كما هي وتقدر تعدّلها في المراجعة.</p>}
-            {clarifying === 'nextStep' && <p>اكتبها بالطريقة اللي تعبّر عن استعدادك اليوم.</p>}
             <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || !answer.trim()} aria-label="إرسال التوضيح"><ArrowUp size={20}/></button>
               <textarea ref={clarifier} id="wi-clarification" aria-describedby="wi-clarification-count" value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={2} dir="rtl" disabled={actionBlocked}/>
             </div>
@@ -763,9 +761,8 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
               <details className="wi-private-notes">
                 <summary>كيف تبدأ العضوية؟ <ChevronDown size={14}/></summary>
                 <p>وُدَين للتعارف بقصد الزواج وباحترام خصوصية الطرف الآخر. تتفقان على حدود التواصل، وتختاران متى يناسبكما التواصل مع الأهل.</p>
-                <p>تراجع ملخصك بنفسك، وتأكيده يكمل جلسة التوافق. بعدها تكمل بيانات ملفك وترسل طلب العضوية.</p>
               </details>
-              {doc.readiness.length > 0 && <details className="wi-private-notes"><summary>ملخصك الخاص عن الخطوة القادمة <ChevronDown size={14}/></summary><p>يعكس ما ذكرتَه في الحوار، وقد تبقى بعض التفاصيل مفتوحة للنقاش.</p><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
+              {doc.readiness.length > 0 && <details className="wi-private-notes"><summary>ملخصك الخاص عن الخطوة القادمة <ChevronDown size={14}/></summary><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
               {doc.clarifications.length > 0 && <details className="wi-private-notes"><summary>نقاط للنقاش لاحقًا <ChevronDown size={14}/></summary><ul>{doc.clarifications.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
               {!transcriptReviewed && !direct && (doc.readiness.length > 0 || doc.clarifications.length > 0) && <label className="wi-sharing">
                 <input type="checkbox" checked={shareReview} disabled={actionBlocked || doc.pendingAnalysis} onChange={event => setShareReview(event.target.checked)}/>
@@ -780,7 +777,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
         : reviewMode ? <section className="wi-review" data-saved-details={savedDetails || undefined}>
           {savedDetails && !direct && <LunaSessionSteps current="complete"/>}
           {savedDetails && !direct && <PrivateMemory statements={statements}/>}
-          <h1 id="wi-title" ref={heading} tabIndex={-1}>{savedDetails ? 'تفاصيل المراجعة' : fallbackReview ? 'نكمل من حيث وصلنا' : 'هذا ما فهمناه عنك'}</h1><p className="wi-lead">{savedDetails ? 'هنا ملاحظات الحوار وخيار مشاركة الملخص مع فريق العضوية.' : fallbackReview ? 'راجع ما فهمناه حتى الآن وعدّل ما يحتاج إلى تصحيح. نحفظ ما راجعته، ثم تجيب عن النقاط المتبقية فقط.' : 'راجع الإجابات اللي فهمناها من كلامك، وعدّل أي إجابة قبل اعتمادها.'}</p>
+          <h1 id="wi-title" ref={heading} tabIndex={-1}>{savedDetails ? 'تفاصيل المراجعة' : fallbackReview ? 'نكمل من حيث وصلنا' : 'هذا ما فهمناه عنك'}</h1>{!savedDetails && <p className="wi-lead">{fallbackReview ? 'راجع الاقتراحات، ثم أكمل المتبقي.' : 'عدّل أي إجابة قبل اعتمادها.'}</p>}
           {!savedDetails && doc.pendingAnalysis && !fallbackReview && <div className="wi-notice"><p>إجاباتك محفوظة، لكن تحليلها لم يكتمل.</p><button type="button" className="wi-link" onClick={() => void call(doc.status === 'confirmed' ? 'review' : 'retry')} disabled={!!busy}><RotateCcw size={14}/> إعادة المحاولة</button></div>}
           {!savedDetails && unresolved > 0 && <p className="wi-review-attention" role="status">{fallbackReview ? 'النقاط التي لم تتضح بعد ستبقى لك لتجيب عنها مباشرة.' : <>نحتاج توضيح {number(unresolved)} {unresolved === 1 ? 'إجابة' : 'إجابات'} قبل اعتماد الملخص.</>}</p>}
           {!savedDetails && (validProposals.length ? <div className="wi-summary-topics wi-proposal-topics">
@@ -799,7 +796,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
             {!savedDetails && !!profileProposals.length && <details className="wi-review-group wi-profile-group"><summary><span><strong>ملفك وما يناسبك في الشريك</strong><small>مسودة من كلامك · راجعها قبل الإضافة</small></span><ChevronDown size={17}/></summary><div className="wi-profile-capture-list">{profileProposals.map(proposal=><ProfileProposalReview key={proposal.id} proposal={proposal} choice={profileEdits[proposal.id]} restricted={Boolean(profileField(proposal.fieldId)?.sensitive&&!sensitiveProfileAllowed)} ignored={ignoredProfile.includes(proposal.id)} onChange={changeProfileChoice} onIgnore={()=>setIgnoredProfile(previous=>previous.includes(proposal.id)?previous.filter(id=>id!==proposal.id):[...previous,proposal.id])}/>)}</div></details>}
           {!!doc.readiness.length && <details className="wi-private-notes"><summary>عن خطوتك القادمة <ChevronDown size={14}/></summary><ul>{doc.readiness.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
           {!!doc.clarifications.length && <details className="wi-private-notes"><summary>نقاط للحوار لاحقًا <ChevronDown size={14}/></summary><ul>{doc.clarifications.map(note => <li key={note.id}>{note.text}</li>)}</ul></details>}
-          {!transcriptReviewed && !fallbackReview && <details className="wi-sharing-options"><summary>مشاركة الملخص مع فريق العضوية <ChevronDown size={14}/></summary><label className="wi-sharing"><input type="checkbox" checked={shareReview} disabled={doc.pendingAnalysis} onChange={event => { setShareReview(event.target.checked); setSharingSaved(false); }}/><span>أشارك ملخص الاستعداد ونقاط التوضيح فقط.<small>اختياري. الحوار وإجابات التوافق تبقى خاصة.</small></span></label>{shareReview !== doc.reviewSharing && <button type="button" className="wi-link wi-sharing-save" disabled={!!busy || doc.pendingAnalysis} onClick={() => void saveSharing()}>{shareReview ? 'حفظ خيار المشاركة فقط' : 'سحب مشاركة الملخص فقط'}</button>}{sharingSaved && <p className="wi-sharing-saved" role="status"><Check size={14}/>حُفظ خيار المشاركة، دون تغيير إجابات ملفك.</p>}</details>}
+          {!transcriptReviewed && !fallbackReview && <details className="wi-sharing-options"><summary>مشاركة الملخص مع فريق العضوية <ChevronDown size={14}/></summary><label className="wi-sharing"><input type="checkbox" checked={shareReview} disabled={doc.pendingAnalysis} onChange={event => { setShareReview(event.target.checked); setSharingSaved(false); }}/><span>أشارك ملخص الاستعداد ونقاط التوضيح فقط.<small>اختياري. الحوار وإجابات التوافق تبقى خاصة.</small></span></label>{shareReview !== doc.reviewSharing && <button type="button" className="wi-link wi-sharing-save" disabled={!!busy || doc.pendingAnalysis} onClick={() => void saveSharing()}>{shareReview ? 'حفظ خيار المشاركة فقط' : 'سحب مشاركة الملخص فقط'}</button>}{sharingSaved && <p className="wi-sharing-saved" role="status"><Check size={14}/>حُفظ خيار المشاركة.</p>}</details>}
           </div>
           {!savedDetails && incomplete && !fallbackReview && <p className="wi-review-attention">بقيت نقاط نحتاج إجابتك عنها لنكمل التقييم.</p>}
           {savedDetails ? <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={() => setShowReceiptSummary(false)}>العودة إلى ملخصي<ArrowLeft size={18}/></MotionPressButton> : fallbackReview ? <MotionPressButton className="wi-button wi-button-primary wi-wide" disabled={!!busy} onClick={finishFallbackReview}>اعتماد ما راجعته وإكمال المتبقي<ArrowLeft size={18}/></MotionPressButton> : <MotionPressButton className="wi-button wi-button-primary wi-wide" onClick={() => void confirm()} disabled={!!busy || doc.pendingAnalysis || unresolved > 0 || incomplete || !validProposals.length}>{busy === 'confirm' ? 'جارٍ الحفظ…' : 'هذا يمثّلني، اعتماد الملخص'}<Check size={18}/></MotionPressButton>}
@@ -815,7 +812,7 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
             {!!profileProposals.length && <button className="wi-profile-summary-link" type="button" onClick={()=>setProfileReview(true)} disabled={actionBlocked}><span><Pencil size={13}/>{number(profileProposals.length)} تفاصيل لملفك وتفضيلاتك</span><span>مراجعة <ArrowLeft size={13}/></span></button>}
           </div>
           <div className="wi-thread" ref={thread} role="log" aria-label="رسائل الجلسة" aria-relevant="additions" aria-live="polite" onScroll={event=>{const el=event.currentTarget;followConversation.current=el.scrollHeight-el.scrollTop-el.clientHeight<90;}}>
-            {openingTurn && <div className="wi-opening-note"><h1>ابدأ من قصتك.</h1><p>{hybridEnabled ? 'حديثك خاص، وتكتب نبذة ملفك لاحقًا.' : 'اكتب للونا فقرة قصيرة عنك وعن الزواج الذي تتمناه. حديثك خاص. بعد رسالتك الأولى ننتقل للاختيارات، وتكتب نبذة ملفك لاحقًا.'}</p></div>}
+            {openingTurn && <div className="wi-opening-note"><h1>ابدأ من قصتك.</h1><p>تكتب نبذة ملفك لاحقًا.</p></div>}
             {doc.turns.map((turn,index) => {
               const changes = (captures[turn.id] ?? []).filter(change => !nextStepTurn || index !== 0 || change.profile);
               return <div className="wi-exchange" key={turn.id}>
@@ -833,9 +830,9 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
             </div>;})}
             {nextStepTurn && <div className="wi-opening-note wi-next-step-note"><h1>كيف تتصوّر التعارف الجاد؟</h1><p>خطوتك الجاية بكلماتك. هذا السؤال اختياري.</p></div>}
             <div className="wi-bubble wi-bubble-guide wi-current-question" key={doc.currentQuestion?.text} data-settled={responding || undefined}><span className="wi-speaker"><img src="/brand/wudayn-emblem-v2.png" width="18" height="21" alt=""/>لونا</span>{renderLunaMessage(doc.currentQuestion?.text ?? 'وش تحب تضيف عن اللي تبحث عنه؟', true)}</div>
-            {openingTurn && hybridEnabled && <p className="wi-opening-benefit wi-prompt-benefit">أي إجابة واضحة من كلامك تظهر لك لتراجعها وتعدّلها، والباقي تكمله باختياراتك.</p>}
+            {openingTurn && hybridEnabled && <p className="wi-opening-benefit wi-prompt-benefit">بتراجع اقتراحات لونا وتكمّل اللي بقي.</p>}
             {showPendingReply && <div className="wi-bubble wi-bubble-member wi-new-answer"><p dir="auto">{pendingReply.text}</p><small>جارٍ الإرسال</small></div>}
-            {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>نربط كلامك بما يهمّك…</span></div>}
+            {responding && <div className="wi-typing" role="status" aria-label="وُدَين يكتب"><TypingDots/><span>لونا تكتب…</span></div>}
             {!hybridEnabled && !responding && coverageGain > 1 && !captures[doc.turns.at(-1)?.id ?? '']?.length && <div className="wi-coverage-note" key={doc.lastRequestId} role="status"><Check size={13} aria-hidden="true"/><span>إجابتك وضّحت {number(coverageGain)} نقاط دفعة واحدة</span></div>}
           </div>
           <form className="wi-composer" data-opening={openingTurn || undefined} data-next-step={nextStepTurn || undefined} onSubmit={event => { event.preventDefault(); void send(); }}>
@@ -847,16 +844,16 @@ export function InterviewPanel({ open, auth, measurementOwner, initialField, onC
             {openingTurn && !hybridEnabled && !answer.trim() && <div className="wi-intro-cues" aria-label="أفكار تساعدك في التعريف"><span>عنّك</span><span>حياتك اليوم</span><span>الشريك الذي تبحث عنه</span><span>استعدادك للزواج</span></div>}
             {!answer.trim() && !!doc.currentQuestion?.suggestions.length && <><p className="wi-choice-intro">اختر الأقرب لك، أو اكتب إجابتك بطريقتك.</p><div className="wi-chat-suggestions" aria-label="إجابات سريعة، اضغط لإرسال اختيارك">{doc.currentQuestion.suggestions.slice(0,4).map(suggestion => <MotionPressButton type="button" key={suggestion} disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(false, suggestion)}>{suggestion}</MotionPressButton>)}</div></>}
             <div className="wi-compose-row"><button className="wi-send" type="submit" disabled={actionBlocked || doc.pendingAnalysis || !answer.trim()} aria-label="إرسال الرسالة"><ArrowUp size={20}/></button><textarea ref={composer} id="wi-answer" aria-label="رسالتك" aria-describedby={answerHelp ? 'wi-answer-count wi-answer-help' : 'wi-answer-count'} value={answer} onChange={event => changeAnswer(event.target.value)} maxLength={answerLimit} rows={openingTurn ? 4 : nextStepTurn ? 3 : 1} wrap="soft" placeholder={openingTurn && hybridEnabled ? 'اكتب بطريقتك، حتى لو كانت كم جملة…' : openingTurn ? 'أهم شيء عندي…' : 'قل لنا بطريقتك…'} autoComplete="off" spellCheck dir="rtl" lang="ar" disabled={actionBlocked || doc.pendingAnalysis}/></div>
-            <div className="wi-compose-meta"><span role="status">{responding ? 'نقرأ إجابتك' : saveMessage}</span>
+            <div className="wi-compose-meta"><span role="status">{saveMessage}</span>
               {nextStepTurn ? <button type="button" disabled={actionBlocked || doc.pendingAnalysis} onClick={() => void send(true)}>تخطّي السؤال</button> : (!openingTurn || !hybridEnabled) &&
                 <button type="button" aria-expanded={answerHelp} aria-controls="wi-answer-help" onClick={()=>setAnswerHelp(value=>!value)}>كيف أبدأ؟</button>}
               <span id="wi-answer-count">{number(answer.length)} من {number(answerLimit)} حرف</span><button type="button" onClick={() => void close()} disabled={actionBlocked}>إكمال لاحقًا</button></div>
           </form>
         </section>}
         {error && <div className="wi-error" role="alert"><p>{error}</p>{/conflict|revision|stale/.test(errorCode) && <button type="button" className="wi-link" disabled={!!busy} onClick={() => void call('load', {}, true)}>استعادة آخر نسخة محفوظة</button>}</div>}
-        {isChat && doc?.pendingAnalysis && !unavailable && <div className="wi-recovery" role="status"><p>إجابتك محفوظة. نحتاج إكمال تحليلها قبل السؤال التالي.</p><button type="button" className="wi-link" onClick={() => void call('retry', hybridEnabled ? { hybrid: true, cardsAfterReply: true } : {}, true)} disabled={actionBlocked}>إعادة المحاولة</button></div>}
+        {isChat && doc?.pendingAnalysis && !unavailable && <div className="wi-recovery" role="status"><p>تعذّر فتح السؤال التالي. إجابتك محفوظة.</p><button type="button" className="wi-link" onClick={() => void call('retry', hybridEnabled ? { hybrid: true, cardsAfterReply: true } : {}, true)} disabled={actionBlocked}>إعادة المحاولة</button></div>}
         {unavailable && !applied && !fallbackReview && <div className="wi-recovery" role="status"><p>تعذّر إكمال الحوار الآن. إجاباتك محفوظة؛ يمكنك المحاولة مجددًا أو إكمال النقاط المتبقية مباشرة.</p>{doc && <button type="button" className="wi-link" onClick={() => void call('retry', hybridEnabled ? { hybrid: true, cardsAfterReply: true } : {}, true)} disabled={actionBlocked}>إعادة المحاولة</button>}<button type="button" className="wi-link" onClick={useFallback} disabled={actionBlocked}>إكمال الأسئلة مباشرة</button></div>}
-        {doc && !applied && !isChat && <footer className="wi-private-footer"><span><LockKeyhole size={12}/> حوارك لا يظهر للأعضاء</span><button type="button" className="wi-link" onClick={() => setDeleteWarning(value => !value)} disabled={!!busy}><Trash2 size={13}/> حذف الجلسة</button></footer>}
+        {doc && !applied && !isChat && <footer className="wi-private-footer"><button type="button" className="wi-link" onClick={() => setDeleteWarning(value => !value)} disabled={!!busy}><Trash2 size={13}/> حذف الجلسة</button></footer>}
         {deleteWarning && <div className="wi-delete-warning" role="alert"><p>حذف الحوار والملخص الخاص؟ إجاباتك التي سبق حفظها في الملف لا تتغير.</p><div><button className="wi-button" type="button" onClick={() => setDeleteWarning(false)}>تراجع</button><button className="wi-button wi-button-danger" type="button" disabled={!!busy} onClick={() => void call('delete', {}, true).then(result => { if (result) { setDeleteWarning(false); setApplied(false); setSharingSaved(false); autoStarted.current = true; } })}>حذف الجلسة</button></div></div>}
       </div>
     </div>

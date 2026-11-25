@@ -50,7 +50,6 @@ export function FitDetails({ fit, profile = false }: { fit: MatchFit; profile?: 
   return <section className="nf-fit" aria-labelledby={heading}>
     <header className="nf-fit-heading">
       <h2 id={heading} className="nf-fit-title">التوافق بينكما</h2>
-      <p>{hasPersonality ? 'التفضيلات، والطباع، ومواقف الحياة. لكلٍّ قراءة مستقلة.' : 'تفضيلات الزواج ومواقف الحياة المشتركة.'}</p>
     </header>
     <div className="nf-fit-scores">
       <div className="nf-fit-score" data-fit-score="preferences">
@@ -69,7 +68,7 @@ export function FitDetails({ fit, profile = false }: { fit: MatchFit; profile?: 
         <div className="nf-fit-score" data-fit-score="partner-personality">
           <Fingerprint className="nf-score-icon" size={20} aria-hidden="true"/><h3>توافق تفضيلات الشخصية</h3>
           <strong>{arabic.format(fit.partnerPersonalityFit)}<small> من ١٠٠</small></strong>
-          <p>نقارن الصفات التي يفضّلها كل منكما بوصف الآخر لنفسه. تأخذ الدرجة الاتجاهين في الحسبان، وتُستبعد الصفات التي تركتموها مرنة.</p>
+          <p>مدى توافق صفاتكما مع ما يبحث عنه كل طرف في شريكه.</p>
         </div>}
       {hasPersonality && <div className="nf-fit-score personality" data-fit-score="personality">
         <Fingerprint className="nf-score-icon" size={20} strokeWidth={1.5} aria-hidden="true"/>
@@ -87,7 +86,7 @@ export function FitDetails({ fit, profile = false }: { fit: MatchFit; profile?: 
       <PreferenceInsights fit={fit}/>
     </details> : <div id={preferenceId} ref={preferencePanel} tabIndex={-1} className="nf-preference-panel" aria-label="أسباب توافق التفضيلات"><PreferenceInsights fit={fit}/></div>}
     {hasPersonality && <PersonalityAnalysis fit={fit} id={personalityId} panelRef={personalityPanel}/>}
-    <section className="nf-fit-conversation"><h3><MessageCircle size={17} aria-hidden="true"/><span>سؤال لبداية أوضح</span></h3><div><p>{suggestedQuestions(fit)[0]}</p><small>اقتراح للحوار بعد قبول التعارف، وليس إجابة نيابةً عن الطرف الآخر.</small></div></section>
-    <p className="nf-fit-boundary">قراءات من إجاباتكما، وليست احتمالًا لنجاح الزواج. تظهر كل نتيجة عند اكتمال تقييمها لدى الطرفين.</p>
+    <section className="nf-fit-conversation"><h3><MessageCircle size={17} aria-hidden="true"/><span>سؤال لبداية أوضح</span></h3><div><p>{suggestedQuestions(fit)[0]}</p></div></section>
+    <p className="nf-fit-boundary">تصف النسب توافق إجاباتكما. لا تتنبأ بنجاح الزواج.</p>
   </section>;
 }

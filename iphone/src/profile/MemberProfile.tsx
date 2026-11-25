@@ -244,7 +244,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       </>}
       {hasFit&&section==='fit'&&<section className="mp-fit">{person.fit?<FitDetails fit={person.fit} profile/>:<><h2>ما يجمعكما</h2><ul>{person.reasons.map(reason=><li key={reason}><Check size={15}/>{reason}</li>)}</ul></>}</section>}
     </div>
-    {preview&&<p className="mp-preview-footnote">نسبة التوافق تختلف من شخص لآخر؛ تظهر عند مقارنة تقييميكما. إجابات التقييم ومتطلبات الشريك الخاصة لا تظهر في هذا الملف.</p>}
+    {preview&&<p className="mp-preview-footnote">إجابات التقييم وتفضيلات الشريك خاصة بك.</p>}
     {!preview&&children&&<footer className="mp-secondary">{children}</footer>}
   </article>;
 }

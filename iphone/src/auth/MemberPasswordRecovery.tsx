@@ -76,7 +76,7 @@ export function MemberPasswordRecovery({ callback, onBack }: { callback?: Recove
       <p className="flow-intro">افتح أحدث رابط وصل إلى بريدك. لا تشارك رابط الاستعادة مع أحد.</p>
       <button className="f-primary" onClick={() => { setError(''); setStage('request'); }}>طلب رابط جديد</button>
     </> : stage === 'request' ? available ? <>
-      <p className="flow-intro">أدخل البريد الذي أنشأت به حساب العضوية. ستكمل تغيير كلمة المرور في صفحة آمنة بالمتصفح، ثم تعود للتطبيق.</p>
+      <p className="flow-intro">سنرسل رابط الاستعادة إلى بريد حسابك.</p>
       <form className="flow-form" onSubmit={event => void submit(event)}>
         <label>البريد الإلكتروني<input type="email" dir="ltr" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} maxLength={254} required disabled={busy}/></label>
         <button className="f-primary" disabled={busy || remaining > 0}>{remaining > 0 ? `إعادة الإرسال بعد ${remaining.toLocaleString('ar-SA')} ث` : sent ? 'إعادة إرسال الرابط' : 'إرسال رابط الاستعادة'}<Mail size={18}/></button>

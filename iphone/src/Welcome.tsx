@@ -88,7 +88,6 @@ export function Welcome({ onRegister, onLogin, onPrivacy, onGuide, skipOpening=f
       <MotionReveal className="wd-hero-copy" delay={revealDelay} duration={700} distance={14}>
         <span className="wd-welcome-kicker"><span/> تعارف بنية زواج واضحة</span>
         <h1 id="arrival-heading">شخص ترتاح له.<br/><em>وحياة تتفقون عليها.</em></h1>
-        <p>توافق واضح قبل ما يبدأ التعارف.</p>
         <div className="wd-hero-actions"><MotionPressButton type="button" className="nf-join wd-welcome-primary" onClick={begin}>ابدأ طلب العضوية <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton><p className="wd-seriousness-proof">توافق قبل التواصل <i/> مدة متفق عليها <i/> خطوة رسمية واضحة</p><a className="wd-welcome-explore" href="#welcome-experience">اكتشف وُدَين <ArrowDown size={15} aria-hidden="true"/></a></div>
       </MotionReveal>
       <figure className="wd-hero-art">
@@ -100,7 +99,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, onGuide, skipOpening=f
     <div className="wd-welcome-principles" aria-label="ما يميّز التجربة"><span><Check size={15} aria-hidden="true"/> ملف بكلامك</span><span><Check size={15} aria-hidden="true"/> توافق بأسبابه</span><span><Check size={15} aria-hidden="true"/> تعارف باتفاق</span></div>
 
     <section className="wd-product-story" id="welcome-experience" aria-labelledby="welcome-experience-heading">
-      <div className="wd-product-copy"><span className="wd-welcome-kicker">وُدَين من الداخل</span><h2 id="welcome-experience-heading">من كلامك عن نفسك<br/>إلى أول حديث بينكم.</h2><p className="wd-section-intro">تبدأ مع لونا، تتعرّف على الملفات، وتشوف وش يجمعكم قبل ما ترسل طلب تعارف.</p>
+      <div className="wd-product-copy"><span className="wd-welcome-kicker">وُدَين من الداخل</span><h2 id="welcome-experience-heading">من كلامك عن نفسك<br/>إلى أول حديث بينكم.</h2>
         <div className="wd-preview-controls" role="group" aria-label="استكشف شاشات التطبيق">{previews.map((item,index)=><button type="button" key={item.id} aria-pressed={selected===index} aria-controls={previewId} onClick={()=>setSelected(index)}><item.icon size={17} strokeWidth={1.6} aria-hidden="true"/><span>{item.label}</span></button>)}</div>
         <div className="wd-preview-description" aria-live="polite" aria-atomic="true"><h3>{preview.title}</h3><p>{preview.description}</p></div>
         <WhyWudayn label="تعرّف على منهج وُدَين"/>
@@ -118,7 +117,7 @@ export function Welcome({ onRegister, onLogin, onPrivacy, onGuide, skipOpening=f
       <li><span>٠٣</span><div><h3>محادثة خاصة للأهل</h3><p>إذا وافقتوا، يفتح «جسر الأهل» مساحة منفصلة لترتيب الخطوة الرسمية. حديثكم الأول يبقى بينكم.</p></div></li>
     </ol></section>
 
-    <section className="wd-welcome-purpose" aria-labelledby="welcome-purpose-heading"><img src="/brand/wudayn-heart-v2.png" alt="" width="768" height="768" loading="lazy" aria-hidden="true"/><span className="wd-welcome-kicker">لبداية حياة مشتركة</span><h2 id="welcome-purpose-heading">خلّ البداية<br/>تشبهك.</h2><p>ابدأ باللي يهمّك في زواجك، وخذ وقتك في اختيار الشخص اللي تشاركه هالحياة.</p><MotionPressButton type="button" className="wd-welcome-primary wd-purpose-cta" onClick={begin}>ابدأ طلب العضوية <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton></section>
-    <footer className="wd-welcome-footer"><BrandWordmark/><span>بداية لحياة مشتركة</span>{onGuide&&<button type="button" onClick={onGuide}>جولة في وُدَين</button>}<button type="button" onClick={onPrivacy}>الخصوصية وشروط الاستخدام</button></footer>
+    <section className="wd-welcome-purpose" aria-labelledby="welcome-purpose-heading"><img src="/brand/wudayn-heart-v2.png" alt="" width="768" height="768" loading="lazy" aria-hidden="true"/><span className="wd-welcome-kicker">لبداية حياة مشتركة</span><h2 id="welcome-purpose-heading">خلّ البداية<br/>تشبهك.</h2><MotionPressButton type="button" className="wd-welcome-primary wd-purpose-cta" onClick={begin}>ابدأ طلب العضوية <ArrowLeft size={18} aria-hidden="true"/></MotionPressButton></section>
+    <footer className="wd-welcome-footer"><BrandWordmark/>{onGuide&&<button type="button" onClick={onGuide}>جولة في وُدَين</button>}<button type="button" onClick={onPrivacy}>الخصوصية وشروط الاستخدام</button></footer>
   </main></>;
 }

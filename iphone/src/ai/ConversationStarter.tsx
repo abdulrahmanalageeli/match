@@ -24,7 +24,6 @@ export function ConversationStarter({ source, person, disabled, choose }: {
   }
   return <div className="cm-ai-opener">
     <button type="button" onClick={() => void suggest()} disabled={busy || disabled}><Sparkles size={14}/>{busy ? 'نجهّز بداية مناسبة…' : 'اقترح بداية للحديث'}</button>
-    <small>اقتراح عام تراجعه قبل الإرسال.</small>
     {error && <small role="alert">{error}</small>}
     {text && <div className="cm-ai-result"><p dir="auto">{text}</p><button type="button" disabled={disabled} onClick={() => { if (!disabled) choose(text); }}>استخدام كمسودة</button></div>}
   </div>;

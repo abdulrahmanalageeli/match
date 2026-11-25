@@ -332,11 +332,6 @@ export function Home({
               <h2>
                 {paused ? "ترشيحاتك متوقفة مؤقتًا" : "لا يوجد ترشيح حاليًا"}
               </h2>
-              <p>
-                {paused
-                  ? "يمكنك استئناف استقبال الترشيحات متى شئت."
-                  : "سيظهر الترشيح هنا عندما يتوافق ملفان وتتوفر فرصة للتعارف."}
-              </p>
               <button
                 className="btn-secondary"
                 type="button"
@@ -348,10 +343,6 @@ export function Home({
             </div>
           </section>
         )}
-        <div className="mi-privacy">
-          <LockKeyhole size={15} aria-hidden="true" />
-          <p>تظهر بيانات التواصل بعد موافقة الطرفين فقط.</p>
-        </div>
       </div>
       <MemberTabs
         source={source}

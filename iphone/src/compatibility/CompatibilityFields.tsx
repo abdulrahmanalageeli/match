@@ -105,7 +105,7 @@ export function CompatibilityFields({ initialField, version, childrenCount, part
       <p className="compat-interest-note" aria-live="polite">{number.format(interestIds.length)} من {number.format(maxInterests)} اهتمامات</p>
     </details>;
   const nextQuestionPosition = positions[questionIndex + 1];
-  const assessmentNote = <p className="compat-assessment-note">اختر ما يصفك، ثم حدّد ما يناسبك من شريكك. يمكن أن تختلف الإجابتان. {required ? 'لا توجد إجابة صحيحة أو خاطئة.' : 'ويمكنك تجاوز أي سؤال.'}</p>;
+  const assessmentNote = <p className="compat-assessment-note">أجب عن نفسك أو عن الشريك بحسب السؤال.{!required && ' يمكنك تجاوز السؤال.'}</p>;
 
   return <div className="compat-fields" dir="rtl">
     {!registration && interestPicker}
@@ -113,7 +113,7 @@ export function CompatibilityFields({ initialField, version, childrenCount, part
       <header className="compat-section-head"><span><Sparkles size={16} aria-hidden="true"/> صورتك عن الحياة</span><span className="compat-counter" aria-live="polite">{number.format(filled)} من {number.format(total)} إجابة</span></header>
       {!registration && assessmentNote}
       <div className="compat-answer-meter" role="progressbar" aria-label="إجابات التوافق" aria-valuemin={0} aria-valuemax={total} aria-valuenow={filled}><span style={{ transform: `scaleX(${filled / total})` }}/></div>
-      {remainingDone ? <div className="compat-assessment-recap" role="status"><span className="compat-recap-icon"><Check size={18} aria-hidden="true"/></span><p><strong>{filled === total ? 'تفضيلاتك مكتملة ومحفوظة في المسودة' : 'هذه بقية تفضيلاتك'}</strong><small>{filled === total ? 'لن نطلب منك الإجابة عنها مرة أخرى. يمكنك مراجعتها من ملخص الملف.' : `بقيت ${number.format(total-filled)} إجابات${required ? " لنكمل صورتك عن الحياة." : " اختيارية. يمكنك إكمالها أو متابعة التسجيل."}`}</small></p>{firstMissing >= 0 && <button type="button" onClick={() => { completedHere.current.clear(); setRemainingFinished(false); setPosition(firstMissing); }}>إكمال المتبقي<ChevronLeft size={15}/></button>}</div> : <div className="compat-question-workspace">
+      {remainingDone ? <div className="compat-assessment-recap" role="status"><span className="compat-recap-icon"><Check size={18} aria-hidden="true"/></span><p><strong>{filled === total ? 'تفضيلاتك مكتملة' : 'هذه بقية تفضيلاتك'}</strong><small>{filled === total ? 'راجع تفضيلاتك من ملخص الملف.' : `بقيت ${number.format(total-filled)} إجابات${required ? " مطلوبة." : " اختيارية. يمكنك إكمالها أو متابعة التسجيل."}`}</small></p>{firstMissing >= 0 && <button type="button" onClick={() => { completedHere.current.clear(); setRemainingFinished(false); setPosition(firstMissing); }}>إكمال المتبقي<ChevronLeft size={15}/></button>}</div> : <div className="compat-question-workspace">
       <details ref={outline} className="compat-outline">
         <summary><span>{category.label}<small>الفكرة {number.format(topicIndex + 1)} من {number.format(topics.length)}</small></span><span className="compat-outline-action">{registration ? "المواضيع والدليل" : "المواضيع"}<ChevronDown size={14} aria-hidden="true"/></span></summary>
         {registration && <div className="compat-answer-guide"><strong>كيف تجيب؟</strong>{assessmentNote}</div>}

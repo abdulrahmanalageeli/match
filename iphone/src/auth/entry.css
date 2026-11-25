@@ -3,9 +3,13 @@
   --auth-ink: #30232c;
   --auth-muted: #665a62;
   --auth-line: #e7e1e2;
+  --auth-wine: #65112e;
+  --auth-gold: #b58a58;
   max-width: 520px; margin-inline: auto; min-height: 100svh;
   padding: var(--nf-safe-top) clamp(16px, 4.6vw, 26px) 0;
-  background: #f8f6f5; color: var(--auth-ink);
+  overflow-anchor: none;
+  background: radial-gradient(circle at 50% 8%, rgba(101,17,46,.055), transparent 27%), #faf8f7;
+  color: var(--auth-ink);
 }
 .phone-app :is(.demo-notice, .nf-tester-tools) ~ main.nf-auth-frame { padding-block-start: 0; }
 .phone-app .nf-auth-frame .flow-header {
@@ -18,12 +22,16 @@
 .phone-app .nf-auth-frame .flow-header .nf-keyboard-dismiss { flex: none; padding-inline: 8px; }
 .phone-app .nf-auth-frame .flow-header .nf-keyboard-dismiss span { display: none; }
 .phone-app .nf-auth-frame .flow-body { display: flex; flex-direction: column; gap: 0; padding: clamp(8px, 2dvh, 18px) 0 max(8px, var(--nf-safe-bottom)); }
-.phone-app .nf-auth-frame .nf-auth-hero { padding: 0 0 14px; }
-.phone-app .nf-auth-frame .nf-auth-hero h1 { margin: 0; color: var(--auth-ink); font-size: 1.55rem; font-weight: 700; line-height: 1.4; letter-spacing: normal; }
+.phone-app .nf-auth-frame .nf-auth-hero { padding: 0 0 12px; text-align: center; }
+.phone-app .nf-auth-frame .nf-auth-signature { display: grid; grid-template-columns: 1fr 36px 1fr; align-items: center; gap: 9px; width: min(188px, 58%); margin: 0 auto 3px; }
+.phone-app .nf-auth-frame .nf-auth-signature span { height: 1px; background: linear-gradient(90deg, transparent, rgba(181,138,88,.72)); transform-origin: center; }
+.phone-app .nf-auth-frame .nf-auth-signature span:last-child { background: linear-gradient(90deg, rgba(181,138,88,.72), transparent); }
+.phone-app .nf-auth-frame .nf-auth-signature img { width: 36px; height: 42px; object-fit: contain; filter: drop-shadow(0 7px 13px rgba(91,15,40,.14)); }
+.phone-app .nf-auth-frame .nf-auth-hero h1 { margin: 0; color: var(--auth-ink); font-size: 1.58rem; font-weight: 700; line-height: 1.38; letter-spacing: normal; }
 .phone-app .nf-auth-frame .nf-auth-hero h1:focus { outline: none; }
-.phone-app .nf-auth-frame .nf-auth-hero .flow-intro { max-width: 44ch; color: var(--auth-muted); font-size: .9375rem; line-height: 1.55; margin: 4px 0 0; }
-.nf-auth-brief { margin-top: 8px; border-block-end: 1px solid var(--auth-line); }
-.nf-auth-brief summary { display: flex; align-items: center; gap: 8px; min-height: 44px; color: #653148; font-size: .875rem; font-weight: 600; cursor: pointer; list-style: none; }
+.phone-app .nf-auth-frame .nf-auth-hero .flow-intro { max-width: 40ch; color: var(--auth-muted); font-size: .875rem; line-height: 1.5; margin: 3px auto 0; }
+.nf-auth-brief { margin-top: 7px; border-block: 1px solid rgba(118,82,95,.15); }
+.nf-auth-brief summary { display: flex; align-items: center; gap: 8px; min-height: 40px; color: #653148; font-size: .84rem; font-weight: 600; cursor: pointer; list-style: none; }
 .nf-auth-brief summary::-webkit-details-marker { display: none; }
 .nf-auth-brief summary > svg:last-child { margin-inline-start: auto; }
 .nf-auth-brief[open] summary > svg:last-child { transform: rotate(180deg); }
@@ -60,9 +68,8 @@
 .nf-auth-account-summary > bdi { min-width: 0; text-align: end; font-size: .875rem; overflow-wrap: anywhere; color: var(--auth-ink); }
 .nf-auth-account-summary > button { min-height: 44px; min-width: 44px; padding: 0; border: 0; background: none; color: #5a0f28; font-size: .875rem; }
 .phone-app .nf-auth-frame .nf-consent-review { padding: 0; margin: 0; border: 0; border-radius: 0; background: none; }
-.phone-app .nf-auth-frame .nf-consent-choice { gap: 9px; min-height: 44px; margin: 0; padding: 8px 10px; background: #fff; border: 0; border-bottom: 1px solid var(--auth-line); }
-.phone-app .nf-auth-frame .nf-consent-choice:first-of-type { border-radius: 16px 16px 0 0; }
-.phone-app .nf-auth-frame .nf-consent-choice:last-of-type { border-radius: 0 0 16px 16px; border-bottom: 0; }
+.phone-app .nf-auth-frame .nf-consent-choice { gap: 9px; min-height: 44px; margin: 0; padding: 7px 2px; background: transparent; border: 0; border-bottom: 1px solid rgba(118,82,95,.15); }
+.phone-app .nf-auth-frame .nf-consent-choice:last-of-type { border-bottom: 0; }
 .phone-app .nf-auth-frame .nf-consent-choice input[type=checkbox] {
   appearance: none; -webkit-appearance: none; display: grid; place-items: center; flex: none;
   width: 22px; height: 22px; margin: 2px 0 0; border: 1px solid #aa99a1; border-radius: 6px; background: #fff;
@@ -71,8 +78,8 @@
 .phone-app .nf-auth-frame .nf-consent-choice input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; margin-top: -3px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .phone-app .nf-auth-frame .nf-consent-choice input[type=checkbox]:focus-visible { outline: 2px solid #996479; outline-offset: 3px; }
 .phone-app .nf-auth-frame .nf-consent-choice input[type=checkbox]:disabled { opacity: .55; }
-.phone-app .nf-auth-frame .nf-consent-choice strong { font-size: .9375rem; font-weight: 600; line-height: 1.45; color: var(--auth-ink); }
-.phone-app .nf-auth-frame .nf-consent-choice small, .phone-app .nf-auth-frame .nf-consent-review > p { color: var(--auth-muted); font-size: .875rem; line-height: 1.5; font-weight: 400; }
+.phone-app .nf-auth-frame .nf-consent-choice strong { font-size: .89rem; font-weight: 600; line-height: 1.4; color: var(--auth-ink); }
+.phone-app .nf-auth-frame .nf-consent-choice small, .phone-app .nf-auth-frame .nf-consent-review > p { color: var(--auth-muted); font-size: .8rem; line-height: 1.43; font-weight: 400; }
 .phone-app .nf-auth-frame .nf-consent-choice small { display: block; margin-block-start: 2px; }
 .phone-app .nf-auth-frame .nf-consent-review > p { padding-inline: 2px; margin: 0 0 8px; }
 .phone-app .nf-auth-frame .nf-privacy-link { padding: 8px 4px; min-height: 44px; font-size: 13px; color: #5a0f28; }
@@ -86,18 +93,38 @@
 .nf-auth-alternatives { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0 16px; }
 .nf-auth-alternatives:empty { display: none; }
 .nf-auth-alternatives > .f-secondary { flex-basis: 100%; }
-.phone-app .nf-auth-frame .nf-social-login { gap: 7px; }
-.phone-app .nf-auth-frame .nf-social-login button { min-height: 46px; border-radius: 13px; font-size: 1rem; font-weight: 600; }
-.phone-app .nf-auth-frame .nf-social-login button:first-child { background: #211c20; border-color: #211c20; color: #fff; }
+.phone-app .nf-auth-frame .nf-social-login { display: grid; gap: 9px; margin-top: 2px; }
+.phone-app .nf-auth-frame .nf-provider-button { display: grid; grid-template-columns: 32px minmax(0,1fr) 18px; align-items: center; gap: 10px; min-height: 52px; padding: 4px 13px; border: 1px solid rgba(80,56,66,.15); border-radius: 17px; background: rgba(255,255,255,.76); color: var(--auth-ink); box-shadow: 0 10px 26px rgba(62,36,46,.055), inset 0 1px rgba(255,255,255,.9); font-size: .95rem; font-weight: 650; text-align: start; transition: transform 180ms ease, box-shadow 180ms ease; }
+.phone-app .nf-auth-frame .nf-provider-button--apple { background: linear-gradient(135deg,#2c272a,#171416); border-color: #201b1e; color: #fff; box-shadow: 0 12px 25px rgba(28,20,24,.16); }
+.phone-app .nf-auth-frame .nf-provider-button:not(:disabled):active { transform: scale(.985); box-shadow: 0 6px 14px rgba(62,36,46,.08); }
+.phone-app .nf-auth-frame .nf-provider-button:disabled { opacity: .48; box-shadow: none; }
+.phone-app .nf-auth-frame .nf-provider-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: rgba(255,255,255,.96); color: #171416; }
+.phone-app .nf-auth-frame .nf-provider-button--apple .nf-provider-mark { background: rgba(255,255,255,.11); color: #fff; }
+.phone-app .nf-auth-frame .nf-provider-mark svg { width: 18px; height: 18px; }
+.phone-app .nf-auth-frame .nf-provider-button > svg { opacity: .58; }
 .phone-app .nf-auth-frame .form-error { background: #fff0f2; border: 1px solid #ebcdd5; border-radius: 11px; padding: 10px 12px; color: #8e2942; }
 .phone-app .nf-auth-frame :is(button, summary):focus-visible { outline: 2px solid #996479; outline-offset: 3px; }
 .nf-auth-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (prefers-reduced-motion: no-preference) {
   html:not([data-nf-motion="reduced"]) .phone-app .nf-auth-frame :is(.flow-body, .nf-auth-panel, .nf-auth-hero) { animation: none; }
+  html:not([data-nf-motion="reduced"]) .nf-auth-hero .nf-auth-signature img { animation: nf-auth-emblem-arrive 600ms cubic-bezier(.2,.78,.2,1) both; }
+  html:not([data-nf-motion="reduced"]) .nf-auth-hero .nf-auth-signature span { animation: nf-auth-thread-draw 480ms ease-out 150ms both; }
+  html:not([data-nf-motion="reduced"]) .nf-auth-hero :is(h1,.flow-intro) { animation: nf-auth-copy-arrive 380ms ease-out both; }
+  html:not([data-nf-motion="reduced"]) .nf-auth-panel[data-auth-mode=social] .wd-entry-agreements { animation: nf-auth-copy-arrive 400ms ease-out 80ms both; }
+  html:not([data-nf-motion="reduced"]) .nf-auth-panel[data-auth-mode=social] .nf-provider-button { animation: nf-auth-provider-arrive 420ms cubic-bezier(.2,.78,.2,1) both; }
+  html:not([data-nf-motion="reduced"]) .nf-auth-panel[data-auth-mode=social] .nf-provider-button:nth-of-type(1) { animation-delay: 150ms; }
+  html:not([data-nf-motion="reduced"]) .nf-auth-panel[data-auth-mode=social] .nf-provider-button:nth-of-type(2) { animation-delay: 210ms; }
   html:not([data-nf-motion="reduced"]) .nf-auth-frame .flow-form[data-entry-step=consent] { animation: nf-auth-step-in 160ms ease-out; }
   html:not([data-nf-motion="reduced"]) .nf-auth-brief summary > svg:last-child { transition: transform 150ms ease-out; }
 }
+@keyframes nf-auth-emblem-arrive { 0% { opacity:0; transform:translateY(6px) scale(.86) rotate(-5deg); } 72% { opacity:1; transform:translateY(-1px) scale(1.025); } 100% { opacity:1; transform:none; } }
+@keyframes nf-auth-thread-draw { from { opacity:0; transform:scaleX(.16); } to { opacity:1; transform:scaleX(1); } }
+@keyframes nf-auth-copy-arrive { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
+@keyframes nf-auth-provider-arrive { from { opacity:0; transform:translateY(10px) scale(.975); } to { opacity:1; transform:none; } }
 @keyframes nf-auth-step-in {
   from { transform: translateX(-5px); opacity: .82; }
   to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .phone-app .nf-auth-frame *, .phone-app .nf-auth-frame *::before, .phone-app .nf-auth-frame *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; transition-duration: .001ms !important; }
 }

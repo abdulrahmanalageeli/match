@@ -14,7 +14,7 @@ function personalityInstrument(member) {
  if(!Object.hasOwn(catalogs,version))throw unavailable();
  return catalogs[version];
 }
-const evidenceGuidance='اقرئي كل إجابة بمعنى عبارتها الأصلية. في مفاتيح answer:partner_، تعني provenance=confirmed أن العضو أقرّ التفضيل، وقد يكون أصله اقتراحًا. تعني inferred أنه مقترح من إجابته عن نفسه، وunverified أو غياب المصدر يعني أن طريقة اختياره غير معروفة. لا تنسبي إلى الشخص تصريحًا بتفضيل مقترح أو مجهول المصدر، ولا تعتبريه شرطًا. لا تحوّلي الشخصية إلى نسبة توافق أو ترتيب للأعضاء.';
+const evidenceGuidance='اقرئي كل إجابة بمعنى عبارتها الأصلية. في مفاتيح answer:partner_، تعني provenance=confirmed أن العضو أقرّ التفضيل، وقد يكون أصله اقتراحًا. تعني inferred أنه مقترح من إجابته عن نفسه، وunverified أو غياب المصدر يعني أن طريقة اختياره غير معروفة. لا تنسبي إلى الشخص تصريحًا بتفضيل مقترح أو مجهول المصدر، ولا تعتبريه شرطًا. لا تحوّلي الشخصية إلى نسبة توافق أو ترتيب للأعضاء. اكتبي القراءة مباشرة، دون ذكر المزوّد أو اسم النموذج أو رموز الحقول أو طريقة الحساب.';
 function personalityGuidance(snapshot) {
  const instruments=['a','b'].map(side=>personalityInstrument(snapshot[side]));
  const guidance=[];

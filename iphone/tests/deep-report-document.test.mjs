@@ -44,6 +44,6 @@ test('saved copy preserves participant mapping, research limits and revocation n
   const recipient = deepReportDocument({...shared,requestedByMe:false}, 'أمل');
   assert.match(sender,/أنت الطرف أ · أمل الطرف ب/);
   assert.match(recipient,/أنت الطرف ب · أمل الطرف أ/);
-  assert.match(sender,/ليست اختبارًا نفسيًا معياريًا/);
+  assert.match(sender,/لا تشخّص الشخصية أو تتنبأ بنجاح الزواج/);
   assert.match(sender,/لا يحذف النسخ المحفوظة/);
 });

@@ -21,6 +21,7 @@ import '/src/design.css';import '/src/flows.css';import '/src/screens.css';impor
 import '/src/community/arrivalDiscovery.css';import '/src/arrivalSurfaces.css';import '/src/typography.css';
 const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=>({id:'p'+i,alias,age:28+i,city:'الرياض',online:i%2===0,occupation:'مهندسة',bio:'أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',interests:[],reasons:[],marriageBasics:{marriageTimeline:'within_6_months'},demoPhoto:'/demo/portraits/reem-realistic-v2.webp',fit:{version:'marriage-v4',strengths:dimensions.map(item=>item.id),discussion:[],missing:[],assessmentComplete:true,provisional:false,covered:dimensions.length,total:dimensions.length,percentage:72-i*3}}));
 people[0].recommendationPercentage=65;people[0].fit.practicalConcerns=['children_intent'];people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;people[3].eligible=false;
+people[0].manualVerifications=[{id:'fixture-marital-status',kind:'marital_status',label:'الحالة الاجتماعية',reviewedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString(),isTest:false}];
 Object.assign(people[1].fit,{covered:7,total:16,assessmentComplete:false,percentage:null});
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
 window.__trackPullRows=()=>{window.__pullRowReads=0;for(const person of people){
@@ -105,6 +106,20 @@ try{
  browser=await chromium.launch({headless:true,channel:'chrome'});page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
  page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
  await page.goto('http://127.0.0.1:5281/__discovery-fixture',{waitUntil:'domcontentloaded',timeout:60000});const weekly=page.locator('.df-recommendation').first();
+ await weekly.getByRole('button',{name:'عرض ملف سارة'}).click({position:{x:20,y:20}});
+ const memberProfile=page.locator('.mp-profile');
+ const details=memberProfile.getByRole('button',{name:'التفاصيل',exact:true});
+ await details.click();
+ assert.equal(await details.getAttribute('aria-pressed'),'true');
+ const verificationBadge=memberProfile.getByRole('button',{name:/الحالة الاجتماعية.*عرض نطاق التوثيق وصلاحيته/});
+ assert.equal(await verificationBadge.getAttribute('aria-haspopup'),'dialog');
+ assert.equal(await verificationBadge.evaluate(button=>button.parentElement.closest('button')===null),true);
+ await verificationBadge.click();
+ const verification=page.getByRole('dialog',{name:'بيانات تمت مراجعتها'});
+ await verification.getByText('الحالة الاجتماعية',{exact:true}).first().waitFor();
+ await verification.getByRole('button',{name:'إغلاق تفاصيل التوثيق'}).click();
+ await memberProfile.locator('.mp-back').click();
+ console.log('Passed: the interactive verification badge opens its scoped claim from التفاصيل.');
  await page.locator('html[data-capture-scope="discovery"]').waitFor({state:"attached"});
  await page.locator(".df-card-portrait .wd-capture-watermark").first().waitFor();
  await page.emulateMedia({media:"print"});await page.locator(".wd-capture-note").waitFor();

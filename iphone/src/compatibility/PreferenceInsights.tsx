@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { ArrowUpRight, CheckCheck, CircleHelp, Compass, Layers3, MessageCircle, ScanLine, ShieldCheck } from "../BrandIcons";
+import { ArrowUpRight, CheckCheck, CircleHelp, Layers3, MessageCircle, ScanLine, ShieldCheck } from "../BrandIcons";
 import { dimensionsForVersion, preferencePercentage, type MatchFit } from './model';
 import { readPreferenceEvidence, reciprocalTopicAgreement, type PreferenceTopicStatus } from './preference-evidence';
 import { MotionReveal } from '../motion/Reanimated';
@@ -22,9 +22,9 @@ function TopicCard({ topic, version }: { topic: Topic; version: string }) {
   const Icon = aligned ? CheckCheck : missing ? ScanLine : MessageCircle;
   const explanation = aligned ? definition.reason
     : topic.status === 'conditional' ? 'هناك مرونة أو قرار لم يُحسم أو توقيتان متقاربان. وضّحا الظروف التي تناسبكما.'
-    : topic.status === 'one_sided' ? 'توافقت رغبة أحد الطرفين مع إجابة الآخر، بينما لم تتوافق الجهة الثانية. هذا موضوع لتوضيح ما يحتاجه كل منكما.'
-    : topic.status === 'different' ? 'لم تتطابق رغبة أيٍّ منكما مع إجابة الآخر في هذا الموضوع. تحدثا عن احتياجاتكما ومساحة المرونة الممكنة.'
-    : missing ? 'لم تكتمل الإجابات اللازمة للمقارنة في هذا الموضوع. لا نعتبر الصمت اتفاقًا أو اختلافًا.'
+    : topic.status === 'one_sided' ? 'يناسب الاختيار أحدكما. ما الذي يحتاجه الطرف الآخر؟'
+    : topic.status === 'different' ? 'تختلف رغبتاكما هنا. أين توجد مساحة للاتفاق؟'
+    : missing ? 'نحتاج إلى إجابات من الطرفين.'
     : 'تظهر المقارنة اختلافًا يستحق الحديث. قد يساعدكما مثال من الحياة على فهم ما يناسب كل طرف.';
   return <article className="nf-pref-topic" data-tone={aligned ? 'aligned' : missing ? 'missing' : 'discussion'}>
     <div className="nf-pref-topic-top"><span className="nf-pref-topic-icon"><Icon size={17} strokeWidth={1.6} aria-hidden="true" /></span><span>{statusNames[topic.status]}</span></div>
@@ -57,13 +57,13 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
   const preview = shown.slice(0, 2);
   const rest = view === 'all' ? readout.topics.filter(topic => !preview.some(item => item.id === topic.id)) : shown.slice(2);
   return <section className="nf-preference-insights" aria-labelledby={titleId}>
-    <header className="nf-pref-heading"><span><Compass size={15} strokeWidth={1.5} aria-hidden="true" /> من الإجابات إلى معنى</span><h3 id={titleId}>{percentage === null ? 'صورة تتضح بإجاباتكما' : 'ما الذي يجمعكما؟'}</h3><p>{percentage === null ? 'هذه قراءة للمواضيع المتاحة. تظهر درجة التفضيلات بعد اكتمال التقييم لدى الطرفين.' : 'نقارن ما يبحث عنه كل طرف بما أجاب عنه الآخر. الاتفاق هنا يعني أن الرغبتين متوافقتان مع الإجابتين.'}</p></header>
+    <header className="nf-pref-heading"><h3 id={titleId}>{percentage === null ? 'صورة تتضح بإجاباتكما' : 'ما الذي يجمعكما؟'}</h3></header>
     <div className="nf-pref-counts" role="group" aria-label="استعراض مواضيع التوافق">
       {groups.map(({ key, label, topics, icon: Icon }) => <button key={key} type="button" aria-pressed={view === key} aria-controls={topicsId} data-tone={key} onClick={() => setView(current => current === key ? 'all' : key)}>
         <Icon size={17} strokeWidth={1.5} aria-hidden="true" /><strong>{ar.format(topics.length)}</strong><span>{label}</span>
       </button>)}
     </div>
-    <p className="nf-pref-count-note">{agreement ? <>تحقّق الاتفاق المتبادل في {ar.format(agreement.agreed)} من {ar.format(agreement.total)} موضوعًا ({ar.format(agreement.percentage)}٪).</> : 'الأعداد تلخّص مواضيع الحوار.'}</p>
+    {agreement && <p className="nf-pref-count-note">تحقّق الاتفاق المتبادل في {ar.format(agreement.agreed)} من {ar.format(agreement.total)} موضوعًا ({ar.format(agreement.percentage)}٪).</p>}
     <div className="nf-pref-selection"><span>{selected ? selected.key === 'aligned' ? 'نقاط يمكن البناء عليها' : selected.key === 'discussion' ? 'مواضيع لفهم أعمق' : 'مساحة لم تتضح بعد' : 'من ملامح توافقكما'}</span>{view !== 'all' && <button type="button" onClick={() => setView('all')}>العودة للملخّص</button>}</div>
     <MotionReveal id={topicsId} className="nf-pref-topic-list" key={view} duration={280} distance={6}>
       {preview.length ? preview.map(topic => <TopicCard topic={topic} version={fit.version} key={topic.id} />) : <p className="nf-pref-empty">{view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
@@ -83,12 +83,12 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
     {fit.practicalConcerns?.includes('location_unknown') && <p>نحتاج معرفة المدينتين لتقييم إمكانية السكن في مدينة مشتركة.</p>}
     <details className="nf-pref-criteria">
       <summary><ShieldCheck size={17} strokeWidth={1.5} aria-hidden="true"/><span>خصوصية اختياراتكما</span></summary>
-      <div><p>تبقى تفضيلات الشريك التي يحدّدها كلٌّ منكما خاصة. وفي التعارف، يختار كل طرف ما يحبّ أن يشاركه ومتى.</p></div>
+      <div><p>تبقى تفضيلات كل طرف خاصة.</p></div>
     </details>
     <details className="nf-pref-method">
       <summary><CircleHelp size={17} strokeWidth={1.5} aria-hidden="true"/><span>قراءة ودّين</span></summary>
-      <div><p>تُظهر لكما قراءة ودّين أين تلتقي تفضيلاتكما وأي المواضيع تستحق حديثًا. ابدآ بموضوع يهمّكما، واسألا بعضكما كيف يبدو في الحياة اليومية.</p></div>
+      <div><p>يعني الاتفاق أن رغبة كلّ طرف تتوافق مع إجابة الآخر.</p></div>
     </details>
-    {readout.source === 'legacy' && <p className="nf-pref-legacy"><ArrowUpRight size={13} aria-hidden="true" /> هذه النتيجة تدعم ملخّص المواضيع؛ التفصيل في اتجاهي المقارنة غير متاح لها حاليًا.</p>}
+    {readout.source === 'legacy' && <p className="nf-pref-legacy"><ArrowUpRight size={13} aria-hidden="true" /> يتوفر ملخّص المواضيع لهذا التقييم.</p>}
   </section>;
 }

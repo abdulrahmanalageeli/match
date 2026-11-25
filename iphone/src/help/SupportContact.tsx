@@ -92,8 +92,7 @@ function SupportDialog({ source, subject: initialSubject, context, close }: { so
   }
   return <dialog ref={dialog} className="nf-support-dialog" dir="rtl" aria-labelledby={heading} onCancel={event => { event.preventDefault(); if (!sending) close(); }}>
     <header><h2 id={heading}>المساعدة داخل التطبيق</h2><button type="button" aria-label="إغلاق المساعدة" disabled={sending} onClick={close}><X size={20}/></button></header>
-    <p>أرسل ما تحتاج إلى مشاركته فقط. لا تُرفق المحادثات أو بيانات ملفك تلقائيًا. يستطيع فريق المساعدة المخوّل قراءة طلبك والرد عليه.</p>
-    <small>لا ترسل كلمة مرور أو رمز دخول أو صورة هوية. لا يوجد وقت استجابة محدد معلن.</small>
+    <small>لا ترسل كلمة مرور أو رمز دخول أو صورة هوية.</small>
     <form onSubmit={event => { event.preventDefault(); void send(); }}>
       <label>نوع المساعدة<select value={category} disabled={sending} onChange={e => setCategory(e.target.value as SupportCategory)}><option value="help">استخدام التطبيق</option><option value="access">الحساب أو ربط الأهل</option><option value="billing">العضوية والدفع</option><option value="safety">الخصوصية أو السلامة</option></select></label>
       <label>الموضوع<input value={subject} required maxLength={140} disabled={sending} onChange={e => setSubject(e.target.value)}/></label>
@@ -103,7 +102,7 @@ function SupportDialog({ source, subject: initialSubject, context, close }: { so
     </form>
     {error && <p className="nf-support-feedback nf-support-error" role="alert">{error}</p>}{receipt && <p className="nf-support-feedback nf-support-receipt" role="status">{receipt}</p>}
     <section className="nf-support-requests" aria-label="طلبات المساعدة"><header><h3>طلباتي</h3><button type="button" disabled={loading || sending} onClick={() => void load()}>تحديث</button></header>
-      {loading && (items.length ? <p className="nf-support-refresh" role="status">جارٍ تحديث طلباتك…</p> : <SupportTicketsLoading/>)}{!loading && !items.length && !error && <div className="nf-support-empty"><h4>طلباتك في مكان واحد</h4><p>اكتب ما تحتاج إليه في النموذج أعلاه. بعد الإرسال، يظهر هنا رقم طلبك وحالته ورد الفريق.</p></div>}
+      {loading && (items.length ? <p className="nf-support-refresh" role="status">جارٍ تحديث طلباتك…</p> : <SupportTicketsLoading/>)}{!loading && !items.length && !error && <div className="nf-support-empty"><p>ما عندك طلبات مساعدة سابقة.</p></div>}
       {items.map(item => <article className="nf-support-ticket" key={item.id}><strong>{item.subject}</strong><p className="nf-support-state" data-status={item.status}>{statuses[item.status]}</p><small>رقم الطلب: <bdi>{item.id}</bdi><br/>{new Date(item.createdAt).toLocaleDateString('ar-SA')}</small><details><summary>تفاصيل الطلب</summary><p>{item.body}</p></details>{item.response && <div className="nf-support-response"><strong>رد فريق وُدَين</strong><p>{item.response}</p><small>{new Date(item.updatedAt).toLocaleString('ar-SA')}</small></div>}{item.status!=='resolved'&&item.needsVerification&&source.verifyCase&&<div className="nf-support-response">{phoneTicket===item.id&&<label>{smsSent?'رمز تأكيد الرقم الجديد':'رقم الجوال الجديد'}<input dir="ltr" inputMode={smsSent?'numeric':'tel'} value={smsSent?otp:phone} onChange={e=>smsSent?setOtp(e.target.value):setPhone(e.target.value)}/></label>}<button type="button" disabled={sending} onClick={()=>void verifyCase(item.id)}>{phoneTicket===item.id?(smsSent?'تأكيد الرقم':'إرسال رمز التحقق'):'التحقق من ملكية الحساب'}</button></div>}
       {item.status!=='resolved'&&item.editStep&&reviewSection&&<button type="button" onClick={()=>{const chapter=chapters.find(c=>c.key===item.editStep)?.key;if(chapter){close();reviewSection(chapter,item.editField??'');}}}>مراجعة {item.editField}</button>}
       {item.status!=='resolved'&&item.exportOffered&&source.ownerId&&<button type="button" onClick={()=>setExportTicket(item.id)}>فتح نسخة بياناتي الخاصة</button>}
@@ -122,11 +121,10 @@ export function SupportContact({ subject = 'مساعدة في وُدَين', con
   const body = [context, 'أحتاج مساعدة بخصوص:'].filter(Boolean).join('\n\n');
   const href = `mailto:${contact}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   return <aside className="nf-support-contact" aria-label="التواصل مع فريق وُدَين">
-    {source && <><button type="button" onClick={() => setOpenedSource(source)}><MessageCircle size={17} aria-hidden="true"/> المساعدة وطلباتي</button><p>أرسل طلبًا وتابع رقمه وحالته ورد الفريق داخل التطبيق.</p></>}
+    {source && <><button type="button" onClick={() => setOpenedSource(source)}><MessageCircle size={17} aria-hidden="true"/> المساعدة وطلباتي</button></>}
     <a href={href}><Mail size={17} aria-hidden="true" /> مراسلة فريق وُدَين بالبريد</a>
-    <p>يفتح مسودة في تطبيق بريدك؛ راجعها وأرسلها بنفسك. لا تُرفق محادثاتك أو بيانات حسابك تلقائيًا.</p>
-    <small>لا ترسل كلمة مرور أو رمز دخول أو صورة هوية. لا يوجد وقت استجابة محدد معلن.</small>
-    {!source && <small>تتوفر متابعة الطلبات داخل التطبيق بعد تسجيل الدخول بحساب فعلي.</small>}
+    <small>لا ترسل كلمة مرور أو رمز دخول أو صورة هوية.</small>
+    {!source && <small>سجّل الدخول لمتابعة طلباتك.</small>}
     <bdi>{contact}</bdi><button type="button" onClick={() => { void navigator.clipboard?.writeText(contact).then(() => setCopied(true), () => setCopied(false)); }}>{copied ? 'تم نسخ البريد' : 'نسخ عنوان البريد'}</button>
     {source && openedSource === source && <SupportDialog source={source} subject={subject} context={context} close={() => setOpenedSource(null)}/>}
   </aside>;

@@ -37,7 +37,7 @@ test('complete evidence shows supported insights without exposing scoring arithm
 test('incomplete assessments never display evidence bars or calculated conclusions',()=>{
  const {a,b}=pair();delete b.personalityAnswers.planning;
  const html=render(comparePreferences(a,b).fit);
- assert.match(html,/نحتاج صوتكما معًا/);assert.match(html,/لا نُكمل الإجابات الناقصة بالتخمين/);
+ assert.match(html,/نحتاج صوتكما معًا/);assert.match(html,/استكمال التقييم من الإعدادات/);
  assert.doesNotMatch(html,/role="meter"|نقطة تقارب|مجموع النقاط ÷ عدد العبارات/);
 });
 
@@ -48,7 +48,7 @@ test('legacy and inconsistent evidence gracefully withhold unsupported breakdown
  const broken={...fit,personality:{...fit.personality,distribution:{same:12,near:0,different:0,far:0,opposite:0}}};
  const malformed={...legacy,personality:{...legacy.personality,similarities:{bad:true},differences:null}};
  for(const value of [legacy,malformed]){
-  const html=render(value);assert.match(html,/تفصيل الحساب والمحاور غير متاح/);assert.doesNotMatch(html,/role="meter"|نقطة تقارب|مجموع النقاط ÷ عدد العبارات/);
+  const html=render(value);assert.match(html,/تفاصيل المحاور غير متاحة/);assert.doesNotMatch(html,/role="meter"|نقطة تقارب|مجموع النقاط ÷ عدد العبارات/);
  }
  const invalid=render(broken);assert.match(invalid,/تعذّر التحقق من تفاصيل النتيجة/);assert.doesNotMatch(invalid,/نحتاج صوتكما معًا|role="meter"/);
 });

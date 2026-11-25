@@ -93,13 +93,13 @@ export function CompatibilityChangeSheet({ name, change, fit, onClose }: {
   return <dialog ref={dialog} className="nf-compatibility-change-sheet" dir="rtl" aria-labelledby={heading} aria-describedby={explanation}
     onCancel={event => { event.preventDefault(); onClose(); }}>
     <header className="nf-compatibility-change-header">
-      <span>قراءة تتجدّد معكما</span>
+      <span>تحديث التوافق</span>
       <button type="button" onClick={onClose} aria-label="إغلاق تحديث التوافق"><X size={20} aria-hidden="true"/></button>
     </header>
     <MotionReveal className="nf-compatibility-change-body" distance={8} duration={340}>
       <span className="nf-compatibility-change-emblem" aria-hidden="true"><Orbit size={27} strokeWidth={1.3}/></span>
       <h2 id={heading}>ما الذي تغيّر مع {name}؟</h2>
-      <p id={explanation} className="nf-compatibility-change-intro">تحدّثت القراءة بعد حفظ إجابات التقييم.</p>
+      <p id={explanation} className="nf-compatibility-change-intro">تغيّرت إجابات التقييم.</p>
       {change.scoreChanges.length > 0 && <div className="nf-compatibility-change-scores" aria-label="النسب قبل التحديث وبعده">
         {change.scoreChanges.map(score => <ScoreChange key={score.key} score={score}/>)}
       </div>}
@@ -110,7 +110,6 @@ export function CompatibilityChangeSheet({ name, change, fit, onClose }: {
           <ul>{change.reasons.slice(3).map(reason => <li key={reason}>{reason}</li>)}</ul>
         </details>}
       </section>
-      <p className="nf-compatibility-change-note">تغيّر النسبة يوضّح إجاباتكما الحالية. الاختلاف مساحة للحوار، وليس حكمًا على العلاقة.</p>
       <details className="nf-compatibility-change-details" open={expanded} onToggle={event => setExpanded(event.currentTarget.open)}>
         <summary>قراءة التوافق الحالية<ChevronDown size={17} aria-hidden="true"/></summary>
         {expanded && <FitDetails fit={fit}/>}

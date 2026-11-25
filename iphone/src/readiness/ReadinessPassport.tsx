@@ -31,9 +31,8 @@ function PassportFrame({ children, onBack, shared = false }: { children: ReactNo
 function PassportCover({ shared, name, count, updatedAt }: { shared?: boolean; name?: string; count?: number; updatedAt?: string | null }) {
   return <section className="rp-cover" aria-labelledby="rp-title">
     <div className="rp-cover-top"><span><LockKeyhole size={13} /> {shared ? 'مشاركة خاصة معك' : 'خاص بك · المشاركة باختيارك'}</span><BookOpenCheck size={23} strokeWidth={1.3} /></div>
-    <span className="rp-eyebrow">خطوة أوضح نحو حياة مشتركة</span>
     <h1 id="rp-title">جواز الجاهزية<br /><em>للزواج</em></h1>
-    <p>{shared ? `ما اختار${name ? ` ${name}` : ' الطرف الآخر'} مشاركته معك، لحديث أكثر وضوحًا.` : 'مساحة ترتّب فيها نيتك واستعدادك، وتشارك منها ما يناسبك عندما يحين الوقت.'}</p>
+    <p>{shared ? `ما اختار${name ? ` ${name}` : ' الطرف الآخر'} مشاركته معك.` : 'حدّد متى تبي تبدأ، وكيف تحب تشرك الأهل.'}</p>
     <div className="rp-cover-foot"><span>{count === undefined ? <><ShieldCheck size={14} /> بيانات بإذن صاحبها</> : <><b>{number.format(count)} / ٥</b> خطوات رتّبتها</>}</span><small>{updatedAt ? `آخر تحديث ${date(updatedAt)}` : 'بداية على مهل'}</small></div>
   </section>;
 }
@@ -50,10 +49,10 @@ function ClaimCard({ claim }: { claim: VerificationClaim }) {
 function VerificationSection({ claims, shared = false }: { claims: VerificationClaim[]; shared?: boolean }) {
   const identity = claims.some(item => item.kind === 'identity' && item.status === 'valid' && Date.parse(item.expiresAt) > Date.now());
   return <section className="rp-section" aria-labelledby="rp-verification-title">
-    <div className="rp-section-heading"><span className="rp-section-icon"><Fingerprint size={20} /></span><div><h2 id="rp-verification-title">الهوية والبيانات الموثّقة</h2><p>كل تحقق له نطاق ومصدر وصلاحية</p></div></div>
+    <div className="rp-section-heading"><span className="rp-section-icon"><Fingerprint size={20} /></span><div><h2 id="rp-verification-title">الهوية والبيانات الموثّقة</h2><p>مصدر التحقق وتاريخه</p></div></div>
     {!identity && <div className="rp-verification-empty"><span className="rp-chip">الهوية غير متحققة مستقلًا</span><p>{shared ? 'لا يوجد تحقق مستقل ساري للهوية ضمن هذا الجواز.' : 'ربط جهة التحقق المستقلة غير متاح حاليًا، واستقبال مستندات جديدة للمراجعة اليدوية متوقف أيضًا. يمكنك متابعة طلبات المراجعة السابقة أو سحبها من الإعدادات ← طلبات التوثيق السابقة، إن كانت لديك طلبات.'}</p>{!shared && <small>لا نطلب هنا صورة الهوية أو رقمها أو بيانات مالية أو طبية. لا ترسل المستندات في المحادثات أو إلى الدعم كبديل.</small>}</div>}
     {claims.map(claim => <ClaimCard key={claim.id} claim={claim} />)}
-    <p className="rp-caption">التحقق يثبت البيان المحدد فقط؛ لا يضمن السلوك أو التوافق أو نجاح الزواج. اعتماد العضوية لا يُعد تحققًا من الهوية.</p>
+    <p className="rp-caption">التحقق يخصّ البيان الموضّح فقط، ولا يضمن السلوك أو التوافق أو نجاح الزواج. اعتماد العضوية لا يثبت الهوية.</p>
   </section>;
 }
 
@@ -137,7 +136,7 @@ export function ReadinessPassportPanel({ source, onBack }: { source: CommunitySo
   return <PassportFrame onBack={onBack}>
     <PassportCover count={ready} updatedAt={passport?.updatedAt} />
     {source.readinessTestMode && <p className="rp-test-note">وضع التجربة · هذا جواز تجريبي، ولا يمثّل تحققًا من هوية حقيقية أو بيانات موثّقة.</p>}
-    <div className="rp-intro"><LockKeyhole size={16} /><p>اختياري، ولا يظهر في الاستكشاف. الإفادات تعبّر عنك وليست تقييمًا لأهليتك للزواج.</p></div>
+    <div className="rp-intro"><LockKeyhole size={16} /><p>الجواز اختياري ولا يظهر في الاستكشاف.</p></div>
     {error && <div role="alert" className="rp-feedback rp-error"><p>{error}</p>{!passport && <button type="button" className="btn-secondary" onClick={() => setRetry(value => value + 1)}>إعادة المحاولة</button>}</div>}
     {status && <p role="status" className="rp-feedback rp-success"><Check size={16} /> {status}</p>}
     {!passport && !error && <p role="status" className="rp-loading">جارٍ فتح جوازك الخاص…</p>}

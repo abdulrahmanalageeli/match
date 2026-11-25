@@ -183,7 +183,7 @@ export function GiftMembership({owner,target,back,attention,settle,refreshAccoun
       <div className="wd-gift-history-heading"><h1>هداياي</h1><button type="button" aria-label="تحديث الهدايا" onClick={reload}><RefreshCw size={17}/></button></div>
       {listStatus==='loading'&&<p role="status">جارٍ تحميل الهدايا…</p>}
       {listStatus==='error'&&<p role="alert">تعذّر تحميل الهدايا. حدّث القائمة للمحاولة مجددًا.</p>}
-      {listStatus==='ready'&&!inbox.length&&!outbox.length&&<div className="wd-gift-empty"><Gift size={28}/><h2>تبدأ بهدية واحدة</h2><p>هنا تجد دعوات الإهداء والهدايا التي ترسلها.</p><button className="wd-gift-text" onClick={()=>changeTab('create')}>اختيار هدية</button></div>}
+      {listStatus==='ready'&&!inbox.length&&!outbox.length&&<div className="wd-gift-empty"><Gift size={28}/><h2>لا توجد هدايا بعد</h2><button className="wd-gift-text" onClick={()=>changeTab('create')}>اختيار هدية</button></div>}
       {inbox.length>0&&<h2>دعوات وصلتني</h2>}
       {inbox.map(row=><article key={row.id} className="wd-gift-record"><img src={seals[row.tier]} alt=""/><div><h3>{plans[row.tier]}</h3><p>دعوة من <bdi>{row.senderName}</bdi> · ٣٠ يومًا</p><small>بقبولك يظهر اسمك في وُدَين للمُهدي ليُكمل الشراء.</small><div className="wd-gift-row-actions"><button disabled={busy} onClick={()=>respond(row,true)}>قبول الدعوة</button><button disabled={busy} onClick={()=>respond(row,false)}>اعتذار</button></div></div></article>)}
       {outbox.length>0&&<h2>هدايا أرسلتها</h2>}

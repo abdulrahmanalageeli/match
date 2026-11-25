@@ -44,9 +44,12 @@ export const openPushSettings = () => native.openSettings();
 export const getPushPreference = (owner: string) => pushRpc<{ enabled: boolean }>(owner, 'settings');
 export type PushPreview='private'|'event'|'name'|'content';
 export async function pushPrivacy(owner:string,preview_mode?:PushPreview) {
-  const saved = await pushRpc<{preview:PushPreview}>(owner,'privacy',{preview_mode:preview_mode??null});
+  const saved = await pushRpc<{preview:PushPreview;configured?:boolean}>(owner,'privacy',{preview_mode:preview_mode??null});
   if (nativePush && preview_mode) await native.clearDelivered();
   return saved;
+}
+export async function pushThreadMute(owner:string,request_id:string,muted?:boolean) {
+  return pushRpc<{muted:boolean}>(owner,'thread_mute',{request_id,muted:muted??null});
 }
 export async function setPushBadge(count:number,owner:string|null) {
   if (nativePush && owner) {

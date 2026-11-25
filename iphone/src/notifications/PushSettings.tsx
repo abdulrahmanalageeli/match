@@ -86,8 +86,8 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
         <strong>{preview==='private'?'إشعار جديد': 'رسالة من نورة'}</strong>
         {preview==='content'&&<span>يسعدني أن نتعرّف أكثر.</span>}
       </div>}</>}
-      {available && enabled && controls && <details className="st-push-controls">
-        <summary className="st-row">تخصيص التنبيهات</summary>
+      {available && enabled && controls && <div className="st-push-controls" role="group" aria-labelledby="st-push-groups-title">
+        <p className="st-push-controls-title" id="st-push-groups-title">ما يصلك</p>
         {switches.filter(([key])=>key!=='analysis'||!testerSession).map(([key,label])=><button key={key} type="button" className="st-row st-switch"
           role="switch" aria-label={label} aria-checked={controls[key]} disabled={busy}
           onClick={()=>void saveControls(key==='quiet' ? {quiet:!controls.quiet,zone:Intl.DateTimeFormat().resolvedOptions().timeZone || defaultPushControls.zone} : {[key]:!controls[key]})}>
@@ -101,7 +101,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
             {Array.from({length:24},(_,h)=><option key={h} value={h} disabled={h===controls[key==='start'?'end':'start']}>{new Intl.NumberFormat('ar-SA',{minimumIntegerDigits:2}).format(h)}:٠٠</option>)}
           </select>
         </label>)}<small className="st-push-zone">بتوقيت {controls.zone==='Asia/Riyadh'?'الرياض':controls.zone}</small></>}
-      </details>}
+      </div>}
       {nativePush && available && (enabled || permission === 'denied') && <button type="button" className="st-row" onClick={() => void openPushSettings().catch(() => setError('تعذّر فتح إعدادات الجهاز.'))}>
         <span className="st-icon"><Settings2 /></span><span className="st-row-copy"><strong>إعدادات إشعارات iPhone</strong><small>إذن الإشعارات ومعايناتها على هذا الجهاز.</small></span>
       </button>}

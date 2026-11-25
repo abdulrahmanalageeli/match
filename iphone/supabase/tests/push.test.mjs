@@ -23,6 +23,8 @@ test('private push queue enforces opt-in, recipient, environment, consent, dedup
  const db=await createDatabase();
  try {
   const {add,call,service}=await fixture(db);const a=await add('woman'),b=await add('man');
+  assert.deepEqual(await call(a,'public.marriage_push_privacy(null)'),{preview:'private',configured:false});
+  assert.deepEqual(await call(a,"public.marriage_push_privacy('name')"),{preview:'name',configured:true});
   assert.equal((await call(a,'public.marriage_push_settings()')).enabled,false);
   await call(a,'public.marriage_push_enable(true)');await call(b,'public.marriage_push_enable(true)');
   const request=await call(a,'public.marriage_request($1)',[b.id]);
@@ -40,6 +42,11 @@ test('private push queue enforces opt-in, recipient, environment, consent, dedup
   await signCommunicationAgreement(call,a,b,request);
   const mutual=await service("public.marriage_push_claim('sandbox',20)");assert.equal(mutual.length,1);assert.equal(mutual[0].token,a.id.replaceAll('-','').repeat(2));assert(mutual.every(j=>j.kind==='mutual'));
   for(const job of mutual) await service("public.marriage_push_finish($1,$2,'sent')",[job.id,job.leaseId]);
+  assert.deepEqual(await call(b,'public.marriage_push_thread_mute($1,null)',[request]),{muted:false});
+  assert.deepEqual(await call(b,'public.marriage_push_thread_mute($1,true)',[request]),{muted:true});
+  await call(a,'public.marriage_message($1,$2,$3)',[request,'رسالة مكتومة',randomUUID()]);
+  assert.deepEqual(await service("public.marriage_push_claim('sandbox',20)"),[]);
+  assert.deepEqual(await call(b,'public.marriage_push_thread_mute($1,false)',[request]),{muted:false});
   const client=randomUUID();await call(a,'public.marriage_message($1,$2,$3)',[request,'رسالة خاصة يجب ألا تدخل الإشعار',client]);
   await call(a,'public.marriage_message($1,$2,$3)',[request,'رسالة خاصة يجب ألا تدخل الإشعار',client]);
   const messages=await service("public.marriage_push_claim('sandbox',20)");assert.equal(messages.length,1);assert.equal(messages[0].kind,'message');

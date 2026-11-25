@@ -75,6 +75,8 @@ import {
   Sparkles,
   Trash2,
   UsersRound,
+  Volume2,
+  VolumeX,
   X,
 } from "../BrandIcons";
 import { Brand } from "../Brand";
@@ -93,6 +95,7 @@ import type { StepProgress } from "./data";
 import { journeyStages } from '../notifications/ActivityAlerts';
 import { NativePushAction } from '../notifications/NativePushAction';
 import { NotificationFeed } from '../notifications/NotificationFeed';
+import { pushThreadMute } from '../notifications/push';
 import './chat-polish.css';
 import './message-actions.css';
 import './directory.css';
@@ -1369,9 +1372,10 @@ function ChatComposer({ outbox, composer, canSend, conversationAllowed, typing, 
 }
 
 export function Chat({
-  source, connection, back, close, backLabel, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, openFeedback,
+  source, connection, back, close, backLabel, pushOwner, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, openFeedback,
 }: {
   initialMessage?:string;initialRoom?:string;initialAgreement?:boolean;initialAnalysis?:boolean;openFeedback?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
+  pushOwner?:string|null;
   onReported?: () => void;
   onEnded?: (id:string) => void;
   onCompletion?: () => void;
@@ -1384,6 +1388,9 @@ export function Chat({
   const [guide, setGuide] = useState(false);
   const [recording, setRecording] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [muted,setMuted]=useState<boolean|null>(null);
+  const [muting,setMuting]=useState(false);
+  const [muteError,setMuteError]=useState('');
   const [insightsOpen, setInsightsOpen] = useState(false);
   const thread = useThread(source, connection.id, guide || insightsOpen);
   const [deepOpen, setDeepOpen] = useState(Boolean(initialAnalysis));
@@ -1431,6 +1438,20 @@ export function Chat({
   const typing = useTyping(source, connection.id, canSend && !profileOpen && !familyOpen && !recording && !libraryOpen && !deepOpen && !pageHidden);
   const profileIdentity = useRef<HTMLElement>(null);
   const profileFlight = useWeeklyCardTransition();
+  const canMute=Boolean(pushOwner&&!pushOwner.startsWith('tester:')&&!connection.person.isDemo);
+  useEffect(()=>{
+    let active=true;
+    if(!canMute||!pushOwner){setMuted(null);return;}
+    void pushThreadMute(pushOwner,connection.id).then(value=>{if(active)setMuted(value.muted);},()=>{if(active)setMuted(null);});
+    return()=>{active=false;};
+  },[canMute,pushOwner,connection.id]);
+  async function toggleThreadMute(){
+    if(!canMute||!pushOwner||muting)return;
+    setMuting(true);setMuteError('');
+    try{setMuted((await pushThreadMute(pushOwner,connection.id,!muted)).muted);feedback('selection');}
+    catch{setMuteError('لم يتغير كتم المحادثة. حاول مجددًا.');}
+    finally{setMuting(false);}
+  }
   useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && canDraft && !pageHidden && !safety && !guide && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen);
   function messagePermissions(msg: Message) {
     const status = 'status' in msg ? msg as Outgoing : undefined;
@@ -1729,6 +1750,7 @@ export function Chat({
       {toolsOpen && <Sheet title="خيارات المحادثة" onClose={() => setToolsOpen(false)}>
         <p className="cm-tools-intro">خصوصيتك وخيارات التواصل، في مكان واحد.</p>
         <div className="cm-chat-tools">
+          {canMute&&<button disabled={muting||muted===null} onClick={()=>void toggleThreadMute()}>{muted?<Volume2 size={20}/>:<VolumeX size={20}/>}<span><strong>{muted?'إلغاء كتم المحادثة':'كتم إشعارات المحادثة'}</strong><small>{muted?'ستصلك الرسائل الجديدة على جهازك.':'تبقى الرسائل داخل وُدَين من دون تنبيه على الجهاز.'}</small></span><ChevronLeft size={16}/></button>}
           {source.searchMessages && <button disabled={!canDraft} onClick={() => { setToolsOpen(false); setLibraryOpen(true); }}><Search size={20}/><span><strong>البحث والوسائط</strong><small>رسائلكما، الصور، والتسجيلات الصوتية</small></span><ChevronLeft size={16}/></button>}
           <button disabled={!conversationAllowed || thread.accessDenied} onClick={() => { setToolsOpen(false); typing.stop(); setDeepOpen(true); }}><img className="wd-deep-menu-mark" src="/brand/wudayn-emblem-v2.png" width="24" height="24" alt=""/><span><strong>تحليل وُدَين المعمّق</strong><small>طلب تحليل شخصيتكما أو متابعة تحليل سابق</small></span><ChevronLeft size={16}/></button>
           <button disabled={!conversationAllowed} onClick={() => { setToolsOpen(false); setInsightsOpen(true); }}><Sparkles size={20}/><span><strong>حديث أقرب</strong><small>ما يجمعكما وما يستحق الحديث، في سؤال</small></span><ChevronLeft size={16}/></button>
@@ -1738,6 +1760,7 @@ export function Chat({
           <button onClick={() => { setToolsOpen(false); setSafety('report'); }}><Flag size={20}/><span><strong>{memberAr.reportBlock}</strong><small>إرسال بلاغ للمراجعة</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setSafety('block'); }}><Ban size={20}/><span><strong>{memberAr.block}</strong><small>إيقاف التواصل مع هذا العضو</small></span><ChevronLeft size={16}/></button>
         </div>
+        {muteError&&<p className="form-error" role="alert">{muteError}</p>}
       </Sheet>}
       {endMatch && <Sheet title="إنهاء التعارف" onClose={() => { if (!ending) setEndMatch(false); }}>
         <p className="cm-end-copy">هل ترغب بإنهاء التعارف مع {connection.person.alias}؟ ستُغلق المحادثة ولن يتمكّن أي منكما من إرسال رسائل أو بدء مكالمات.</p>
@@ -2037,6 +2060,7 @@ function Requests({
     return (
       <Chat
         key={item.id}
+        pushOwner={pushOwner}
         initialRoom={messageTarget?.connection===item.id?messageTarget.room:undefined}
         initialAnalysis={messageTarget?.connection===item.id&&messageTarget.analysis}
         initialAgreement={messageTarget?.connection===item.id&&messageTarget.agreement}

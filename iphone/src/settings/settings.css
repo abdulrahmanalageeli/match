@@ -177,7 +177,7 @@ html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) 
 .st-row select { width: 100%; min-width: 0; min-height: 48px; font: inherit; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); color: var(--ink); }
 @media (max-width: 370px) { .phone-app .st-member-actions { grid-template-columns: 1fr; } }
 
-.st-push-controls summary.st-row { cursor:pointer; display:list-item; padding-inline:1rem; }
+.st-push-controls-title { margin:0; padding:14px 16px 7px; color:var(--muted); font-size:.78rem; font-weight:600; }
 .st-push-controls .st-row { width:100%; }
 .st-push-controls select { width:auto; min-width:5rem; }
 .st-push-zone { display:block; padding:.3rem 1rem .65rem; color:var(--muted); }

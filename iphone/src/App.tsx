@@ -55,6 +55,7 @@ import { initializeMatchSound } from "./community/matchSound";
 import { PublicationCenter } from './publishing/PublicationCenter';
 import { ConductCenter } from './conduct/ConductCenter';
 import { usePushNotifications, setPushBadge, detachNotifications, syncNativePushOwner } from "./notifications/push";
+import { NotificationSetup } from './notifications/NotificationSetup';
 import { RegistrationWait } from "./release/RegistrationWait";
 import { ActivityAlerts } from "./notifications/ActivityAlerts";
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
@@ -224,6 +225,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [live, setLive] = useState<AccountState | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [entryReceipt, setEntryReceipt] = useState<{ owner: string; value: SignupAgreements | null } | null>(null);
+  const [notificationSetupOwner,setNotificationSetupOwner]=useState<string|null>(null);
+  const completeNotificationSetup=useCallback(()=>setNotificationSetupOwner(token),[token]);
   const accountAgreements = entryReceipt?.owner === token ? entryReceipt?.value : undefined;
   useEffect(() => {
     let active = true;
@@ -1193,6 +1196,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     screen = accountAgreements === undefined ? <p className="flow-note" role="status">جارٍ فتح طلب العضوية…</p> :
       <CompleteRegistrationAgreements key={token} owner={token} onPrivacy={() => setPolicy(true)} onBack={openAccount}
         onSaved={receipt => setEntryReceipt({ owner: token, value: receipt })}/>;
+  }
+  else if (!demo && cloud && token && live?.user.applicationStatus === 'draft' && notificationSetupOwner!==token) {
+    publicationScreen='register';
+    screen=<NotificationSetup key={token} owner={token} onDone={completeNotificationSetup} onExit={signOut}/>;
   }
   else if (view === "application" || (!demo && live?.user.applicationStatus === "draft")) {
     publicationScreen = 'application';

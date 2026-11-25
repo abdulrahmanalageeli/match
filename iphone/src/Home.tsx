@@ -62,13 +62,6 @@ const statuses = {
 };
 
 const arabicNumber = new Intl.NumberFormat("ar-SA");
-const arabicDate = new Intl.DateTimeFormat("ar-SA-u-ca-gregory", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  timeZone: "Asia/Riyadh",
-});
-
 let profileTransition: ViewTransition | undefined;
 
 function navigateProfile(button: HTMLButtonElement, navigate: () => void, focusSelector: string) {
@@ -287,10 +280,7 @@ export function Home({
             <span>العضوية</span>
           </button>
         </header>
-        <div className="mi-heading-row">
-          <h1 className="mi-title">ترشيحاتك</h1>
-          <time className="mi-date">{arabicDate.format(new Date())}</time>
-        </div>
+        <h1 className="mi-sr-only">ترشيحاتك</h1>
         {proposal ? (
           <>
             {paused && (

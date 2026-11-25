@@ -1,4 +1,5 @@
 .mo-view { padding-bottom: 112px; }
+.mo-view > .mi-sr-only + :is(section, .mo-empty) { margin-top: 14px; }
 .mo-heading { padding: 10px 0 14px; }
 .mo-heading h1 { margin: 0; color: var(--ink); font-size: 26px; font-weight: 600; line-height: 1.5; }
 .mo-section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }

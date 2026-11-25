@@ -36,7 +36,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
   const filters = [{id:'all',label:'الكل'}, {id:'incoming',label:'بانتظارك'}, {id:'outgoing',label:'المرسلة'}] as const;
   return <section className="screen-content cm-view mo-view">
     <header className="cm-header"><Brand /></header>
-    <MotionReveal as="header" className="mo-heading" distance={8}><h1 tabIndex={-1}>التوافقات</h1></MotionReveal>
+    <h1 className="mi-sr-only" tabIndex={-1}>التوافقات</h1>
     {error && <div className="mo-empty" role="alert"><p>{error}</p><MotionPressButton className="btn-secondary" onClick={onRetry}>إعادة المحاولة</MotionPressButton></div>}
     {loading && !connections.length && !error ? <CommunitySkeleton variant="conversations" label="جارٍ تحضير مساحة التعارف…"/> : <>
       <section aria-labelledby="mo-current-title">

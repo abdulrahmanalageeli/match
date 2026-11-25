@@ -92,7 +92,10 @@
 .st-photo-manager .pg-heading>div{display:none}.st-photo-manager .pg-heading{justify-content:flex-end;margin:12px 0}
 
 /* Account controls use one readable list hierarchy. */
-.phone-app .st-screen { background: #fdfdfd; color: #242326; }
+.phone-app .st-screen {
+  background: #fdfdfd;
+  color: #242326;
+}
 .phone-app .st-top { border-bottom-color: #e5e2de; }
 .phone-app .st-title { margin: 20px 0 16px; font-size: 1.8rem; font-weight: 600; line-height: 1.45; letter-spacing: 0; color: var(--ink); }
 .st-intro { margin: 0 0 24px; color: #716b70; font-size: 16px; line-height: 1.7; }
@@ -224,3 +227,314 @@ html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) 
 .phone-app .st-member-actions { padding: 12px 14px 0; gap: 8px; }
 .phone-app .st-member-actions button { min-height: 44px; }
 .phone-app .st-member-photos { min-height: 60px; padding: 12px 16px; }
+
+/* Compact account dashboard. Everyday actions stay visible; infrequent controls
+   retain their full behavior inside clear, expandable groups. */
+.phone-app .st-content {
+  padding-inline: clamp(16px, 5vw, 22px);
+  padding-bottom: calc(86px + var(--nf-safe-bottom));
+}
+.phone-app .st-top { min-height: 54px; padding-block: max(8px, var(--nf-safe-top)) 8px; }
+.phone-app .st-top .brand { transform: scale(.9); transform-origin: right center; }
+.phone-app .st-title { margin: 14px 1px 10px; font-size: 1.55rem; }
+.phone-app .st-member-card {
+  overflow: hidden;
+  border: 1px solid #e2d9dc;
+  border-radius: 20px;
+  background: linear-gradient(155deg, #fff 0%, #fcfafb 72%, #f7f0f3 100%);
+  box-shadow: 0 12px 32px -26px #45122699;
+}
+.phone-app .st-member-identity {
+  isolation: auto;
+  overflow: visible;
+  gap: 12px;
+  padding: 15px 15px 9px;
+  background: transparent;
+}
+.phone-app .st-member-avatar {
+  width: 54px;
+  height: 54px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--blush);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px #d9c6cd, 0 5px 14px #54152a18;
+}
+.phone-app .st-member-card .st-member-identity h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.16rem;
+  line-height: 1.45;
+}
+.phone-app .st-member-card .st-member-identity p {
+  color: var(--muted);
+  font-size: .8125rem;
+}
+.phone-app .st-member-actions {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  padding: 5px 13px 12px;
+}
+.phone-app .st-member-actions button,
+.phone-app .st-member-actions button:first-child,
+.phone-app .st-member-actions button:last-child,
+.phone-app .st-member-actions .st-member-photos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 7px 5px;
+  border: 1px solid #ded6d8;
+  border-radius: 11px;
+  background: #fff;
+  color: var(--accent);
+  box-shadow: none;
+  font-size: .8125rem;
+  font-weight: 600;
+}
+.phone-app .st-member-actions button:first-child {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.phone-app .st-member-actions button > span { white-space: nowrap; }
+.phone-app .st-membership-summary {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 26px);
+  min-height: 49px;
+  margin: 0 13px 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 13px;
+  background: #f5ecef;
+  color: var(--ink);
+  text-align: start;
+}
+.st-membership-summary-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 2px 9px #54152a0c;
+}
+.st-membership-summary > span:nth-child(2) { display: grid; min-width: 0; gap: 1px; }
+.st-membership-summary small { color: var(--muted); font-size: .68rem; }
+.st-membership-summary strong { overflow: hidden; color: var(--accent); font-size: .86rem; text-overflow: ellipsis; white-space: nowrap; }
+.st-membership-summary .st-membership-billing {
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: .68rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone-app .st-discovery-state {
+  min-height: 44px;
+  padding: 5px 14px;
+  border-top: 1px solid #ece6e8;
+  font-size: .78rem;
+}
+.st-discovery-state [role=status] { flex: 1; min-width: 170px; }
+.phone-app .st-section { margin-top: 10px; }
+.phone-app .st-fold,
+.phone-app .st-fold.st-hub {
+  overflow: hidden;
+  margin-top: 10px;
+  border: 1px solid #e4dddf;
+  border-radius: 15px;
+  background: var(--surface);
+  box-shadow: 0 7px 22px -24px #3e1324;
+}
+.phone-app .st-fold > summary {
+  min-height: 58px;
+  padding: 9px 14px;
+  font-size: .94rem;
+}
+.st-fold > summary > span { display: grid; min-width: 0; gap: 1px; }
+.st-fold > summary strong { color: var(--ink); font-size: .94rem; line-height: 1.45; }
+.st-fold > summary small { overflow: hidden; color: var(--muted); font-size: .72rem; font-weight: 400; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.phone-app .st-fold[open] > summary { background: #fcfafb; }
+.phone-app .st-fold > .st-group {
+  border-top-color: #ece6e8;
+  background: #fff;
+}
+.phone-app .st-fold .st-row { min-height: 56px; padding: 10px 12px; }
+.phone-app .st-fold .st-row-copy strong { font-size: .91rem; }
+.phone-app .st-fold .st-row-copy small { font-size: .78rem; line-height: 1.5; }
+.phone-app .st-member-id-row > span:last-child { color: var(--accent); font-size: .75rem; }
+.phone-app .st-member-id-row .st-row-copy small {
+  overflow: hidden;
+  direction: ltr;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone-app .st-section[aria-label="اختبار العضوية"] { margin-top: 14px; }
+@media (max-width: 370px) {
+  .phone-app .st-member-actions { grid-template-columns: repeat(3, 1fr); }
+  .phone-app .st-member-actions button { font-size: .75rem; }
+  .st-fold > summary small { max-width: 250px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion=reduced]) .st-fold > summary::after { transition: transform 180ms ease; }
+  html:not([data-nf-motion=reduced]) .st-membership-summary:active { transform: scale(.985); }
+}
+
+/* Member pass: one cohesive surface instead of stacked form cards. */
+.phone-app .st-member-card {
+  position: relative;
+  isolation: isolate;
+  margin-top: 14px;
+  border-color: #7c4055;
+  background:
+    radial-gradient(circle at 9% -12%, #a55b7090 0, transparent 38%),
+    linear-gradient(145deg, #681f39 0%, #511329 58%, #3d0d20 100%);
+  box-shadow: 0 19px 42px -27px #2d0719d9, inset 0 1px #fff2;
+}
+.phone-app .st-member-card::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -68px auto auto -58px;
+  width: 180px;
+  height: 180px;
+  border: 1px solid #f2c9d226;
+  border-radius: 50%;
+  box-shadow: 0 0 0 18px #f2c9d20b, 0 0 0 38px #f2c9d208;
+  pointer-events: none;
+}
+.phone-app .st-member-card::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(112deg, transparent 22%, #fff 48%, transparent 57%);
+  opacity: .055;
+  pointer-events: none;
+}
+.phone-app .st-member-card .st-member-identity { gap: 10px; padding: 10px 12px 9px; }
+.phone-app .st-member-card .st-member-avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #f8e8eccc;
+  background: #f5e7eb;
+  color: #54152a;
+  box-shadow: 0 0 0 1px #b7798d, 0 8px 19px #23061270;
+}
+.phone-app .st-member-avatar-mask {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.phone-app .st-member-avatar-mask > :is(img, .nf-avatar-portrait, [data-access-checked-portrait]) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+}
+.phone-app .st-member-card .st-member-identity h2 {
+  color: #fffaf9;
+  font-size: 1.24rem;
+  font-weight: 650;
+}
+.phone-app .st-member-card .st-member-identity p {
+  color: #ead3db;
+  font-size: .8rem;
+}
+.phone-app .st-member-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  justify-items: stretch;
+  overflow: hidden;
+  gap: 0;
+  margin: 0 12px 7px;
+  padding: 3px;
+  border: 1px solid #f3dce338;
+  border-radius: 15px;
+  background: #24071340;
+  box-shadow: inset 0 1px #fff1;
+}
+.phone-app .st-member-actions button,
+.phone-app .st-member-actions button:first-child,
+.phone-app .st-member-actions button:last-child,
+.phone-app .st-member-actions .st-member-photos {
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: #f7e9ed;
+  font-size: .78rem;
+  font-weight: 550;
+  line-height: 1.35;
+  text-align: center;
+}
+.phone-app .st-member-actions .st-member-photos > span { flex: none; }
+.phone-app .st-member-actions button + button {
+  border-inline-start: 1px solid #f3dce326;
+  border-radius: 0;
+}
+.phone-app .st-member-actions button:first-child {
+  border-radius: 11px;
+  background: linear-gradient(145deg, #fff8f5, #ead6dc);
+  color: #59152d;
+  box-shadow: 0 5px 15px #1f041050;
+}
+.phone-app .st-membership-summary {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  width: calc(100% - 24px);
+  min-height: 44px;
+  margin: 0 12px 6px;
+  padding: 4px 8px;
+  border: 1px solid #f0d7df1f;
+  background: #fffaf80d;
+  color: #fff8f7;
+}
+.phone-app .st-membership-summary-icon {
+  width: 28px;
+  height: 28px;
+  background: #fffaf718;
+  color: #edc5d1;
+  box-shadow: inset 0 0 0 1px #fff1;
+}
+.phone-app .st-membership-summary small,
+.phone-app .st-membership-summary .st-membership-billing { color: #cfabb7; }
+.phone-app .st-membership-summary strong { color: #fff7f4; font-weight: 600; }
+.phone-app .st-membership-summary > svg { color: #d5aeb9; }
+.phone-app .st-discovery-state {
+  min-height: 44px;
+  padding: 0 12px;
+  border-top-color: #f1dbe329;
+  color: #f7e9ed;
+}
+.st-member-card .st-discovery-state [role=status] { min-width: 0; }
+.phone-app .st-discovery-state .btn-text { color: #f0c8d3; }
+.phone-app .st-member-card .st-note { color: #e4c9d1; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion=reduced]) .st-member-card::after {
+    animation: st-pass-sheen 8s ease-in-out infinite;
+  }
+}
+@keyframes st-pass-sheen {
+  0%, 76%, 100% { transform: translateX(-45%); opacity: 0; }
+  84% { opacity: .055; }
+  94% { transform: translateX(45%); opacity: 0; }
+}

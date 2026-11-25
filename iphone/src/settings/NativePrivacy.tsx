@@ -5,7 +5,7 @@ import { ShieldCheck } from '../BrandIcons';
 import { pushPrivacy } from '../notifications/push';
 import { feedback } from '../feedback/haptics';
 
-export function NativePrivacy({owner}:{owner:string|null}) {
+export function NativePrivacy({owner,folded=false}:{owner:string|null;folded?:boolean}) {
   const [appearance,setAppearance]=useState<DeviceAppearance|null>(null);
   const [state, setState] = useState<DeviceLockStatus | null>(null);
   useEffect(()=>{if(Capacitor.getPlatform()==='ios')void native.appearance().then(setAppearance).catch(()=>{});},[]);
@@ -35,8 +35,7 @@ export function NativePrivacy({owner}:{owner:string|null}) {
     }catch{setError('تعذّر تحديث الخصوصية. أعد المحاولة؛ لن نعرض محتوى إشعاراتك تلقائيًا.');}
     finally{setBusy(false);}
   }
-  return <section className="st-section" aria-label="خصوصية iPhone">
-    <h2>خصوصية iPhone</h2><div className="st-group">
+  const contents = <><div className="st-group">
       <button type="button" className="st-row st-switch" role="switch" aria-checked={state.enabled}
         disabled={busy || !state.available} onClick={() => void configure(!state.enabled, state.delay)}>
         <span className="st-icon"><ShieldCheck /></span><span className="st-row-copy"><strong>قفل وُدَين</strong>
@@ -55,5 +54,7 @@ export function NativePrivacy({owner}:{owner:string|null}) {
     </>}
     </div><p className="st-notice">تُخفى محادثاتك تلقائيًا من معاينة التطبيقات عند مغادرة وُدَين.</p>
     {error && <p className="form-error" role="alert">{error}</p>}
-  </section>;
+  </>;
+  if(folded)return <details className="st-section st-fold st-hub"><summary><span><strong>خصوصية iPhone</strong><small>قفل التطبيق ومعاينات شاشة القفل</small></span></summary>{contents}</details>;
+  return <section className="st-section" aria-label="خصوصية iPhone"><h2>خصوصية iPhone</h2>{contents}</section>;
 }

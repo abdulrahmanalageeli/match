@@ -135,7 +135,6 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   background: var(--nf-search-surface);
   box-shadow: var(--nf-portrait-shadow);
 }
-.phone-app .st-member-actions { padding: 0 14px 12px; }
 .phone-app .st-member-actions button { min-height: 44px; font-size: var(--text-secondary); }
 .phone-app .st-member-photos { min-height: 52px; padding: 10px 14px; border-top-color: var(--nf-row-divider); }
 .phone-app :is(.st-row + .st-row, .st-marriage-group > div + div > .st-row)::before { border-top-color: var(--nf-row-divider); opacity: 1; }

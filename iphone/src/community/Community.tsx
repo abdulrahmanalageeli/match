@@ -2224,7 +2224,7 @@ function Requests({
   </>;
   if (!conversations) return <section className="screen-content cm-view cm-notifications-view">
     <header className="cm-header"><Brand /></header>
-    <div className="cm-title"><h1 tabIndex={-1}>الإشعارات</h1></div>
+    <h1 className="mi-sr-only" tabIndex={-1}>الإشعارات</h1>
     {exitFeedback}
     {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
     {notice && <Banner text={notice}/>}
@@ -2252,9 +2252,7 @@ function Requests({
       <header className="cm-header">
         <Brand />
       </header>
-      <div className="cm-title">
-        <h1 tabIndex={-1}>{conversations ? "المحادثات" : "الإشعارات"}</h1>
-      </div>
+      <h1 className="mi-sr-only" tabIndex={-1}>{conversations ? "المحادثات" : "الإشعارات"}</h1>
       {pushOwner && <NativePushAction key={pushOwner} owner={pushOwner}/>}
       {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
 

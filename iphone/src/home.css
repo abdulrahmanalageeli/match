@@ -13,6 +13,7 @@
 .mi-heading-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 12px; margin: 25px 0 15px; }
 .mi-title { margin: 0; font-size: clamp(2rem, 8vw, 2.65rem); line-height: 1.24; font-weight: 700; color: var(--ink); }
 .mi-date { font-size: .88rem; line-height: 1.5; color: var(--muted); }
+.mi-home-content > .mi-sr-only + :is(.mi-feature, .mi-paused-note, .mi-empty) { margin-top: 15px; }
 .mi-feature, .mi-detail-profile, .mi-empty {
   border: 1px solid var(--gold); border-radius: 21px; overflow: hidden;
   background: var(--surface); box-shadow: 0 7px 22px -13px #53263944;

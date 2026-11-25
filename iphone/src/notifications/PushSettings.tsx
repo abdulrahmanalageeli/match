@@ -6,7 +6,7 @@ import { disablePush, enablePush, getPushPreference, nativePush, openPushSetting
 import { needsHomeScreen } from './webPush';
 import { feedback } from '../feedback/haptics';
 
-export function PushSettings({ owner, demo, testerSession }: { owner: string | null; demo: boolean; testerSession?: string }) {
+export function PushSettings({ owner, demo, testerSession, folded=false }: { owner: string | null; demo: boolean; testerSession?: string; folded?: boolean }) {
   owner = testerSession && nativePush ? 'tester:' + testerSession : owner;
   const [enabled, setEnabled] = useState(false);
   const [permission, setPermission] = useState('prompt');
@@ -57,8 +57,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
     ['reminder','تذكير بالموعد المتفق عليه'], ['analysis','دعوات التحليل وجاهزية التقرير'],
     ['sound','صوت التنبيهات'], ['quiet','ساعات الهدوء'],
   ] as const;
-  return <section className="st-section" aria-labelledby="st-push-title">
-    <h2 id="st-push-title">الإشعارات</h2>
+  const contents = <>
     <div className="st-group">
       <button className="st-row st-switch" type="button" role="switch" aria-label="إشعارات التعارف والرسائل" aria-checked={enabled}
         disabled={!available || busy} onClick={() => void toggle()}>
@@ -108,5 +107,7 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
       {!nativePush && available && permission === 'denied' && <p className="st-notice" role="status">السماح بالإشعارات متوقف في إعدادات جهازك أو متصفحك. غيّر الإذن لوُدَين، ثم فعّله هنا.</p>}
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}
-  </section>;
+  </>;
+  if(folded)return <details className="st-section st-fold st-hub"><summary><span><strong>الإشعارات</strong><small>{enabled?'مفعّلة · اختر ما يصلك وخصوصية المعاينة':'تحكم في تنبيهات التعارف والرسائل'}</small></span></summary>{contents}</details>;
+  return <section className="st-section" aria-labelledby="st-push-title"><h2 id="st-push-title">الإشعارات</h2>{contents}</section>;
 }

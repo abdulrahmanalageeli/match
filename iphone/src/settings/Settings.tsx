@@ -30,7 +30,6 @@ import type { ManualVerificationClaim } from '../verification/model';
 import { JourneyCompletion } from './JourneyCompletion';
 import { SupportContact } from '../help/SupportContact';
 import { feedback, hasHaptics } from '../feedback/haptics';
-import { isIOSBilling, manageMembership } from '../billing';
 import { applePeriodText, settingsDate, useSettingsSummary } from './settingsSummary';
 
 type Props = {
@@ -136,7 +135,6 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const systemReduced = useSystemReducedMotion();
   const [confirm, setConfirm] = useState<"pause" | "exit" | null>(null);
   const [dataSheet, setDataSheet] = useState<{ mode: "export" | "visibility"; owner: string } | null>(null);
-  const [appleError,setAppleError] = useState(false);
   const [memberIdCopied,setMemberIdCopied] = useState(false);
   const [showHelp,setShowHelp]=useState(false);
   const [showCompletion,setShowCompletion]=useState(false);
@@ -149,7 +147,13 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const returnScroll=useRef(0);
   useLayoutEffect(()=>{if(profilePanel)window.scrollTo(0,0);},[profilePanel]);
   function openPanel(panel:'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'){returnScroll.current=window.scrollY;setProfilePanel(panel);}
-  function closePanel(){const panel=profilePanel;setProfilePanel(null);requestAnimationFrame(()=>{window.scrollTo(0,returnScroll.current);document.querySelector<HTMLButtonElement>(panel==='preview'?'button[aria-label="عرض ملفي كما يراه الآخرون"]':panel==='readiness'?'.st-readiness-entry button':panel==='family'?'.st-family-entry button':panel==='exclusions'?'.st-exclusions-entry button':panel==='verification'?'.st-verification-entry button':'.st-member-photos')?.focus({preventScroll:true});});}
+  function closePanel(){const panel=profilePanel;setProfilePanel(null);requestAnimationFrame(()=>{
+    window.scrollTo(0,returnScroll.current);
+    const button=document.querySelector<HTMLButtonElement>(panel==='preview'?'button[aria-label="عرض ملفي كما يراه الآخرون"]':panel==='readiness'?'.st-readiness-entry button':panel==='family'?'.st-family-entry button':panel==='exclusions'?'.st-exclusions-entry button':panel==='verification'?'.st-verification-entry button':'.st-member-photos');
+    const fold=button?.closest('details');
+    if(fold)fold.open=true;
+    button?.focus({preventScroll:true});
+  });}
   const owner = demo ? "demo" : state?.user.id;
   const summary = useSettingsSummary(demo ? null : state,paused,source);
   const member = demo ? demoMember : state?.profile;
@@ -158,6 +162,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const canSeeMembership = canManageMatching || state?.membership.active;
   const tier = state?.membership.tier ?? (state?.membership.active ? 'premium' : 'free');
   const membershipDetail = demo ? 'عضوية تجريبية' : state?.membership.status==='expired'?'انتهت صلاحية العضوية': state?.membership.status==='trial'?'تجربتك المجانية مفعّلة': {free:'العضوية المجانية · استكشف مزايا الترقية', premium:'العضوية المميزة', seriousness:'وسام الجدية'}[tier];
+  const membershipBillingDetail = demo ? null : summary.data?.subscriptions[0] ? applePeriodText(summary.data.subscriptions[0]) :
+    state?.membership.expiresAt && state.membership.active ? (state.membership.status==='trial'?'تنتهي تجربتك في ':'وصولك سارٍ حتى ') + settingsDate(state.membership.expiresAt) + '.' : null;
   const location = member?.city || state?.user.email;
   const visibility = demo ? (paused ? 'paused' : 'eligible') : summary.data?.visibility;
   const visibilityText = visibility ? {
@@ -202,28 +208,25 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
           <Brand />
           {onBack && <button className="st-back" type="button" onClick={onBack} aria-label="رجوع"><ArrowRight size={18} aria-hidden="true" /> رجوع</button>}
         </header>
-        <h1 className="st-title">الإعدادات</h1>
+        <h1 className="mi-sr-only">الإعدادات</h1>
         <section className="st-member-card" aria-label="ملفي الشخصي">
-          <div className="st-member-identity"><span className="st-member-avatar">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}<MemberBadge tier={state?.membership.tier} active={state?.membership.active}/></span><div><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p>{state?.user.id&&<button type="button" className="st-member-id" onClick={()=>void copyMemberId()} aria-label="نسخ معرّف العضو"><Copy size={13}/><span aria-live="polite">{memberIdCopied?'تم النسخ':'معرّف العضو'}</span><code dir="ltr" title={state.user.id}>{state.user.id}</code></button>}</div></div>
-          <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>
+          <div className="st-member-identity"><span className="st-member-avatar"><span className="st-member-avatar-mask">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}</span><MemberBadge tier={state?.membership.tier} active={state?.membership.active}/></span><div><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
+          <div className="st-member-actions">
+            <button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={16}/><span>تعديل</span></button>
+            <button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={17}/><span>معاينة</span></button>
+            {source?.gallery&&<button type="button" className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span>الصور</span></button>}
+          </div>
+          {canSeeMembership&&<button type="button" className="st-membership-summary" onClick={onMembership} disabled={busy} aria-label={'عضويتي · '+membershipDetail}>
+            <span className="st-membership-summary-icon"><CreditCard size={18}/></span>
+            <span><small>عضويتك</small><strong>{membershipDetail}</strong>{membershipBillingDetail&&<small className="st-membership-billing">{membershipBillingDetail}</small>}</span><ChevronLeft size={16}/>
+          </button>}
           <div className="st-discovery-state" data-visibility={visibility}><span role="status">{visibilityText ?? (summary.error?'تعذّر التحقق من ظهور ملفك.':'جارٍ التحقق من ظهور ملفك…')}</span>
             {summary.error && !visibilityText && <button className="btn-text" onClick={summary.refresh}>إعادة المحاولة</button>}
             {canManageMatching && <button type="button" className="btn-text" disabled={busy} aria-label={paused?'استئناف الظهور':'إيقاف الترشيحات مؤقتًا'} onClick={()=>paused?onToggle():setConfirm('pause')}>{paused?'استئناف الظهور':'إيقاف مؤقت'}</button>}</div>
           {state?.user.profileReviewPending && <p className="st-note" role="status">تعديلاتك قيد المراجعة. تعرض المعاينة النسخة المعتمدة التي يراها من سبق لك التعارف معهم.</p>}
-          {source?.gallery&&<button className="st-member-photos" onClick={()=>openPanel('photos')}><Image size={17}/><span><strong>صوري وخصوصيتها</strong></span><ChevronLeft size={16}/></button>}
         </section>
-        {canSeeMembership && <section className="st-section" aria-labelledby="st-membership-title"><h2 id="st-membership-title">العضوية</h2><div className="st-group">
-          <SettingRow icon={<CreditCard/>} title="عضويتي" detail={membershipDetail} action={onMembership} disabled={busy}/>
-          {!demo && <div className="st-billing">
-            {summary.data?.subscriptions.length ? summary.data.subscriptions.map((period,i)=><p key={i}>{applePeriodText(period)}</p>)
-              : state?.membership.expiresAt && state.membership.active && <p>{state.membership.status==='trial'?'تنتهي تجربتك في ':'وصولك سارٍ حتى '}{settingsDate(state.membership.expiresAt)}.</p>}
-            {summary.error && <p role="status">تعذّر تحديث تفاصيل الفوترة. <button className="btn-text" onClick={summary.refresh}>إعادة المحاولة</button></p>}
-            {isIOSBilling() && !appleError ? <button className="btn-text" onClick={()=>{void manageMembership().then(summary.refresh,()=>setAppleError(true));}}>إدارة الاشتراك لدى Apple</button>
-              : <a href="https://apps.apple.com/account/subscriptions" target="_blank" rel="noreferrer">إدارة الاشتراك لدى Apple</a>}
-          </div>}
-        </div></section>}
-        {Boolean(hasPreviousVerification || onBeena || source?.readiness || source?.family || member) && <section className="st-section" aria-labelledby="st-marriage-title">
-          <h2 id="st-marriage-title">ملفك وخطوات الزواج</h2>
+        {Boolean(hasPreviousVerification || onBeena || source?.readiness || source?.family || member) && <details className="st-section st-fold st-hub">
+          <summary><span><strong>رحلتي وأدوات الزواج</strong><small>بيننا، الجاهزية، الأهل والخطوة الرسمية</small></span></summary>
           <div className="st-group st-marriage-group">
             {hasPreviousVerification&&<div className="st-verification-entry"><SettingRow icon={<ShieldCheck/>} title="طلبات التوثيق السابقة" action={()=>openPanel('verification')} disabled={busy||!member}/></div>}
             {onBeena&&<div className="st-beena-entry"><SettingRow icon={<BookOpen/>} title="بيننا · سؤال وجواب" detail={member?.beena?.story?.text.trim() ? member.beena.story.share ? "إجابتك ظاهرة في ملفك" : "إجابتك خاصة" : "أضف إجابتك"} action={onBeena} disabled={busy}/></div>}
@@ -231,10 +234,10 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
             {source?.family&&<div className="st-family-entry"><SettingRow icon={<UsersRound/>} title="جسر الأهل" detail="دعوات الأسرة ومحادثاتها" action={()=>openPanel('family')} disabled={busy}/></div>}
             {member&&<div className="st-completion-entry"><SettingRow icon={<UsersRound/>} title="الخطوة الرسمية" detail="التقدّم أو الخطوبة أو الزواج" action={()=>setShowCompletion(true)} disabled={busy}/></div>}
           </div>
-        </section>}
+        </details>}
         {!state?.user.profileReviewPending && state?.user.nextPublicProfileEditAt && new Date(state.user.nextPublicProfileEditAt).getTime() > Date.now() && <p>التعديل التالي لبيانات ملفك العامة متاح في {new Date(state.user.nextPublicProfileEditAt).toLocaleDateString('ar-SA')}. يمكنك مراجعة التفضيلات وإيقاف مشاركة صورك من أدواتها.</p>}
-        <section className="st-section" aria-labelledby="st-privacy-title">
-          <h2 id="st-privacy-title">الخصوصية</h2>
+        <details className="st-section st-fold st-hub">
+          <summary><span><strong>الخصوصية والبيانات</strong><small>الحظر، الأذونات ونسخة بياناتك</small></span></summary>
           <div className="st-group">
             {source?.requestHistory && <RequestHistory source={source} title="السجل والإبلاغ عن تعارف سابق"/>}
             {source?.directoryWork && <DirectoryWork source={source}/>}
@@ -244,9 +247,9 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
             {owner && <SettingRow icon={<Eye />} title="خصوصية بيانات الملف" action={() => setDataSheet({ mode: "visibility", owner })} />}
             {owner && <SettingRow icon={<Download />} title="نسخة من بياناتي" action={() => setDataSheet({ mode: "export", owner })} />}
           </div>
-        </section>
+        </details>
         {!demo&&state?.membershipTesting&&onTestMembership&&<section className="st-section" aria-label="اختبار العضوية"><h2>اختبار العضوية</h2><div className="st-group">{([['actual','العضوية الفعلية'],['free','المجانية'],['premium','المميزة'],['seriousness','وسام الجدية']] as const).map(([tier,label])=><PreferenceSwitch key={tier} icon={<CreditCard/>} title={label} checked={state.membershipTesting?.selected===tier} disabled={busy} onChange={()=>onTestMembership(tier)}/>)}</div><p className="flow-note">لحسابك فقط، لمدة ٢٤ ساعة. لا يغيّر فواتير Apple أو يلغي الاشتراك.</p></section>}
-        <details className="st-section st-fold"><summary>العرض والصوت</summary>
+        <details className="st-section st-fold st-hub"><summary><span><strong>العرض والصوت</strong><small>حجم النص، الحركة والتنبيهات الحسية</small></span></summary>
           <div className="st-group">
             <PreferenceSwitch icon={<Type />} title="تكبير النص" checked={value.largeText} onChange={() => setPreference("largeText", !value.largeText)} />
             <PreferenceSwitch icon={<Feather />} title="تقليل الحركة" detail={systemReduced ? "مفعّل من إعدادات جهازك" : undefined} checked={systemReduced || value.reducedMotion} disabled={systemReduced} onChange={() => setPreference("reducedMotion", !value.reducedMotion)} />
@@ -254,11 +257,12 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
             {hasHaptics() && <PreferenceSwitch icon={<Vibrate />} title="تأكيد باللمس" detail="لمسة خفيفة عند تأكيد الاختيار" checked={value.haptics} onChange={() => setPreference('haptics', !value.haptics)} />}
           </div>
         </details>
-        <PushSettings owner={owner ?? null} demo={demo} testerSession={testerSession} />
-        <NativePrivacy owner={testerSession ? 'tester:'+testerSession : !demo ? owner??null : null} />
-        <details className="st-section st-fold"><summary>المساعدة والدعم</summary><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="الميزات والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div><SupportContact/></details>
-        <details className="st-section st-fold st-access"><summary>الحساب</summary>
+        <PushSettings owner={owner ?? null} demo={demo} testerSession={testerSession} folded />
+        <NativePrivacy owner={testerSession ? 'tester:'+testerSession : !demo ? owner??null : null} folded />
+        <details className="st-section st-fold st-hub"><summary><span><strong>المساعدة والدعم</strong><small>الدليل والتواصل مع الفريق</small></span></summary><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="الميزات والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div><SupportContact/></details>
+        <details className="st-section st-fold st-hub st-access"><summary><span><strong>الحساب</strong><small>المعرّف، تسجيل الخروج وحذف الحساب</small></span></summary>
           <div className="st-group">
+            {state?.user.id&&<button type="button" className="st-row st-member-id-row" onClick={()=>void copyMemberId()}><span className="st-icon"><Copy size={18}/></span><span className="st-row-copy"><strong>معرّف العضو</strong><small dir="ltr">{state.user.id}</small></span><span aria-live="polite">{memberIdCopied?'تم النسخ':'نسخ'}</span></button>}
             <SettingRow icon={<LogOut />} title={demo ? "إنهاء التجربة" : "تسجيل الخروج"} action={() => setConfirm("exit")} disabled={busy} />
             {!demo && <SettingRow icon={<Trash2 />} title="حذف حسابي" action={onDelete} disabled={busy} danger />}
           </div>

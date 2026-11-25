@@ -18,7 +18,6 @@ import { useCapturePrivacy } from '../privacy/CapturePrivacy';
 import { marriageTimelineLabels, meetingPreferenceLabels, polygynyLabels, prayerPracticeLabels, religiousAffiliationLabels } from '../compatibility/marriage';
 import './member-profile.css';
 import { VerifiedBadge } from '../verification/VerifiedBadge';
-import { ScenePaths } from '../ScenePaths';
 import { MotionPressButton } from '../motion/Reanimated';
 import { SharedReadinessPassportPanel } from '../readiness/ReadinessPassport';
 import { canonicalCity } from './profileOptions';
@@ -92,19 +91,32 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   useLayoutEffect(()=>{if (access === 'allowed') heading.current?.focus({preventScroll:true});},[access,person.id]);
   useEffect(()=>{
     if (!check || !source) return;
-    let active=true, sequence=0;
+    let active=true, checking=false, queued=false, generation=0;
+    const publish=(status:'allowed'|'denied'|'error')=>{
+      setVisible(previous=>previous?.id===person.id && previous.source===source && previous.status===status
+        ? previous : {id:person.id,source,status});
+    };
     const refresh=async()=>{
-      const current=++sequence;
-      if (document.hidden) {setVisible(null); return;}
+      if(document.hidden){generation++;setVisible(null);return;}
+      if(checking){queued=true;return;}
+      checking=true;
       try {
-        const allowed = await check(person.id);
-        if(active && current===sequence)setVisible({id:person.id,source,status:allowed?'allowed':'denied'});
-      } catch (cause) {
-        if(active && current===sequence)setVisible({id:person.id,source,status:denied(cause)?'denied':'error'});
-      }
+        do {
+          queued=false;
+          const current=generation;
+          try {
+            const allowed=await check(person.id);
+            if(active && current===generation && !document.hidden && (!allowed || !queued))
+              publish(allowed?'allowed':'denied');
+          } catch(cause) {
+            if(active && current===generation && !document.hidden)publish(denied(cause)?'denied':'error');
+          }
+        } while(active && queued && !document.hidden);
+      } finally {checking=false;}
     };
     void refresh();
-    const stop=source.watch(refresh), timer=window.setInterval(refresh,10000);
+    const stop=source.watch(refresh);
+    const timer=window.setInterval(()=>{if(!checking)void refresh();},10000);
     document.addEventListener('visibilitychange',refresh);
     return ()=>{active=false;stop();clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
   },[check,source,person.id,attempt]);
@@ -164,7 +176,6 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       </div>
     </div>
     <section className="mp-hero" data-weekly-featured={featured||undefined} aria-label={`ملف ${person.alias}`}>
-      <ScenePaths className="mp-arrival-paths" parallax />
       <div className="mp-hero-copy">
         <div className="mp-name-row">
           <h1 ref={heading} tabIndex={-1}>{person.alias}</h1>

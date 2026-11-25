@@ -8,10 +8,10 @@
 /* Short tabs still fill the space below a pinned tab bar. */
 .mp-content[data-pinned] { min-block-size: calc(100dvh - var(--nf-safe-top, 0px) - 50px); }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion=reduced]) .mp-content { animation: mp-page-arrive 380ms cubic-bezier(.2,.78,.24,1) both; }
-  .mp-content[data-backward] { --mp-entry-x: 22px; }
+  html:not([data-nf-motion=reduced]) .mp-content { animation: mp-page-arrive 210ms cubic-bezier(.2,.78,.24,1) both; }
+  .mp-content[data-backward] { --mp-entry-x: 8px; }
   @keyframes mp-page-arrive {
-    from { opacity: .38; transform: translateX(var(--mp-entry-x,-22px)); }
+    from { opacity: .86; transform: translateX(var(--mp-entry-x,-8px)); }
     to { opacity: 1; transform: none; }
   }
   html:not([data-nf-motion=reduced]) .mp-sections button { transition: background .18s,color .18s,box-shadow .18s; }

@@ -29,6 +29,13 @@ window.__trackPullRows=()=>{window.__pullRowReads=0;for(const person of people){
  const tier=person.membershipTier;Object.defineProperty(person,'membershipTier',{configurable:true,get(){window.__pullRowReads++;return tier;}});
 }};
 window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people.filter(person=>person.eligible!==false||f.mode==='all'&&!f.eligibleOnly);},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
+if(location.search.includes('slowProfile')){
+ const listeners=new Set();
+ source.watch=listener=>{listeners.add(listener);return ()=>listeners.delete(listener);};
+ window.__wakeProfile=()=>listeners.forEach(listener=>listener());
+ window.__accessReads=[];
+ source.profileVisible=()=>new Promise(resolve=>window.__accessReads.push(resolve));
+}
 source.blockPerson=async()=>{throw Error('not part of fixture')};
 if (location.search.includes('protectedPhotos')) {
  people[0].portrait={id:'synthetic-portrait',path:'fixture',blur:0,revealed:true};
@@ -113,6 +120,29 @@ async function openProfileAtMembershipSeal(row){
 try{
  browser=await chromium.launch({headless:true,channel:'chrome'});page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
  page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await page.goto('http://127.0.0.1:5281/__discovery-fixture?slowProfile');
+ await page.getByRole('button',{name:'عرض ملف سارة'}).click({position:{x:20,y:20}});
+ await page.getByText('جارٍ فتح الملف…').waitFor();
+ await page.waitForFunction(()=>window.__accessReads.length===1);
+ await page.evaluate(()=>{window.__filters=[];for(let i=0;i<8;i++)window.__wakeProfile();});
+ assert.equal(await page.evaluate(()=>window.__accessReads.length),1);
+ assert.equal(await page.locator('.mp-profile h1').count(),0);
+ await page.evaluate(()=>window.__accessReads[0](true));
+ await page.waitForFunction(()=>window.__accessReads.length===2);
+ await page.evaluate(()=>window.__accessReads[1](true));
+ await page.locator('.mp-profile h1').waitFor();
+ for(const tab of ['التفاصيل','التوافق','نبذة']){
+   const button=page.locator('.mp-profile').getByRole('button',{name:tab,exact:true});
+   await button.click();
+   assert.equal(await button.getAttribute('aria-pressed'),'true');
+ }
+ const refreshes=await page.evaluate(()=>window.__filters);
+ assert(refreshes.length>0 && refreshes.every(f=>f.subjectId==='p0'));
+ await page.evaluate(()=>window.__wakeProfile());
+ await page.waitForFunction(()=>window.__accessReads.length>=3);
+ await page.evaluate(()=>window.__accessReads.at(-1)(false));
+ await page.getByText('الملف غير متاح.',{exact:true}).waitFor();
+ console.log('Passed: eight update signals coalesced behind one validation, profile-only refresh, all tabs and revocation.');
  await page.goto('http://127.0.0.1:5281/__discovery-fixture',{waitUntil:'domcontentloaded',timeout:60000});const weekly=page.locator('.df-recommendation').first();
  await weekly.getByRole('button',{name:'عرض ملف سارة'}).click({position:{x:20,y:20}});
  const memberProfile=page.locator('.mp-profile');
@@ -366,7 +396,9 @@ try{
   assert.equal(await page.locator('.wd-tier-change').count(),0);
  }
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings');await page.getByRole('heading',{name:'الإعدادات',exact:true}).waitFor();await page.waitForTimeout(250);assert.equal(await page.locator('.st-verification-entry').count(),0);
- await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings&legacy');await page.getByRole('button',{name:/طلبات التوثيق السابقة/}).waitFor();
+ await page.goto('http://127.0.0.1:5281/__discovery-fixture?settings&legacy');
+ await page.locator('.st-hub > summary').filter({hasText:'رحلتي وأدوات الزواج'}).click();
+ await page.getByRole('button',{name:/طلبات التوثيق السابقة/}).waitFor();
  // Simulate the Capacitor contract. The screenshot records the actual HTML
  // backing a secure canvas, not the result of the iOS hardware compositor.
  await page.goto('http://127.0.0.1:5281/__discovery-fixture?protectedPhotos');

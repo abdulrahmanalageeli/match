@@ -807,6 +807,19 @@ function Discovery({
       fetching=true;
       try { do { dirty=false;needsRefresh.current=false;const seq=sequence.current;
        try{
+        if(selected){
+          needsRefresh.current=true; // Reconcile the directory when the member returns.
+          const scope=expandedLunaPerson.current===selected?{mode:'all' as const,eligibleOnly:true}:{mode:order};
+          const rows=await source.discover({...filters,...scope,subjectId:selected,offset:0});
+          if(!active||seq!==sequence.current||actionPending.current)return;
+          const person=rows.find(row=>row.id===selected);
+          setSelectedPerson(person??null);
+          if(!person){
+            setList(current=>current.filter(row=>row.id!==selected));
+            setSelected(null);
+          }
+          continue;
+        }
         const pageCount=order==='all'?Math.max(1,Math.ceil(listRef.current.length/24)):1;
         const pages = await readDiscoveryPages(source, { ...filters, mode: order }, pageCount);
         if(!active||seq!==sequence.current||actionPending.current)return;
@@ -839,14 +852,14 @@ function Discovery({
     const timer=window.setInterval(()=>void updatePresence(),60000);
     const resumeDiscovery = () => {
       if (document.hidden) return;
-      if (order === 'all' && !filters.sort) setList(current => updateDirectoryOrder(current, current, true));
+      if (!selected && order === 'all' && !filters.sort) setList(current => updateDirectoryOrder(current, current, true));
       void updatePresence();
     };
     document.addEventListener('visibilitychange',resumeDiscovery);
     window.addEventListener('online',updatePresence);
-    if(needsRefresh.current)void updatePresence();
+    if(needsRefresh.current && !selected)void updatePresence();
     return()=>{active=false;unwatch();clearInterval(timer);document.removeEventListener('visibilitychange',resumeDiscovery);window.removeEventListener('online',updatePresence);};
-  },[source,filters,order,loading,loadingMore]);
+  },[source,filters,order,loading,loadingMore,selected]);
   async function loadMore() {
     if(loadingMore)return;setLoadingMore(true);const seq=sequence.current;
     try{
@@ -862,22 +875,22 @@ function Discovery({
     }
     catch(e){if(seq===sequence.current)setError(messageFor(e));}finally{setLoadingMore(false);}
   }
-  const person = selected ? list.find((p) => p.id === selected) ?? selectedPerson : null;
+  const person = selectedPerson?.id === selected ? selectedPerson : list.find(p=>p.id===selected) ?? null;
   useCapturePrivacy(person ? null : 'discovery');
   function openProfile(item: PublicPerson, button: HTMLButtonElement) {
     expandedLunaPerson.current=null;
     const anchor = button.closest('.dr-person-row')?.querySelector<HTMLButtonElement>('.dr-row-profile') ?? button;
     const origin = (anchor.closest('.dr-row-profile-group, .df-recommendation') ?? anchor).querySelector<HTMLElement>(".cm-weekly-identity");
-    if (!origin) return;
     listPosition.current = { id: item.id, top: anchor.getBoundingClientRect().top, scroll: window.scrollY, featured: order === "recommended" && anchor.closest(".df-recommendation")?.matches(":first-child") === true };
-    move(origin.querySelector<HTMLElement>('.df-portrait-media') ?? origin, () => {
+    const open = () => {
       flushSync(() => { setNotice(""); setError(""); setRowError(''); setInterestNotice(''); setSelected(item.id); setSelectedPerson(item); });
-      if (!identity.current) return null;
-      window.scrollTo(0, 0);
+      window.scrollTo({top:0,behavior:"instant"});
       identity.current?.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true });
       void source.noteProfileOpen?.(item.id).catch(() => {});
       return identity.current?.querySelector<HTMLElement>('.mp-portrait') ?? null;
-    });
+    };
+    if (!origin || (!item.isDemo && source.profileVisible)) open();
+    else move(origin.querySelector<HTMLElement>('.df-portrait-media') ?? origin, open);
   }
   function closeProfile() {
     const origin = identity.current?.querySelector<HTMLElement>('.mp-portrait');
@@ -1633,7 +1646,7 @@ export function Chat({
     reading.remember(); typing.stop();
     const swap = () => { flushSync(() => setProfileOpen(true)); return profileIdentity.current?.querySelector<HTMLElement>('.mp-portrait') ?? null; };
     const avatar = origin.querySelector<HTMLElement>('.cm-avatar');
-    if (avatar) profileFlight(avatar, swap); else swap();
+    if (avatar && (connection.person.isDemo || !source.profileVisible)) profileFlight(avatar, swap); else swap();
     void source.noteProfileOpen?.(connection.person.id).catch(() => {});
   }
   function openFamily() { reading.remember(); typing.stop(); setFamilyOpen(true); }

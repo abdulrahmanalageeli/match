@@ -30,6 +30,20 @@
   object-fit: contain;
   opacity: .58;
 }
+.luna-search-ai {
+  display: inline-flex;
+  align-items: center;
+  height: 15px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--accent-fill) 24%, transparent);
+  border-radius: 5px 5px 5px 2px;
+  color: var(--accent-fill);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 8px;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: .04em;
+}
 .luna-search-entry strong {
   color: var(--accent-fill);
   font-size: 14px;
@@ -37,6 +51,7 @@
   line-height: 1.35;
 }
 .luna-search-orb {
+  position: relative;
   display: grid;
   place-items: center;
   width: 30px;
@@ -54,6 +69,17 @@
   width: 22px;
   height: 22px;
   object-fit: contain;
+}
+.luna-search-orb-ai {
+  position: absolute;
+  inset: 1px 1px auto auto;
+  width: 9px;
+  height: 9px;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--accent-fill);
+  stroke-width: 1.8;
 }
 .luna-search-access {
   display: inline-flex;

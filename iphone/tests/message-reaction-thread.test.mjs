@@ -68,7 +68,7 @@ test('reaction appears immediately, prevents duplicate writes, preserves draft/r
   assert.equal(thread.rows[0].reactions[0].mine, true);
   assert.equal(thread.pendingReactionIds.has('message'), true);
   await thread.reactToMessage('message', '😂'); assert.equal(f.writes, 1);
-  assert.equal(thread.draft, 'Unfinished draft'); assert.equal(thread.outbox.read().reply.id, 'earlier');
+  assert.equal(thread.outbox.read().draft, 'Unfinished draft'); assert.equal(thread.outbox.read().reply.id, 'earlier');
   f.snapshot = [message({ reactions: reaction(true, 2) })]; f.result.resolve(reaction(true, 2)); await pending; await tick();
   thread = f.render(); assert.equal(thread.pendingReactionIds.size, 0); assert.equal(thread.rows[0].reactions[0].count, 2); f.close();
 });
@@ -78,14 +78,14 @@ test('network retries back off, preserve the draft and resume on the next normal
   f.threadImpl = async () => { throw Error('network timeout'); };
   f.wake(); await tick();
   assert.equal(f.render().connectionState, 'reconnecting');
-  assert.equal(f.render().draft, 'Unfinished draft');
+  assert.equal(f.render().outbox.read().draft, 'Unfinished draft');
   const initialReads = f.reads;
   f.wake(); await tick(); assert.equal(f.reads, initialReads, 'broadcasts respect backoff');
   for (const delay of [2000, 5000, 10000]) { assert.equal(f.runRetry(), delay); await tick(); f.render(); }
   assert.equal(f.render().connectionState, 'unavailable'); assert.equal(f.timers.size, 0);
   f.threadImpl = undefined; f.wake(); await tick(); assert.equal(f.reads, initialReads + 4);
   assert.equal(f.render().connectionState, 'online'); assert.equal(f.render().error, '');
-  assert.equal(f.render().draft, 'Unfinished draft'); f.close();
+  assert.equal(f.render().outbox.read().draft, 'Unfinished draft'); f.close();
 });
 
 test('offline startup waits for the online event and cleanup cancels scheduled work', async () => {
@@ -101,7 +101,7 @@ test('failed removal rolls back only the optimistic reaction and keeps the compo
   const pending = f.render().reactToMessage('message', null);
   assert.equal(f.render().rows[0].reactions.length, 0);
   f.result.reject(new Error('offline')); await assert.rejects(pending, /offline/); await tick();
-  const thread = f.render(); assert.equal(thread.rows[0].reactions[0].mine, true); assert.equal(thread.pendingReactionIds.size, 0); assert.equal(thread.draft, 'Unfinished draft'); f.close();
+  const thread = f.render(); assert.equal(thread.rows[0].reactions[0].mine, true); assert.equal(thread.pendingReactionIds.size, 0); assert.equal(thread.outbox.read().draft, 'Unfinished draft'); f.close();
 });
 
 test('a stale poll cannot undo an acknowledged reaction while the fresh poll is pending', async () => {

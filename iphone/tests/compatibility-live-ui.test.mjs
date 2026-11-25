@@ -61,7 +61,8 @@ function mount(code, component, initialProps, membership={premium:true,upgrade:n
     if (!modules.has(name)) modules.set(name, new Proxy({}, { get: (cache, key) => cache[key] ??= key === 'numericOptions' ? () => [] : key === 'preferencePercentage' ? fit => fit?.preference : Object.defineProperty(() => null, 'name', { value: key }) }));
     return modules.get(name);
   };
-  vm.runInNewContext(code, { exports, require, document: doc, window: browser, clearTimeout: id => timeouts.delete(id), clearInterval: noop });
+  vm.runInNewContext(code, { exports, require, document: doc, window: browser, clearTimeout: id => timeouts.delete(id), clearInterval: noop,
+    requestAnimationFrame: fn => schedule(fn, 16), cancelAnimationFrame: id => timeouts.delete(id) });
   return {
     render(next) { if (next) props = next; let tree, passes = 0; do { changed = false; cursor = 0; tree = exports[component](props); for (const fn of effects.splice(0)) fn(); if (++passes > 20) throw Error('unstable render'); } while (changed); return tree; },
     close() { for (const hook of hooks) hook?.cleanup?.(); },
@@ -233,6 +234,30 @@ test('navigation captures discovery position before the parent resets the page s
   r.scroll(1200); r.leaving(); r.scroll(0);
   assert.equal(readBrowseMemory(source).scroll, 1200);
   r.close();
+});
+
+test('restoring the directory and a subsequent presence update use one fresh batch each', async () => {
+  const source = sourceWith();
+  let members = Array.from({length: 96}, (_, i) => person(75, 'member-' + i));
+  const reads = [];
+  source.discover = () => assert.fail('loaded pages should share a batch');
+  source.discoverPages = async (filters, count) => {
+    reads.push([filters.mode, count]);
+    return Array.from({length: count}, (_, i) => members.slice(i * 24, (i + 1) * 24));
+  };
+  saveBrowseMemory(source, {filters: {}, order: 'all', query: '', scroll: 600, pages: 4});
+  const view = mount(communityCode, 'Discovery', baseProps(source));
+  view.render(); await settle();
+  const directoryIds = () => nodes(view.render()).filter(node => node.type?.name === 'DirectoryRow').map(node => node.props.person.id);
+  assert.equal(directoryIds().length, 96);
+  view.runTimers(16);
+  members = members.slice(1);
+  source.notify(); await settle();
+  const refreshed = directoryIds();
+  assert.equal(refreshed.length, 95);
+  assert.ok(!refreshed.includes('member-0'));
+  assert.deepEqual(reads, [['all', 4], ['all', 4]]);
+  view.close();
 });
 
 test('initial search keeps loaded recommendations and scrolling measures the anchor once at rest', async () => {

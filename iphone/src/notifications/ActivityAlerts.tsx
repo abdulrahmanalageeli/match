@@ -1,4 +1,5 @@
 import { captureTitle, captureDetail, publishChatScreenshots } from "./chatScreenshots";
+import { readAlertProgress } from './alertProgress';
 import memberAr from '../member-copy.ts';
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, MessageCircle, Route, X } from "../BrandIcons";
@@ -61,7 +62,7 @@ export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, cel
     const seen = new Map<string, string>(), stages = new Map<string, StepProgress>();
     const fits = new Map<string, CompatibilitySnapshot>();
     const completed = new Map<string, Activity>();
-    const progress = new Map<string, StepProgress>();
+    let progress = new Map<string, StepProgress>();
     let progressAt = 0;
     let trailing: number | undefined;
     let notifications: ActivityNotification[] = [];
@@ -92,11 +93,12 @@ export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, cel
           publishChatScreenshots(source, activity);
         }
         const connections = allConnections.filter(c => c.status === 'accepted');
-        if (source.progress && readActivity) {
-          await Promise.all(connections.map(async c => {
-            try { const value = await source.progress!(c.id); if (active) progress.set(c.id, value); }
-            catch { /* Keep message alerts available if a journey cannot load. */ }
-          }));
+        if (readActivity) {
+          progress = await readAlertProgress(source, connections, progress);
+          for (const id of stages.keys()) if (!progress.has(id)) {
+            stages.delete(id);
+            completed.delete(id);
+          }
         }
         if (!active) return;
         const observations = connections.map(c => ({ connection: c, previous: fits.get(c.id), snapshot: compatibilitySnapshot(c.person.fit) }));
@@ -138,7 +140,7 @@ export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, cel
           const done = completed.get(c.id);
           if (done) next.push(done);
         }
-        setMilestone(current=>current && !connections.some(c=>c.id===current.id)?null:current);
+        setMilestone(current=>current && (!progress.has(current.id)||!connections.some(c=>c.id===current.id))?null:current);
         // A withdrawn request can be proposed again and should alert again.
         for (const key of seen.keys()) if (!next.some(item => item.key === key)) seen.delete(key);
         // Restored history remains in the feed; only new activity interrupts this session.

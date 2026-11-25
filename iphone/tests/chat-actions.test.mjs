@@ -24,7 +24,7 @@ function mount(rows, draft = '') {
     useRef: value => hooks[cursor++] ??= { current: value }, useId: () => `id-${cursor++}`,
     useState: value => { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value; return [hooks[at], next => { const result = typeof next === 'function' ? next(hooks[at]) : next; if (result !== hooks[at]) { hooks[at] = result; changed = true; } }]; },
   };
-  const thread = { rows, ready: true, connectionState: 'online', pendingReactionIds: new Set(), get draft() { return draft; }, refresh: noop, older: noop,
+  const thread = { rows, ready: true, connectionState: 'online', pendingReactionIds: new Set(), get hasDraft() { return !!draft; }, get replyDraft() { return reply; }, refresh: noop, older: noop,
     outbox: { read: () => ({ draft, reply }), replyTo: value => { reply = value; }, write: value => { draft = value; }, clear: noop },
   };
   const doc = { hidden: false, addEventListener: noop, removeEventListener: noop };

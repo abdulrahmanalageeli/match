@@ -23,6 +23,9 @@ const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=
 people[0].recommendationPercentage=65;people[0].fit.practicalConcerns=['children_intent'];people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;people[3].eligible=false;
 Object.assign(people[1].fit,{covered:7,total:16,assessmentComplete:false,percentage:null});
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
+window.__trackPullRows=()=>{window.__pullRowReads=0;for(const person of people){
+ const tier=person.membershipTier;Object.defineProperty(person,'membershipTier',{configurable:true,get(){window.__pullRowReads++;return tier;}});
+}};
 window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people.filter(person=>person.eligible!==false||f.mode==='all'&&!f.eligibleOnly);},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
 source.blockPerson=async()=>{throw Error('not part of fixture')};
 if (location.search.includes('protectedPhotos')) {
@@ -51,6 +54,53 @@ const server=await createServer({root,configFile:resolve(root,'vite.config.ts'),
  transform(code,id){if(id.replaceAll('\\','/').endsWith('/community/Community.tsx'))return code+'\nexport {Discovery};';},
  configureServer(dev){dev.middlewares.use(async(req,res,next)=>{if(req.url?.startsWith('/__discovery-fixture')){res.setHeader('Content-Type','text/html');res.end(await dev.transformIndexHtml('/__discovery-fixture','<!doctype html><html lang="ar" dir="rtl"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/@id/__x00__discovery-fixture"></script></body></html>'));return;}next();});}}]});
 await server.listen();let browser,page;const errors=[];
+async function checkDirectoryPull() {
+ const surface = page.locator('.dr-directory');
+ const indicator = surface.locator('.dr-pull-indicator');
+ const refreshButton = surface.getByRole('button',{name:'تحديث الملفات'});
+ await page.waitForFunction(()=>!document.querySelector('.dr-refresh-directory')?.disabled);
+ await page.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});window.__trackPullRows();});
+ const touch = async (type, down) => surface.evaluate((element,{type,down})=>{
+   const finger=new Touch({identifier:1,target:element,clientX:165,clientY:80+down});
+   const touches=type==='touchend'||type==='touchcancel'?[]:[finger];
+   element.dispatchEvent(new TouchEvent(type,{bubbles:true,cancelable:true,touches,changedTouches:[finger]}));
+ },{type,down});
+ const pullCalls = () => page.evaluate(()=>window.__filters.length);
+ const callsBefore = await pullCalls();
+ await touch('touchstart',0);
+ await touch('touchmove',80);
+ await indicator.getByText('اسحب للتحديث',{exact:true}).waitFor();
+ assert.equal(await indicator.evaluate(element=>element.style.height),'38.4px');
+ await touch('touchmove',110);
+ await indicator.getByText('أفلت للتحديث',{exact:true}).waitFor();
+ assert.equal(await indicator.evaluate(element=>element.style.height),'52.8px');
+ await page.waitForFunction(()=>{
+   const portraits=[...document.querySelectorAll('.dr-row-avatar [data-portrait-state="ready"]')]
+     .map(element=>element.getBoundingClientRect()).filter(rect=>rect.top>=0 && rect.bottom<=innerHeight);
+   return portraits.length>0 && portraits.every(rect=>[...window.__portraits.values()].some(box=>
+     [rect.x+scrollX,rect.y+scrollY,rect.width,rect.height].every((value,i)=>Math.abs(value-box[i])<1)));
+ });
+ await indicator.screenshot({path:resolve(output,'pull-armed.png')});
+ assert.equal(await page.evaluate(()=>window.__pullRowReads),0,'drag frames must not rerender the directory rows');
+ await touch('touchcancel',110);
+ await page.waitForFunction(()=>document.querySelector('.dr-pull-content').style.paddingTop==='0px');
+ assert.equal(await pullCalls(),callsBefore,'a cancelled pull must not refresh');
+ await touch('touchstart',0);
+ await touch('touchmove',50);
+ await touch('touchend',50);
+ assert.equal(await pullCalls(),callsBefore,'short pulls must not refresh');
+ await touch('touchstart',0);
+ await touch('touchmove',190);
+ await page.waitForFunction(()=>document.querySelector('.dr-pull-content').style.paddingTop==='88px');
+ await touch('touchend',190);
+ await indicator.getByText('جارٍ تحديث الملفات…',{exact:true}).waitFor();
+ assert.equal(await indicator.evaluate(element=>element.style.height),'48px');
+ await page.waitForFunction(()=>document.querySelector('.dr-pull-content').style.paddingTop==='0px');
+ assert.equal(await pullCalls(),callsBefore+1,'one completed pull refreshes once');
+ assert.ok(await refreshButton.isEnabled());
+ const clickSuppressed = await surface.evaluate(element=>!element.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true})));
+ assert.ok(clickSuppressed,'a completed drag suppresses its following click');
+}
 try{
  browser=await chromium.launch({headless:true,channel:'chrome'});page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true});
  page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
@@ -174,6 +224,34 @@ try{
    assert(await first.locator('.dr-fit-visual').evaluate(n=>n.getBoundingClientRect().height>=44),'percentage opens an accessible target at '+width);
  }
  assert.equal(await page.locator('.dr-online-label').count(),2);assert.equal(await page.locator('.dr-avatar-online').count(),2);
+ const wave = first.locator('.nf-logo-wave').first();
+ const badge = first.locator('.nf-score-tile');
+ await badge.scrollIntoViewIfNeeded();
+ await badge.locator('xpath=self::*[not(@data-wave-offscreen)]').waitFor();
+ await badge.evaluate(element => {
+   const spacer = document.createElement('div');
+   spacer.id = 'wave-scroll-spacer';
+   spacer.style.height = '100vh';
+   document.body.append(spacer);
+   window.scrollBy(0, element.getBoundingClientRect().bottom + 24);
+ });
+ await badge.locator('xpath=self::*[@data-wave-offscreen]').waitFor();
+ const pausedAt = await wave.evaluate(async element => {
+   const [animation] = element.getAnimations();
+   await animation.ready;
+   const time = animation.currentTime;
+   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+   if (animation.currentTime !== time) throw Error('Offscreen score animation advanced');
+   return time;
+ });
+ await badge.scrollIntoViewIfNeeded();
+ await badge.locator('xpath=self::*[not(@data-wave-offscreen)]').waitFor();
+ assert.ok(await wave.evaluate(async element => {
+   const [animation] = element.getAnimations();
+   await animation.ready;
+   return animation.currentTime;
+ }) >= pausedAt, 'visible score wave resumes from its paused phase');
+ await page.locator('#wave-scroll-spacer').evaluate(element => element.remove());
  const partialRow=page.getByRole('article',{name:'ملف ريم',exact:true});
  await partialRow.getByRole('button',{name:/٧ من ١٦ مواضيع قابلة للمقارنة/}).click();
  await page.getByRole('dialog').getByText(/يمكن مقارنة ٧ من ١٦/).waitFor();
@@ -341,6 +419,7 @@ try{
  await verifyProtectedSources('card','.df-portrait-media');
  await page.getByRole('button',{name:'جميع الملفات'}).click();
  await verifyProtectedSources('row','.dr-row-image');
+ await checkDirectoryPull();
  const row=page.locator('.dr-person-row').filter({has:page.getByRole('button',{name:/عرض ملف سارة/})}).first();
  await row.scrollIntoViewIfNeeded();
  await row.locator('.wd-private-portrait--small').waitFor();

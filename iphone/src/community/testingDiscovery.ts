@@ -12,6 +12,16 @@ export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, te
   const sampleOnly=()=>Promise.reject(new Error('هذا ملف توضيحي للتجربة. يمكنك إرسال طلب تعارف إلى الأعضاء الحقيقيين.'));
   const sampleCard=(person:PublicPerson)=>({...person,isDemo:true,online:testingOwnerId?person.online:false});
 
+  async function readMembersThrough(filters: Filters | LunaResults['options'], lastOffset: number) {
+    const members: PublicPerson[] = [];
+    for (let offset = 0; offset <= lastOffset; offset += 24) {
+      const page = await real.discover({ ...filters, offset, afterId: undefined });
+      members.push(...page);
+      if (page.length < 24 || filters.mode !== 'all') break;
+    }
+    return members;
+  }
+
   async function appendSamples(people:PublicPerson[], filters:Filters | LunaResults['options']) {
     const offset=filters.offset??0,limit=filters.mode==='all'?24:5;
     if(people.length>=offset+limit)return people.slice(offset,offset+limit);
@@ -73,15 +83,13 @@ export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, te
     },
 
     async discover(filters){
-      const offset=filters.offset??0;
-      const people:PublicPerson[]=[];
-      // Read the real directory first; keep server visibility and blocking rules.
-      for(let page=0;page<=offset;page+=24){
-        const rows=await real.discover({...filters,offset:page,afterId:undefined});
-        people.push(...rows);
-        if(rows.length<24||filters.mode!=='all')break;
-      }
-      return appendSamples(people,filters);
+      return appendSamples(await readMembersThrough(filters, filters.offset ?? 0), filters);
+    },
+    async discoverPages(filters, pageCount) {
+      // A refresh shares its authorized member prefix only within this call.
+      const members = await readMembersThrough(filters, (pageCount - 1) * 24);
+      return Promise.all(Array.from({ length: pageCount }, (_, page) =>
+        appendSamples(members, { ...filters, offset: page * 24 })));
     },
     noteProfileOpen:async id=>{if(!sampleIds.has(id))await real.noteProfileOpen?.(id);},
     gallery:async id=>id&&sampleIds.has(id)?[]:await real.gallery?.(id)??[],

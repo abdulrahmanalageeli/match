@@ -31,10 +31,10 @@ test('loaded history and reply excerpts refresh after deletion while drafts and 
  view.outbox.enqueue('pending');view.outbox.write('next draft');await settle();m.render();
  m.list[0]={...m.list[0],deletedAt:new Date().toISOString(),body:'must disappear'};
  await m.refresh();view=m.render();assert.equal(view.rows.find(x=>x.id==='0').body,'تم حذف هذه الرسالة');assert.equal(view.rows.find(x=>x.id==='5').reply.body,'تم حذف هذه الرسالة');
- assert.equal(view.draft,'next draft');assert(view.rows.some(x=>x.body==='pending'));
- m.setFail(Error('offline'));await m.refresh();view=m.render();assert.equal(view.rows.filter(x=>!('status'in x)).length,50,'unchecked old rows are removed');assert.equal(view.draft,'next draft');m.cleanup();
+ assert.equal(view.outbox.read().draft,'next draft');assert(view.rows.some(x=>x.body==='pending'));
+ m.setFail(Error('offline'));await m.refresh();view=m.render();assert.equal(view.rows.filter(x=>!('status'in x)).length,50,'unchecked old rows are removed');assert.equal(view.outbox.read().draft,'next draft');m.cleanup();
 });
 test('denied historical authorization clears loaded content and private drafts',async()=>{
  const m=mount();m.render();await settle();let view=m.render();await view.older();view=m.render();view.outbox.write('private draft');m.render();
- m.setFail(Object.assign(Error('closed'),{status:403}));await m.refresh();view=m.render();assert.equal(view.ready,false);assert.equal(view.rows.length,0);assert.equal(view.draft,'');m.cleanup();
+ m.setFail(Object.assign(Error('closed'),{status:403}));await m.refresh();view=m.render();assert.equal(view.ready,false);assert.equal(view.rows.length,0);assert.equal(view.outbox.read().draft,'');m.cleanup();
 });

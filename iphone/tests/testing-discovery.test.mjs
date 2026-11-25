@@ -59,6 +59,43 @@ test('a live visibility failure cannot silently expose a replacement directory',
   await assert.rejects(source.discover({mode:'all'}),/not authorized/);
 });
 
+test('a four-page refresh reads each live page once and rechecks access on the next refresh', async () => {
+  let members = Array.from({ length: 96 }, (_, i) => ({ id: 'member-' + i }));
+  const offsets = [];
+  const filters = { mode: 'all', eligibleOnly: true, city: 'الرياض' };
+  const real = { discover: async options => {
+    const { offset, afterId, ...received } = options;
+    assert.deepEqual(received, filters);
+    offsets.push(offset);
+    return members.slice(offset, offset + 24);
+  } };
+  const samples = { discover: async options => fixtures.slice(options.offset, options.offset + 24) };
+  const source = loadTestingModule(samples).withTestingDiscovery(real, () => ({}));
+  const pages = await source.discoverPages(filters, 4);
+  assert.deepEqual(offsets, [0, 24, 48, 72]);
+  assert.deepEqual(pages.map(page => page.length), [24, 24, 24, 24]);
+  assert.deepEqual(pages.flat(), members);
+
+  members = members.slice(1, 47);
+  offsets.length = 0;
+  const updated = await source.discoverPages(filters, 4);
+  assert.deepEqual(offsets, [0, 24]);
+  assert.deepEqual(updated.map(page => page.length), [24, 24, 13, 0]);
+  assert.deepEqual(updated.flat().map(row => row.id), [...members, ...fixtures].map(row => row.id));
+  assert.equal(updated[1][22].isDemo, true);
+});
+
+test('a denied later page rejects the entire refresh before reading any samples', async () => {
+  const first = Array.from({ length: 24 }, (_, i) => ({ id: String(i) }));
+  const real = { discover: async ({ offset }) => {
+    if (offset) throw Error('access revoked');
+    return first;
+  } };
+  const source = loadTestingModule({ discover: () => assert.fail('read samples after denial') })
+    .withTestingDiscovery(real, () => ({}));
+  await assert.rejects(source.discoverPages({ mode: 'all' }, 4), /access revoked/);
+});
+
 test('owner demo actions and connections stay local while real actions use the server',async()=>{
  const remoteCalls=[];
  const real={discover:async()=>[],inbox:async()=>[{id:'real-request',person:{id:'real-member'}}],request:async id=>{remoteCalls.push(id);return 'real-request';},act:async id=>{remoteCalls.push(id);},unreadCount:async()=>2};

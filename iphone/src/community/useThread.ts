@@ -6,9 +6,11 @@ import { refreshHistoricalMessages } from "./messageRefresh";
 
 export type ThreadConnectionState = 'online' | 'offline' | 'reconnecting' | 'unavailable';
 
-export function useThread(source: CommunitySource, requestId: string) {
+export function useThread(source: CommunitySource, requestId: string, showDraftActions = false) {
   const outbox = useMemo(() => outboxFor(source, requestId), [source, requestId]);
-  const local = useSyncExternalStore(outbox.subscribe, outbox.read);
+  const outgoing = useSyncExternalStore(outbox.subscribe, () => outbox.read().outgoing);
+  const replyDraft = useSyncExternalStore(outbox.subscribe, () => outbox.read().reply);
+  const hasDraft = useSyncExternalStore(outbox.subscribe, () => showDraftActions && !!outbox.read().draft);
   const [remote, setRemote] = useState<Message[]>([]);
   const remoteRef = useRef(remote); remoteRef.current = remote;
   const [ready, setReady] = useState(false);
@@ -126,7 +128,7 @@ export function useThread(source: CommunitySource, requestId: string) {
   }, [source, requestId, outbox, revoke]);
 
   // Also repair a missed broadcast or a response lost after the server committed.
-  const lastSettlement = local.outgoing.filter((m) => m.status !== "sending").map((m) => m.clientId + m.status).join(",");
+  const lastSettlement = outgoing.filter((m) => m.status !== "sending").map((m) => m.clientId + m.status).join(",");
   useEffect(() => { if (lastSettlement) requestRefresh.current(); }, [lastSettlement]);
 
   // A poll begun before a successful write must not briefly undo its result.
@@ -190,8 +192,8 @@ export function useThread(source: CommunitySource, requestId: string) {
   // or follow the private realtime wake-up.
   const saved = new Set(remote.flatMap((m) => [m.id, ...(m.clientId && m.senderIsMe ? [m.clientId] : [])]));
   const deleted = new Map(remote.filter(m => m.deletedAt).map(m => [m.id, m.deletedAt]));
-  const rows = ready ? [...remote, ...local.outgoing.filter((m) => !saved.has(m.id) && !saved.has(m.clientId)).map(m => m.reply && deleted.has(m.reply.id) ? { ...m, reply: { ...m.reply, body: 'تم حذف هذه الرسالة', deletedAt: deleted.get(m.reply.id) } } : m)]
+  const rows = ready ? [...remote, ...outgoing.filter((m) => !saved.has(m.id) && !saved.has(m.clientId)).map(m => m.reply && deleted.has(m.reply.id) ? { ...m, reply: { ...m.reply, body: 'تم حذف هذه الرسالة', deletedAt: deleted.get(m.reply.id) } } : m)]
     .map(message => !message.deletedAt && reactionChoices.has(message.id)
       ? { ...message, reactions: withOwnReaction(message.reactions, reactionChoices.get(message.id) ?? null) } : message) : [];
-  return { rows, lastConfirmedId: ready ? remote.at(-1)?.id : undefined, outbox, draft: local.draft, loading, error, connectionState, accessDenied, hasOlder, loadingOlder, older, ready, reactToMessage, pendingReactionIds: new Set(reactionChoices.keys()), refresh: () => requestRefresh.current() };
+  return { rows, lastConfirmedId: ready ? remote.at(-1)?.id : undefined, outbox, replyDraft, hasDraft, loading, error, connectionState, accessDenied, hasOlder, loadingOlder, older, ready, reactToMessage, pendingReactionIds: new Set(reactionChoices.keys()), refresh: () => requestRefresh.current() };
 }

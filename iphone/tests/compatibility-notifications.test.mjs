@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { describeFit } from '../src/compatibility/model.ts';
 import { compatibilitySnapshot, compareCompatibility } from '../src/compatibility/changes.ts';
+import { readAlertProgress } from '../src/notifications/alertProgress.ts';
 import { pairAssessmentFixture } from '../src/testing/pairAssessmentFixture.ts';
 
 const code = ts.transpileModule(await readFile(new URL('../src/notifications/ActivityAlerts.tsx', import.meta.url), 'utf8'),
@@ -29,7 +30,7 @@ function sourceWith(current = original) {
 }
 
 // Run the real alert lifecycle and its async source without a DOM or animation renderer.
-function mount(source) {
+function mount(source, clock = Date) {
   const hooks = [], effects = [], modules = new Map(), observers = new Set(), events = new Map(), timers = new Map();
   let cursor = 0, changedState = false, props = { source, onOpen: noop, onNotifications: noop }, sounds = 0, timerId = 0;
   const env = { voice: { occupied: false }, dialog: false, mutate: () => { for (const fn of observers) fn(); } };
@@ -46,6 +47,7 @@ function mount(source) {
     if (name === 'react') return react;
     if (name === 'react/jsx-runtime') return { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) };
     if (name === '../compatibility/changes') return { compatibilitySnapshot, compareCompatibility };
+    if (name === './alertProgress') return { readAlertProgress };
     if (name === '../voice/VoiceCalls') return { useVoiceCalls: () => env.voice };
     if (name === '../community/matchSound') return { playActivitySound: () => sounds++ };
     if (name === '../community/milestones') return { confirmedMilestone: () => null };
@@ -54,13 +56,40 @@ function mount(source) {
   };
   class Observer { constructor(fn) { this.fn = fn; } observe() { observers.add(this.fn); } disconnect() { observers.delete(this.fn); } }
   const setTimer = fn => { timers.set(++timerId, fn); return timerId; };
-  vm.runInNewContext(code, { exports, require, MutationObserver: Observer, document: doc,
+  vm.runInNewContext(code, { exports, require, Date: clock, MutationObserver: Observer, document: doc,
     window: { setTimeout: setTimer, setInterval: setTimer, clearInterval: id => timers.delete(id) }, clearTimeout: id => timers.delete(id) });
   return { env, doc,
     render(update) { props = { ...props, ...update }; let tree, passes = 0; do { changedState = false; cursor = 0; tree = exports.ActivityAlerts(props); for (const fn of effects.splice(0)) fn(); if (++passes > 20) throw Error('unstable render'); } while (changedState); return tree; },
     soundCount: () => sounds, close: () => { for (const hook of hooks) hook?.cleanup?.(); },
   };
 }
+
+test('a batched progress change delivers a journey alert and withdrawal clears it', async () => {
+  let time = 10000;
+  class Clock extends Date { static now() { return time; } }
+  const source = sourceWith(), reads = [], opened = [];
+  let progress = {stage: 0, mine: false, peer: false};
+  source.alertProgress = async ids => { reads.push([...ids]); return progress ? {pair: progress} : {}; };
+  const view = mount(source, Clock);
+  const alert = () => nodes(view.render()).find(node => node.props?.className === 'nf-activity-item');
+  view.render({onOpen: id => opened.push(id)}); await settle();
+  assert.equal(alert(), undefined);
+  progress = {...progress, consentPeer: true};
+  time += 2500; source.notify(); await settle();
+  assert.match(nodes(alert()).find(node => node.type === 'strong').props.children, /اقتراح خطوة جديدة/);
+  alert().props.onClick();
+  assert.deepEqual(opened, ['pair']);
+  time += 2500; source.notify(); await settle();
+  assert.equal(alert(), undefined, 'the same invitation is never repeated');
+  progress = {stage: 1, mine: false, peer: false, exclusive: true, rewindPeer: true};
+  time += 2500; source.notify(); await settle();
+  assert.ok(alert());
+  progress = null;
+  time += 2500; source.notify(); await settle();
+  assert.equal(alert(), undefined, 'a revoked relationship loses its alert on the next batch');
+  assert.deepEqual(reads, Array.from({length: 5}, () => ['pair']));
+  view.close();
+});
 
 test('first load stays quiet; a changed assessment shows one silent notice and dismissal is not replayed', async () => {
   const source = sourceWith(), m = mount(source); m.render(); await settle();

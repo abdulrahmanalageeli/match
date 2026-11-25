@@ -1,11 +1,26 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { LogoCompatibilityMark } from './LogoCompatibilityMark';
 import './score-tile.css';
 
 const number = new Intl.NumberFormat('ar-SA');
 const shoulders = 'M9.3 12.2C10.8 10.6 11.1 8.3 12.8 6.8L14.1 8C12.8 10.1 11.4 11.7 9.3 12.2ZM22.7 12.2C21.2 10.6 20.9 8.3 19.2 6.8L17.9 8C19.2 10.1 20.6 11.7 22.7 12.2Z';
 
-export function ScoreTile({ percentage, variant = 'ring', label = 'توافق التفضيلات' }: { percentage: number; variant?: 'ring' | 'logo'; label?: string }) {
+let visibilityObserver: IntersectionObserver | undefined;
+
+export function ScoreTile({ percentage, variant = 'ring', label = 'توافق التفضيلات', pauseOffscreen = false }: { percentage: number; variant?: 'ring' | 'logo'; label?: string; pauseOffscreen?: boolean }) {
+  const tile = useRef<HTMLSpanElement>(null);
+  const trackVisibility = pauseOffscreen && variant === 'logo' && typeof IntersectionObserver !== 'undefined';
+  useEffect(() => {
+    const element = tile.current;
+    if (!element || !trackVisibility) return;
+    const observer = visibilityObserver ??= new IntersectionObserver(entries => {
+      for (const { target, isIntersecting } of entries) {
+        target.toggleAttribute('data-wave-offscreen', !isIntersecting);
+      }
+    });
+    observer.observe(element);
+    return () => observer.unobserve(element);
+  }, [trackVisibility]);
   const gradientId = useId();
   const shoulderGradientId = useId();
   const stoneGradientId = useId();
@@ -18,7 +33,7 @@ export function ScoreTile({ percentage, variant = 'ring', label = 'توافق ا
   const startAngle = solid / 100 * Math.PI * 2 - Math.PI / 2;
   const endAngle = percentage / 100 * Math.PI * 2 - Math.PI / 2;
 
-  return <span className="nf-score-tile" dir="rtl">
+  return <span ref={tile} className="nf-score-tile" dir="rtl" data-wave-offscreen={trackVisibility ? '' : undefined}>
     {variant==='logo'?<LogoCompatibilityMark percentage={percentage}/>:<svg className="nf-score-ring" width="30" height="28" viewBox="0 0 32 30" fill="none" aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id={gradientId} x1="7" y1="6" x2="25" y2="25" gradientUnits="userSpaceOnUse">

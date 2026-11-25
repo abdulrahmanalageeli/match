@@ -17,6 +17,19 @@ test('exclusive consent closes competing connections, blocks stale requests, pre
   await call(a,'public.marriage_discover()');await call(b,'public.marriage_discover()');
   const ab=await call(a,'public.marriage_request($1)',[b.id]),ac=await call(a,'public.marriage_request($1)',[c.id]),bd=await call(b,'public.marriage_request($1)',[d.id]);
   await call(b,"public.marriage_act($1,'accept')",[ab]);await call(c,"public.marriage_act($1,'accept')",[ac]);
+  const alerts=(user,ids)=>call(user,'public.marriage_alert_progress($1)',[ids]);
+  const alertFields=new Set(['stage','mine','peer','exclusive','consentMine','consentPeer','rewindPeer','updatedAt']);
+  async function alertSnapshot(user,id){
+   const progress=await call(user,'public.marriage_progress($1)',[id]);
+   return Object.fromEntries(Object.entries(progress).filter(([field])=>alertFields.has(field)));
+  }
+  assert.deepEqual(await alerts(a,[ab,ac,bd,ab]),{[ab]:await alertSnapshot(a,ab),[ac]:await alertSnapshot(a,ac)});
+  assert.deepEqual(await alerts(d,[ab,ac,bd]),{});
+  assert.deepEqual(await alerts({...a,sessionId:randomUUID()},[ab,ac]),{});
+  assert.deepEqual(await alerts(a,[]),{});
+  await assert.rejects(alerts(a,Array(25).fill(ab)),{code:'22023'});
+  const privilege=await db.query("select has_function_privilege('anon','public.marriage_alert_progress(uuid[])','execute') as anon, has_function_privilege('service_role','public.marriage_alert_progress(uuid[])','execute') as service");
+  assert.deepEqual(privilege.rows[0],{anon:false,service:false});
   await signCommunicationAgreement(call,b,a,ab);await signCommunicationAgreement(call,c,a,ac);
   const message=randomUUID();await call(a,'public.marriage_message($1,$2,$3)',[ac,'يبقى هذا السجل محفوظًا',message]);
   await call(a,'public.marriage_note_profile_open($1)',[b.id]);await call(a,'public.marriage_note_profile_open($1)',[b.id]);
@@ -25,11 +38,14 @@ test('exclusive consent closes competing connections, blocks stale requests, pre
   await call(b,'public.marriage_notifications_read($1)',[[notices[0].id]]);assert((await call(b,'public.marriage_notifications()'))[0].readAt);
   await assert.rejects(call(a,'public.marriage_next_step($1,1,true)',[ab]),/حدّث/);
   const offer=await call(a,"public.marriage_journey_choice($1,'exclusive','propose')",[ab]);
+  assert.deepEqual((await alerts(b,[ab]))[ab],await alertSnapshot(b,ab));
+  assert.equal((await alerts(b,[ab]))[ab].consentPeer,true);
   assert.equal((await call(a,'public.marriage_progress($1)',[ab])).exclusive,false);
   assert.equal((await db.query('select status from marriage.member_requests where id=$1',[ac])).rows[0].status,'accepted');
   await assert.rejects(call(c,"public.marriage_journey_choice($1,'exclusive','accept',$2)",[ab,offer.exclusiveId]),/المحادثة/);
   const agreed=await call(b,"public.marriage_journey_choice($1,'exclusive','accept',$2)",[ab,offer.exclusiveId]);assert.equal(agreed.exclusive,true);assert.equal(agreed.stage,0);
   const closed=(await db.query('select status from marriage.member_requests where id=any($1::uuid[])',[[ac,bd]])).rows;assert(closed.every(r=>r.status==='closed'));
+  assert.deepEqual(await alerts(a,[ab,ac]),{[ab]:await alertSnapshot(a,ab)});
   assert.equal(Number((await db.query('select count(*) n from marriage.thread_messages where request_id=$1',[ac])).rows[0].n),1);
   await assert.rejects(call(a,'public.marriage_request($1)',[c.id]),/متاح/);
   await assert.rejects(db.query("update marriage.member_requests set status='accepted' where id=$1",[ac]),/حصري/);

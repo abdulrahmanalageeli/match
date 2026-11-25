@@ -49,6 +49,7 @@ try {
   await Promise.all([sender.goto(base+'reham'),peer.goto(base+'abdulrahman')]);
   const open = page => page.getByRole('button',{name:/فتح المحادثة مع/}).first();
   await open(peer).waitFor({timeout:90000});
+  await sender.bringToFront();
   await open(sender).click({timeout:90000});
   await sender.waitForFunction(()=>!!window.__visibleChat);
   const old=await sender.evaluate(()=>window.__visibleChat);
@@ -80,10 +81,12 @@ try {
   await retry.click();
   await retry.waitFor({state:'hidden'});
   const entry=peer.locator('button[data-kind=screenshot]');
+  await peer.bringToFront();
   await entry.waitFor({timeout:15000});
   await entry.click();
   await peer.locator('[data-conversation-id="local-privacy-qa"] .cm-chat-capture-notice strong').waitFor();
   assert((await peer.locator('.cm-chat-capture-notice strong').textContent()).includes('رهام'));
+  await sender.bringToFront();
   await sender.getByRole('button',{name:'رجوع',exact:true}).click();
   await sender.waitForFunction(()=>!window.__visibleChat);
   await sender.evaluate(previous=>window.__emitCapture(previous),old);

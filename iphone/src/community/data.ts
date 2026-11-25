@@ -177,6 +177,7 @@ export interface CommunitySource extends ManualVerificationSource {
   readinessEligibleConnection?(connectionId: string): boolean;
   noteDiscoveryBrowse?(): void;
   discover(filters: Filters | LunaResults['options']): Promise<PublicPerson[]>;
+  discoverPages?(filters: Filters | LunaResults['options'], pageCount: number): Promise<PublicPerson[][]>;
   /** The live download checks its authorized variant with the callback before reading Storage. */
   portraitUrlResolvesState?: true;
   portraitUrl(photo: ProfilePortrait, authorized?: (current: ProfilePortrait) => boolean | void): Promise<string>;
@@ -231,6 +232,7 @@ export interface CommunitySource extends ManualVerificationSource {
   unreadCount(): Promise<number>;
   markRead(requestId: string, throughId: string): Promise<void>;
   progress?(requestId: string): Promise<StepProgress>;
+  alertProgress?(requestIds: string[]): Promise<Record<string, StepProgress>>;
   journeyChoice?(id:string,topic:JourneyTopic,action:JourneyDecision,expectedId?:string,stage?:number):Promise<StepProgress>;
   nextStep?(requestId: string, stage: number, agree: boolean, exclusiveConsent?: boolean): Promise<StepProgress>;
   watch: WatchUpdates;
@@ -408,6 +410,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     readNotifications: ids => timedRpc('marriage_notifications_read', { notification_ids: ids }),
     unreadCount: () => timedRpc("marriage_unread_count", {}),
     progress: (id) => timedRpc("marriage_progress", { request_id: id }),
+    alertProgress: requestIds => timedRpc("marriage_alert_progress", { request_ids: requestIds }),
     journeyChoice: (id,topic,action,expectedId,stage) => timedRpc("marriage_journey_choice",{request_id:id,topic,action,expected_id:expectedId??null,stage_number:stage??null}),
     nextStep: (id, stage, agree, consent = false) => timedRpc("marriage_next_step", { request_id: id, stage_number: stage, agree, exclusive_consent: consent }),
     async markRead(requestId, throughId) {

@@ -17,9 +17,11 @@ import {
   useCallback,
   useEffect,
   useId,
+  useImperativeHandle,
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type ReactNode,
   type RefObject,
@@ -479,13 +481,13 @@ function PersonCard({
       {canReadFit ? <div className="df-card-fit-summary">
         <button type="button" className="df-read-fit" onClick={explain}
           aria-label={`توافق التفضيلات مع ${person.alias}، ${score === null ? 'غير مكتمل' : ar.format(score) + '٪'}. عرض الشرح`}>
-          {score === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={score} variant="logo"/>}
+          {score === null ? <span>التفضيلات قيد الاكتمال</span> : <ScoreTile percentage={score} variant="logo" pauseOffscreen/>}
           <ChevronLeft size={14} aria-hidden="true"/>
         </button>
       </div> : !premium && <div className="df-card-fit-summary">
         <button type="button" className="df-read-fit wd-weekly-upgrade" onClick={()=>upgrade('premium')}
           aria-label={person.recommendationPercentage == null ? 'عرض العضوية لفتح نسبة التوافق' : ar.format(person.recommendationPercentage)+'٪، عرض العضوية لقراءة تفاصيل التوافق'}>
-          {person.recommendationPercentage != null ? <ScoreTile percentage={person.recommendationPercentage} variant="logo"/> : <LockKeyhole size={16} aria-hidden="true"/>}
+          {person.recommendationPercentage != null ? <ScoreTile percentage={person.recommendationPercentage} variant="logo" pauseOffscreen/> : <LockKeyhole size={16} aria-hidden="true"/>}
           <span>{person.recommendationPercentage != null ? 'فتح تفاصيل التوافق' : 'فتح نسبة التوافق'}</span><ChevronLeft size={14} aria-hidden="true"/>
         </button>
       </div>}
@@ -561,7 +563,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       </div>
       {premium ? !person.compatibilityLocked && <button type="button" className="dr-fit-visual" onClick={explain} disabled={!person.fit}
         aria-label={`توافق التفضيلات مع ${person.alias}، ${score === null ? (coverage ? coverage + ' مواضيع قابلة للمقارنة' : 'بيانات المقارنة غير مكتملة') : ar.format(score) + '٪'}. عرض الشرح`}>
-        {score === null ? <span className="dr-fit-pending">{coverage ?? '—'}<small>{coverage ? 'مواضيع للمقارنة' : 'بيانات غير مكتملة'}</small></span> : <ScoreTile percentage={score} variant="logo"/>}
+        {score === null ? <span className="dr-fit-pending">{coverage ?? '—'}<small>{coverage ? 'مواضيع للمقارنة' : 'بيانات غير مكتملة'}</small></span> : <ScoreTile percentage={score} variant="logo" pauseOffscreen/>}
       </button> : <button type="button" className="dr-fit-visual wd-fit-locked" onClick={()=>upgrade("premium")} aria-label="اشترك لعرض نسبة التوافق"><LockKeyhole size={16}/><span>فتح النسبة</span></button>}
     </div>
 
@@ -582,6 +584,12 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
 
 type RequestEntry = { id: string; featured: boolean };
 
+function readDiscoveryPages(source: CommunitySource, filters: Filters, pageCount: number) {
+  return source.discoverPages?.(filters, pageCount) ?? Promise.all(
+    Array.from({ length: pageCount }, (_, page) => source.discover({ ...filters, offset: page * 24 })),
+  );
+}
+
 function shuffleDirectory(people: PublicPerson[]) {
   return shuffleWithVisibility(people);
 }
@@ -601,6 +609,24 @@ function updateDirectoryOrder(current: PublicPerson[], people: PublicPerson[], r
     return updated ? [updated] : [];
   });
   return [...retained, ...shuffleDirectory([...latest.values()])];
+}
+
+function DirectoryPullContent({ directory, refreshing, distanceRef, children }: {
+  directory: boolean;
+  refreshing: boolean;
+  distanceRef: RefObject<((distance: number) => void) | null>;
+  children: ReactNode;
+}) {
+  // Only this wrapper updates during a drag. The profile rows keep their element identity.
+  const [distance, setDistance] = useState(0);
+  useImperativeHandle(distanceRef, () => setDistance, []);
+  return <div className="dr-pull-content" data-dragging={distance > 0 && !refreshing || undefined} style={{paddingTop:directory ? distance : 0}}>
+    {directory && <div className="dr-pull-indicator" role="status" aria-live="polite" data-refreshing={refreshing || undefined} style={{height:distance,opacity:Math.min(1,distance/24)}}>
+      <RotateCcw size={18} aria-hidden="true" style={!refreshing ? {transform:`rotate(${distance*3}deg)`} : undefined}/>
+      <span>{refreshing?'جارٍ تحديث الملفات…':distance>=52?'أفلت للتحديث':distance>0?'اسحب للتحديث':''}</span>
+    </div>}
+    {children}
+  </div>;
 }
 
 function Discovery({
@@ -670,7 +696,7 @@ function Discovery({
   const directorySurface = useRef<HTMLElement>(null);
   const pullAmount = useRef(0);
   const suppressPullClick = useRef(false);
-  const [pullDistance, setPullDistance] = useState(0);
+  const updatePullDistance = useRef<((distance: number) => void) | null>(null);
   const [pullRefreshing, setPullRefreshing] = useState(false);
   const refresh = useCallback(
     async (reshuffle = true, pageCount?: number) => {
@@ -679,7 +705,7 @@ function Discovery({
       setError("");
       try {
         const pages = order === 'all' ? pageCount ?? Math.max(1, Math.ceil(listRef.current.length / 24)) : 1;
-        const results = await Promise.all(Array.from({length:pages},(_,page)=>source.discover({...filters,mode:order,offset:page*24})));
+        const results = await readDiscoveryPages(source, { ...filters, mode: order }, pages);
         const people = [...new Map(results.flat().map(person=>[person.id,person])).values()];
         if (seq !== sequence.current) return;
         setList(current => order === 'all' && !filters.sort ? updateDirectoryOrder(current, people, reshuffle) : people);
@@ -702,24 +728,29 @@ function Discovery({
   useEffect(() => {
     const surface = directorySurface.current;
     if (!surface || order !== 'all') return;
+    let frame = 0;
     function move(event: globalThis.TouchEvent) {
       const start = pullStart.current;
       if (!start) return;
       const touch = event.touches[0];
       const down = touch ? touch.clientY - start.y : 0;
       if (event.touches.length !== 1 || window.scrollY > 2 || down < 0 || Math.abs(touch.clientX - start.x) > Math.max(12, down)) {
-        pullStart.current = null; pullAmount.current = 0; setPullDistance(0); return;
+        pullStart.current = null; pullAmount.current = 0; updatePullDistance.current?.(0); return;
       }
       if (down < 6) return;
       if (event.cancelable) event.preventDefault();
       suppressPullClick.current = true;
       pullAmount.current = Math.min(88, down * .48);
-      setPullDistance(pullAmount.current);
+      if (!frame) frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (pullStart.current) updatePullDistance.current?.(pullAmount.current);
+      });
     }
     surface.addEventListener('touchmove', move, {passive:false});
     return () => {
       surface.removeEventListener('touchmove', move);
-      pullStart.current = null; pullAmount.current = 0; setPullDistance(0);
+      cancelAnimationFrame(frame);
+      pullStart.current = null; pullAmount.current = 0; updatePullDistance.current?.(0);
     };
   }, [order, selected]);
   useLayoutEffect(() => {
@@ -777,7 +808,7 @@ function Discovery({
       try { do { dirty=false;needsRefresh.current=false;const seq=sequence.current;
        try{
         const pageCount=order==='all'?Math.max(1,Math.ceil(listRef.current.length/24)):1;
-        const pages=await Promise.all(Array.from({length:pageCount},(_,page)=>source.discover({...filters,mode:order,offset:page*24})));
+        const pages = await readDiscoveryPages(source, { ...filters, mode: order }, pageCount);
         if(!active||seq!==sequence.current||actionPending.current)return;
         const latest=new Map(pages.flat().map(person=>[person.id,person]));
         const details=new Map<string,PublicPerson|null>();
@@ -924,9 +955,9 @@ function Discovery({
   const canRefreshDirectory = order === "all" && !loading && !pullRefreshing && !loadingMore && !rowBusy && !filterOpen && !fitPerson && !reportTarget;
   async function refreshDirectory() {
     if (!canRefreshDirectory) return;
-    setPullRefreshing(true); setPullDistance(48);
+    setPullRefreshing(true); updatePullDistance.current?.(48);
     try { await Promise.all([refresh(), new Promise(resolve => window.setTimeout(resolve, 450))]); }
-    finally { setPullRefreshing(false); setPullDistance(0); }
+    finally { setPullRefreshing(false); updatePullDistance.current?.(0); }
   }
   function startDirectoryPull(event: TouchEvent<HTMLElement>) {
     pullStart.current = null;
@@ -941,7 +972,7 @@ function Discovery({
     const ready = start && event.changedTouches.length === 1 && pullAmount.current >= 52 && window.scrollY <= 2;
     pullAmount.current = 0;
     if (ready && canRefreshDirectory) void refreshDirectory();
-    else if (!pullRefreshing) setPullDistance(0);
+    else if (!pullRefreshing) updatePullDistance.current?.(0);
   }
   return (
     <section
@@ -952,7 +983,7 @@ function Discovery({
       onWheelCapture={source.noteDiscoveryBrowse}
       onTouchStart={startDirectoryPull}
       onTouchEnd={endDirectoryPull}
-      onTouchCancel={() => { pullStart.current = null; pullAmount.current = 0; if (!pullRefreshing) setPullDistance(0); }}
+      onTouchCancel={() => { pullStart.current = null; pullAmount.current = 0; if (!pullRefreshing) updatePullDistance.current?.(0); }}
       onClickCapture={event => { if (suppressPullClick.current) { event.preventDefault(); event.stopPropagation(); suppressPullClick.current = false; } }}
     >
       <ScenePaths className="df-arrival-paths" parallax />
@@ -1051,11 +1082,7 @@ function Discovery({
           }
         />
       )}
-      <div className="dr-pull-content" data-dragging={pullDistance > 0 && !pullRefreshing || undefined} style={{paddingTop:order === 'all' ? pullDistance : 0}}>
-      {order === 'all' && <div className="dr-pull-indicator" role="status" aria-live="polite" data-refreshing={pullRefreshing || undefined} style={{height:pullDistance,opacity:Math.min(1,pullDistance/24)}}>
-        <RotateCcw size={18} aria-hidden="true" style={!pullRefreshing ? {transform:`rotate(${pullDistance*3}deg)`} : undefined}/>
-        <span>{pullRefreshing?'جارٍ تحديث الملفات…':pullDistance>=52?'أفلت للتحديث':pullDistance>0?'اسحب للتحديث':''}</span>
-      </div>}
+      <DirectoryPullContent directory={order === 'all'} refreshing={pullRefreshing} distanceRef={updatePullDistance}>
       <div key={order} className={"cm-list df-feed"+(order === "all"?" dr-rows":"")} aria-label="ملفات للتعارف الجاد" aria-busy={loading}>
         {people.map((item, index) => (
           order==='all'?<DirectoryRow key={item.id} person={item} source={source} busy={busy||rowBusy!==null} open={button=>openProfile(item,button)} request={()=>item.connectionId?onInbox({id:item.connectionId,featured:false}):void sendRequest(item)} interest={()=>void rowAction(item,'interest')} explain={()=>setFitPerson(item)}/>:<PersonCard
@@ -1073,7 +1100,7 @@ function Discovery({
         <p>{order === "all" ? "يمكنك تعديل التصفية لرؤية ملفات أخرى تناسب تفضيلاتك." : "اختر «جميع الملفات» لرؤية المزيد، أو عدّل التصفية لتوسيع بحثك."}</p>
         </footer>}
       <div className="df-discovery-help"><HelpButton topic="discovery" label="كيف أبدأ؟ وما معنى التوافق؟"/></div>
-      </div>
+      </DirectoryPullContent>
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
       {premium&&!fitPerson?.compatibilityLocked&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
       {filterOpen && (
@@ -1305,6 +1332,49 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
   </Sheet>;
 }
 
+function ChatComposer({ outbox, composer, canSend, conversationAllowed, typing, onSubmit, name, children }: {
+  outbox: ReturnType<typeof useThread>['outbox'];
+  composer: RefObject<HTMLTextAreaElement | null>;
+  canSend: boolean;
+  conversationAllowed: boolean;
+  typing: ReturnType<typeof useTyping>;
+  onSubmit: (event: FormEvent) => void;
+  name: string;
+  children: ReactNode;
+}) {
+  const { draft, reply } = useSyncExternalStore(outbox.subscribe, outbox.read);
+  useLayoutEffect(() => {
+    const element = composer.current;
+    if (!element) return;
+    element.style.height = "0px";
+    element.style.height = Math.min(element.scrollHeight, 110) + "px";
+  }, [composer, draft]);
+  return <div className="cm-chat-compose">
+    {reply && <div className="cm-reply-draft" role="status"><Reply size={18} aria-hidden="true"/><div>
+      <strong>رد على {reply.senderIsMe ? 'رسالتك' : name}</strong><span dir="auto">{reply.body}</span>
+    </div><button type="button" className="icon-btn" aria-label="إلغاء الرد" onClick={() => outbox.replyTo()}><X size={18}/></button></div>}
+    <div className="cm-composer-surface">
+      {children}
+      <form onSubmit={onSubmit}>
+        <textarea
+          ref={composer} aria-label="رسالتك" rows={1} maxLength={1000} dir="rtl"
+          value={draft} placeholder={!conversationAllowed ? "مسودة حتى تفعيل الميثاق…" : reply ? "اكتب ردك…" : "رسالتك…"}
+          onChange={(e) => { outbox.write(e.target.value); if (e.target.value.trim()) typing.touch(); else typing.stop(); }}
+          onBlur={typing.stop}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && (e.metaKey || e.ctrlKey || window.matchMedia("(pointer: fine)").matches)) {
+              e.preventDefault(); e.currentTarget.form?.requestSubmit();
+            }
+          }}
+        />
+        <MotionPressButton type="submit" aria-label="إرسال الرسالة" onPointerDown={event => { if (document.activeElement === composer.current) event.preventDefault(); }} disabled={!draft.trim() || !canSend}><Send size={19} /></MotionPressButton>
+      </form>
+    </div>
+    <div className="cm-chat-privacy-signature"><CaptureWatermark scope="chat"/></div>
+    {draft.length > 850 && <span className="cm-count">{ar.format(draft.length)} / ١٠٠٠</span>}
+  </div>;
+}
+
 export function Chat({
   source, connection, back, close, backLabel, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, openFeedback,
 }: {
@@ -1313,7 +1383,6 @@ export function Chat({
   onEnded?: (id:string) => void;
   onCompletion?: () => void;
 }) {
-  const thread = useThread(source, connection.id);
   const voice = useVoiceCalls();
   const [safety, setSafety] = useState<SafetyAction | null>(null);
   const [safetyError, setSafetyError] = useState("");
@@ -1323,6 +1392,7 @@ export function Chat({
   const [recording, setRecording] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const thread = useThread(source, connection.id, guide || insightsOpen);
   const [deepOpen, setDeepOpen] = useState(Boolean(initialAnalysis));
   useEffect(() => { if(initialAnalysis) setDeepOpen(true); },[initialAnalysis]);
   const [chatHelp,setChatHelp]=useState(false);
@@ -1362,7 +1432,7 @@ export function Chat({
   const lastId = lastRow?.clientId || lastRow?.id;
   const lastReactions = lastRow?.reactions?.map(reaction => `${reaction.emoji}:${reaction.count}:${reaction.mine}`).join('|');
   const firstId = thread.rows[0]?.id;
-  const replyDraft = thread.outbox.read().reply;
+  const replyDraft = thread.replyDraft;
   const reading = useChatReading(source, connection.id, log, atBottom, thread, canDraft && !profileOpen && !familyOpen);
   const typing = useTyping(source, connection.id, canSend && !profileOpen && !familyOpen && !recording && !libraryOpen && !deepOpen && !privateHidden);
   const profileIdentity = useRef<HTMLElement>(null);
@@ -1432,12 +1502,6 @@ export function Chat({
     atBottom.current = true;
     setShowLatest(false);
   }
-  useLayoutEffect(() => {
-    const element = composer.current;
-    if (!element) return;
-    element.style.height = "0px";
-    element.style.height = Math.min(element.scrollHeight, 110) + "px";
-  }, [thread.draft, canDraft, profileOpen]);
   useLayoutEffect(() => {
     if (!screen.current) return;
     return lockChatViewport(screen.current, () => {
@@ -1646,31 +1710,10 @@ export function Chat({
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>}
       <div ref={setAgreementSlot} className="cm-agreement-slot"/>
-      {canDraft && <div className="cm-chat-compose">
-
-       {replyDraft && <div className="cm-reply-draft" role="status"><Reply size={18} aria-hidden="true"/><div>
-         <strong>رد على {replyDraft.senderIsMe ? 'رسالتك' : connection.person.alias}</strong><span dir="auto">{replyDraft.body}</span>
-       </div><button type="button" className="icon-btn" aria-label="إلغاء الرد" onClick={() => thread.outbox.replyTo()}><X size={18}/></button></div>}
-       <div className="cm-composer-surface">
+      {canDraft && <ChatComposer outbox={thread.outbox} composer={composer} canSend={canSend} conversationAllowed={conversationAllowed}
+        typing={typing} onSubmit={submit} name={connection.person.alias}>
         <ChatMediaComposer source={source} requestId={connection.id} disabled={!canSend || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} sent={() => { atBottom.current = true; thread.refresh(); }}/>
-        <form onSubmit={submit}>
-          <textarea
-            ref={composer} aria-label="رسالتك" rows={1} maxLength={1000} dir="rtl"
-            value={thread.draft} placeholder={!conversationAllowed ? "مسودة حتى تفعيل الميثاق…" : replyDraft ? "اكتب ردك…" : "رسالتك…"}
-            onChange={(e) => { thread.outbox.write(e.target.value); if (e.target.value.trim()) typing.touch(); else typing.stop(); }}
-            onBlur={typing.stop}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && (e.metaKey || e.ctrlKey || window.matchMedia("(pointer: fine)").matches)) {
-                e.preventDefault(); e.currentTarget.form?.requestSubmit();
-              }
-            }}
-          />
-          <MotionPressButton type="submit" aria-label="إرسال الرسالة" onPointerDown={event => { if (document.activeElement === composer.current) event.preventDefault(); }} disabled={!thread.draft.trim() || !canSend}><Send size={19} /></MotionPressButton>
-        </form>
-       </div>
-        <div className="cm-chat-privacy-signature"><CaptureWatermark scope="chat"/></div>
-        {thread.draft.length > 850 && <span className="cm-count">{ar.format(thread.draft.length)} / ١٠٠٠</span>}
-      </div>}
+      </ChatComposer>}
       <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة للتفاعل أو الرد أو الحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>
       {actionMessage && hasMessageActions && !privateHidden && <MessageFocus anchor={messageActionAnchor} self={actionMessage.senderIsMe}
         label={actionMessage.attachment ? actionMessage.attachment.kind === 'photo' ? actionMessage.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية' : actionMessage.body}
@@ -1682,7 +1725,7 @@ export function Chat({
             {actionPermissions?.canDelete && <MotionPressButton className="cm-message-action-delete" onClick={() => { setMessageActionId(null); setDeleteError(''); setDeleteTarget(actionMessage.id); }}><Trash2 size={18} aria-hidden="true"/><span>حذف لدى الجميع</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
           </div>
       </MessageFocus>}
-      {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.compatibilityLocked ? undefined : connection.person.fit} name={connection.person.alias} disabled={!canSend || recording} hasDraft={Boolean(thread.draft) || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
+      {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.compatibilityLocked ? undefined : connection.person.fit} name={connection.person.alias} disabled={!canSend || recording} hasDraft={thread.hasDraft || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
       {libraryOpen && <ChatLibrary source={source} requestId={connection.id} name={connection.person.alias} onClose={() => setLibraryOpen(false)} onJump={id => { setLibraryOpen(false); atBottom.current = false; setJumpToId(id); }} />}
       {deleteTarget && <Sheet title="حذف الرسالة للجميع" onClose={() => { if (!deleting) setDeleteTarget(null); }}>
         <div className="cm-delete-confirm"><span className="cm-delete-emblem"><Trash2 size={25}/></span><p>تُحذف الرسالة ومرفقها من المحادثة لدى الطرفين، وتظهر مكانها عبارة «تم حذف هذه الرسالة».</p><small>متاح لرسائلك خلال ٤٨ ساعة من الإرسال. قد يكون الطرف الآخر شاهدها أو حفظ نسخة منها بالفعل.</small></div>
@@ -1714,7 +1757,7 @@ export function Chat({
       {chatHelp&&<HelpCenter initialTopic="chat" close={()=>setChatHelp(false)}/>}
       {safety && <SafetySheet evidence={!!evidence} contextRows={evidenceContext} action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
         close={() => { if (!safetyBusy) { setSafety(null); setEvidence(null); setSafetyError(""); } }}/>}
-      {guide && <ConversationGuide source={source} connection={connection} hasDraft={Boolean(thread.draft) || Boolean(replyDraft) || !canSend || recording} onCompletion={onCompletion}
+      {guide && <ConversationGuide source={source} connection={connection} hasDraft={thread.hasDraft || Boolean(replyDraft) || !canSend || recording} onCompletion={onCompletion}
         openInsights={() => { setGuide(false); setInsightsOpen(true); }}
         openFamily={source.family?()=>{setGuide(false);openFamily();}:undefined}
         close={() => setGuide(false)} closed={() => { thread.outbox.clear(); onEnded?.(connection.id); close(); }}

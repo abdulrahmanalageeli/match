@@ -4,6 +4,7 @@ import { PersonAvatar } from '../avatars/PersonAvatar';
 import type { ActivityNotification, CommunitySource, Connection, FeedbackNotice, PublicPerson, StepProgress } from '../community/data';
 import { buildFeed, feedTime, filterFeed, type FeedFilter, type FeedItem } from './feed';
 import { emptyFeed } from './emptyFeed';
+import { readAlertProgress } from './alertProgress';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import './notification-feed.css';
 
@@ -59,13 +60,10 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
       try {
         const [events, steps, notices] = await Promise.all([
           source.notifications?.() || Promise.resolve([]),
-          Promise.all(connectionsRef.current.filter(c => c.status === 'accepted').map(async c => {
-            try { return [c.id, await source.progress?.(c.id)] as const; }
-            catch { return [c.id, undefined] as const; }
-          })),
+          readAlertProgress(source, connectionsRef.current.filter(c => c.status === 'accepted')),
           acceptedIds ? source.conversationPilotNotices?.().catch(() => []) : [],
         ]);
-        if (active) { setItems(events); setProgress(new Map(steps.filter((entry): entry is readonly [string, StepProgress] => Boolean(entry[1])))); setFeedback(notices ?? []); setError(''); }
+        if (active) { setItems(events); setProgress(steps); setFeedback(notices ?? []); setError(''); }
       } catch { if (active) setError('تعذّر تحديث بعض الإشعارات. تظهر طلباتك المتاحة أدناه.'); }
       finally {
         busy = false;

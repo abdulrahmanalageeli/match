@@ -26,7 +26,9 @@ if(params.has('countdown')){
 }
 let delayedRead:((value:SeriousnessAgreement)=>void)|undefined;
 let firstRead=true;
+let offline=params.has('offline');
 const source = { ...demoCommunity(() => demoProfile), agreement: async () => {
+  if(offline)throw new Error('Connection unavailable');
   if(firstRead && params.has('stalled')){
     firstRead=false;
     return new Promise<SeriousnessAgreement>(resolve=>{delayedRead=resolve;});
@@ -46,6 +48,7 @@ function Fixture() {
   return <main className="app-screen" dir="rtl"><ConversationAgreement source={source} requestId="synthetic" onAllowed={setAllowed} onEnd={()=>setEnding(true)}/>
     {(ending||allowed)&&<output>{ending?'فتح تأكيد إنهاء التعارف':'المحادثة متاحة'}</output>}
     {params.has('stalled')&&<button onClick={()=>delayedRead?.({...agreement,status:'accepted'})}>Resolve previous read</button>}
+    {params.has('offline')&&<button onClick={()=>{offline=false;}}>Restore connection</button>}
   </main>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture/>);

@@ -60,6 +60,10 @@ try {
  await page.screenshot({path:resolve(output,'expired-390.png'),animations:'disabled'});
  await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();
  await page.locator('[data-server-id="hello"]').waitFor();
+ await open('abdulrahman','stalledAgreement');
+ await page.locator('.cm-chat-log').getByRole('status',{name:'جارٍ تحميل ميثاق التعارف'}).waitFor();
+ assert.equal(await page.locator('.cm-chat-plan .cm-agreement-pending').count(),0);
+ assert.doesNotMatch(await page.locator('body').innerText(),/جارٍ تحضير اتفاقكما/);
  assert.deepEqual(errors,[]);
  console.log('PASS: inline agreement, both roles, 390/320px, explicit signature, pending/accepted collapse, inline review, expiry decisions and preserved chat history.');
 } finally { await browser?.close();await server.close(); }

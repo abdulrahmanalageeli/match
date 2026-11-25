@@ -28,19 +28,28 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
    let readTimeout:ReturnType<typeof setTimeout>;
    const refresh=async(initial=false)=>{
      if(fetching||saving.current||(!initial&&document.hidden))return;
-     const version=revision.current;
+     const version=++revision.current;
      fetching=true;
      const unavailable=()=>{
        if(active && version===revision.current){setLoadError(true);onAllowed(false);}
      };
      // The session lookup can stall before the RPC's network timeout starts.
-     readTimeout=setTimeout(unavailable,15_000);
+     const timeout=setTimeout(()=>{
+       if(!active || version!==revision.current)return;
+       unavailable();
+       revision.current++;
+       fetching=false;
+     },15_000);
+     readTimeout=timeout;
      try{
        const next=await read(requestId);
        if(active && version===revision.current)applyAgreement(next);
      }catch{
        unavailable();
-     }finally{clearTimeout(readTimeout);fetching=false;}
+     }finally{
+       clearTimeout(timeout);
+       if(version===revision.current)fetching=false;
+     }
    };
    // A chat opened during iOS resume can mount before its first visible event.
    void refresh(true);
@@ -86,8 +95,14 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
 
  }
  if(!source.agreement)return null;
- if(loadError)return <div className="cm-agreement-loading"><p role="alert">تعذّر تحميل اتفاقكما. أعد المحاولة لاستئناف الحديث.</p><button className="btn-secondary" onClick={()=>{setLoadError(false);setRetry(n=>n+1);}}>إعادة تحميل الاتفاق</button></div>;
- if(!agreement)return <div className="cm-agreement-loading" role="status">جارٍ تحضير اتفاقكما…</div>;
+ if(loadError || !agreement) {
+   const pending=<section className="cm-agreement cm-agreement-pending" aria-label="حالة تحميل ميثاق التعارف">
+    <header className="cm-agreement-hero"><span className="cm-agreement-mark"><Feather size={22}/></span><h2>ميثاق التعارف</h2></header>
+    {loadError ? <><p role="alert">تعذّر تحميل الميثاق. أعد المحاولة لمتابعة التعارف.</p><button className="btn-secondary" onClick={()=>{setLoadError(false);setRetry(n=>n+1);}}>إعادة تحميل الاتفاق</button></>
+     : <div className="cm-agreement-placeholder" role="status" aria-label="جارٍ تحميل ميثاق التعارف" aria-busy="true"><span/><span/></div>}
+   </section>;
+   return noticeSlot?createPortal(pending,noticeSlot):pending;
+ }
  const remaining=agreement.deadline?Date.parse(agreement.deadline)-Date.now():null;
  const dueSoon=remaining!==null&&remaining>0&&remaining<=86400000;
  const allowed=agreement.status==='accepted'||agreement.status==='family',woman=agreement.actor==='reham';

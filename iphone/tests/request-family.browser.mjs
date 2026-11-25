@@ -20,12 +20,15 @@ try {
  await page.getByRole('button',{name:'التوقيع واقتراح المدة'}).waitFor();
  await page.clock.install();
  await go('agreement-qa.html?man&stalled');
- await page.getByRole('status').filter({hasText:'جارٍ تحضير اتفاقكما'}).waitFor();
+ await page.getByRole('status',{name:'جارٍ تحميل ميثاق التعارف'}).waitFor();
  await page.clock.fastForward(15_001);
- await page.getByRole('button',{name:'إعادة تحميل الاتفاق'}).click();
  await page.getByRole('button',{name:'التوقيع والموافقة وبدء الحديث'}).waitFor();
  await page.getByRole('button',{name:'Resolve previous read'}).click();
  assert.equal(await page.getByText('المحادثة متاحة',{exact:true}).count(),0);
+ await go('agreement-qa.html?man&offline');
+ await page.getByRole('button',{name:'Restore connection'}).click();
+ await page.getByRole('button',{name:'إعادة تحميل الاتفاق'}).click();
+ await page.getByRole('button',{name:'التوقيع والموافقة وبدء الحديث'}).waitFor();
  for(const width of [390,320]) {
   await page.setViewportSize({width,height:844});
   await go('agreement-qa.html?unsent');

@@ -56,7 +56,7 @@ const source:CommunitySource = {...base,
  requestCallPermission:async()=>{await new Promise(resolve=>setTimeout(resolve,600));permission={status:'pending',direction:'outgoing'};return permission;},
  setTyping:async()=>{},typingState:async()=>false,
  reactToMessage:async(_room,id,emoji)=>{const rows=read(),row=rows.find(item=>item.id===id);if(!row||row.deletedAt)throw Error('غير متاحة');row.reactions=emoji?[{emoji,count:1,mine:true}]:[];write(rows);return row.reactions;},
- progress:async()=>({stage:0,mine:false,peer:false}),agreement:async()=>({...agreement}),
+ progress:async()=>({stage:0,mine:false,peer:false}),agreement:async()=>params.has('stalledAgreement')?new Promise<SeriousnessAgreement>(()=>{}):({...agreement}),
  agree:async(_id,action,payload)=>{
   if(action==='propose')agreement={...agreement,status:'proposed',days:payload.days,womanSignedAt:new Date().toISOString()};
   if(action==='accept')agreement={...agreement,status:'accepted',manSignedAt:new Date().toISOString(),deadline:new Date(Date.now()+agreement.days!*86400000).toISOString()};

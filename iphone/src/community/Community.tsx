@@ -1646,7 +1646,6 @@ export function Chat({
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
       </header>
       <div className="cm-chat-plan" data-ready={conversationAllowed || thread.rows.length > 0 || undefined}>
-        {source.reportChatScreenshot && !connection.person.isDemo && <ChatScreenshotNotice key={connection.id} source={source} requestId={connection.id} />}
         {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
         <ConversationAgreement key={connection.id} peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
         {source.conversationPilot && <ConversationPilotFeedback key={connection.id} requestId={connection.id}
@@ -1716,6 +1715,7 @@ export function Chat({
               </div>}
             </div>;
           })}
+          {source.reportChatScreenshot&&!connection.person.isDemo&&<ChatScreenshotNotice key={connection.id} source={source} requestId={connection.id}/>}
       {conversationAllowed && !thread.accessDenied && (connection.person.isDemo && source.profileReading
         ? <DemoDeepReading key={connection.id} person={connection.person} read={source.profileReading} watch={source.watch} open={deepOpen && !privateHidden} onClose={()=>setDeepOpen(false)}/>
         : <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}

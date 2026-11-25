@@ -57,11 +57,7 @@ try {
   await mkdir(output,{recursive:true});
   for(const width of [320,390,430]) {
     await sender.setViewportSize({width,height:844});
-    const notice=sender.locator('.cm-chat-capture-notice');
-    const rect=await notice.boundingBox();
-    assert(rect && rect.width<=width && rect.x>=0 && rect.height<90,`Unreadable chat disclosure at ${width}`);
-    assert((await notice.textContent()).includes('لقطات المتصفح'));
-    await notice.screenshot({path:resolve(output,`notice-${width}.png`)});
+    assert.equal(await sender.locator('.cm-chat-capture-notice').count(),0,'no persistent screenshot disclosure');
   }
   // A shortcut on its own and a stale/wrong context cannot create an alert.
   await sender.keyboard.press('PrintScreen');
@@ -86,6 +82,8 @@ try {
   await entry.click();
   await peer.locator('[data-conversation-id="local-privacy-qa"] .cm-chat-capture-notice strong').waitFor();
   assert((await peer.locator('.cm-chat-capture-notice strong').textContent()).includes('رهام'));
+  const rect=await peer.locator('.cm-chat-capture-event').boundingBox();
+  assert(rect&&rect.width<=430&&rect.height<50,'compact in-chat event');
   await sender.bringToFront();
   await sender.getByRole('button',{name:'رجوع',exact:true}).click();
   await sender.waitForFunction(()=>!window.__visibleChat);

@@ -1,7 +1,7 @@
 import type { ActivityNotification, CommunitySource } from '../community/data';
 
-export const captureTitle = (alias: string) => `أبلغ جهاز ${alias} عن لقطة شاشة`;
-export const captureDetail = 'لقطة شاشة في محادثتكما على تطبيق الآيفون.';
+export const captureTitle = (alias: string) => `لقطة شاشة من ${alias}`;
+export const captureDetail = 'تم التقاطها داخل المحادثة.';
 const latest = new WeakMap<CommunitySource, Map<string, ActivityNotification>>();
 const subscribers = new Set<() => void>();
 

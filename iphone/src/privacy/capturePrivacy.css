@@ -160,8 +160,13 @@ html:is([data-capture-hidden], [data-capture-pending]) .wd-capture-resume { visi
   .wd-capture-seal img { filter: none; }
 }
 
-.cm-chat-capture-notice { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 6px; color: #614a52; font-size: 12px; line-height: 1.55; text-align: start; }
-.cm-chat-capture-notice > svg { flex-shrink: 0; align-self: flex-start; margin-top: 2px; }
-.cm-chat-capture-notice p { margin: 3px 0; color: #652a40; }
-.cm-chat-capture-notice time { margin-inline-start: 8px; white-space: nowrap; font-size: 10px; }
-.cm-chat-capture-notice button { color: inherit; text-decoration: underline; }
+.cm-chat-capture-notice { width:100%; display:grid; justify-items:center; margin:8px 0 4px; color:var(--muted); font-size:11px; line-height:1.4; text-align:center; }
+.cm-chat-capture-event { display:flex; align-items:center; justify-content:center; gap:6px; max-width:92%; margin:0; padding:5px 10px; border-block:1px solid color-mix(in srgb,var(--accent) 16%,var(--line)); color:#755d66; animation:cm-capture-event 10s ease both; }
+.cm-chat-capture-event svg { flex:none; color:var(--accent); }
+.cm-chat-capture-event strong { font-weight:600; }
+.cm-chat-capture-event time { white-space:nowrap; color:var(--muted); font-size:10px; }
+.cm-chat-capture-error { margin:0; color:#8b354f; }
+.cm-chat-capture-notice button { min-height:32px; padding-inline:5px; border:0; background:none; color:inherit; font:inherit; font-weight:600; }
+@keyframes cm-capture-event { 0%{opacity:0;transform:translateY(4px)} 8%,80%{opacity:1;transform:none} 100%{opacity:0;transform:none} }
+@media(prefers-reduced-motion:reduce){.cm-chat-capture-event{animation:none}}
+html[data-nf-motion=reduced] .cm-chat-capture-event{animation:none}

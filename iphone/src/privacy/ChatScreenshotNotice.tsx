@@ -1,18 +1,25 @@
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PluginListenerHandle } from '@capacitor/core';
-import { LockKeyhole } from '../BrandIcons';
+import { Camera } from '../BrandIcons';
 import type { CommunitySource } from '../community/data';
 import { nativePrivatePhoto } from '../community/privatePhoto';
 import { captureTitle, latestChatScreenshot, watchChatScreenshots } from '../notifications/chatScreenshots';
 import { nativeSession } from '../session';
 
-const captureTime = new Intl.DateTimeFormat('ar', { dateStyle: 'short', timeStyle: 'short' });
+const captureTime = new Intl.DateTimeFormat('ar-SA', { hour: 'numeric', minute: '2-digit' });
 
 export function ChatScreenshotNotice({ source, requestId }: { source: CommunitySource; requestId: string }) {
   const chat = useRef<HTMLDivElement>(null);
-  const [unavailable, setUnavailable] = useState(false);
   const [failed, setFailed] = useState<string[]>([]);
+  const [visibleId,setVisibleId]=useState<string|null>(null);
   const latest = useSyncExternalStore(watchChatScreenshots, () => latestChatScreenshot(source, requestId));
+  const latestId=latest?.id, latestCreatedAt=latest?.createdAt;
+  useEffect(()=>{
+    if(!latestId||!latestCreatedAt||Date.now()-Date.parse(latestCreatedAt)>60_000){setVisibleId(null);return;}
+    setVisibleId(latestId);
+    const timer=window.setTimeout(()=>setVisibleId(current=>current===latestId?null:current),10_000);
+    return()=>window.clearTimeout(timer);
+  },[latestId,latestCreatedAt]);
   useLayoutEffect(() => {
     if (!nativePrivatePhoto() || !source.reportChatScreenshot) return;
     const context = crypto.randomUUID();
@@ -30,7 +37,7 @@ export function ChatScreenshotNotice({ source, requestId }: { source: CommunityS
       if (!active) { await handle.remove(); return; }
       subscription = handle;
       await nativeSession.setScreenshotContext({ context, active: true });
-    })().catch(() => { if (active) setUnavailable(true); });
+    })().catch(() => {});
     return () => {
       active = false;
       void subscription?.remove().catch(() => {});
@@ -45,13 +52,10 @@ export function ChatScreenshotNotice({ source, requestId }: { source: CommunityS
       setFailed(ids => ids.filter(id => id !== eventId));
     } catch { /* Keep the notice and its retry action visible. */ }
   };
-  if (!nativePrivatePhoto() && !latest) return null;
+  const visible=latest&&visibleId===latest.id?latest:null;
+  if(!visible&&!failed.length)return <div ref={chat} hidden/>;
   return <div className="cm-chat-capture-notice" ref={chat}>
-    <LockKeyhole size={14} aria-hidden="true"/>
-    <div>
-      {nativePrivatePhoto() && <span>{unavailable ? 'حدّث تطبيق الآيفون لتفعيل تنبيهات لقطات الشاشة.' : 'عند رصد لقطة شاشة في تطبيق الآيفون، يُنبَّه الطرف الآخر. لقطات المتصفح لا تُرصَد.'}</span>}
-      {latest && <p><strong>{captureTitle(latest.person.alias)}</strong><time dateTime={latest.createdAt}>{captureTime.format(new Date(latest.createdAt))}</time></p>}
-      {failed.length > 0 && <p role="alert">تعذّر تأكيد إرسال تنبيه اللقطة. <button onClick={() => void retry()}>إعادة المحاولة</button></p>}
-    </div>
+    {visible&&<p className="cm-chat-capture-event" role="status"><Camera size={14} aria-hidden="true"/><strong>{captureTitle(visible.person.alias)}</strong><time dateTime={visible.createdAt}>{captureTime.format(new Date(visible.createdAt))}</time></p>}
+    {failed.length>0&&<p className="cm-chat-capture-error" role="alert">لم نتمكن من إرسال تنبيه لقطة الشاشة. <button onClick={()=>void retry()}>إعادة المحاولة</button></p>}
   </div>;
 }

@@ -1,0 +1,13 @@
+-- Schema portion of the production migration. Its one-time member-data repair
+-- is recorded in the hosted migration ledger and does not apply to new databases.
+create or replace function marriage.member_state_before_boundaries(target uuid) returns jsonb
+language sql stable set search_path='' as $$
+ select marriage.member_state_before_demo_discovery(target) || jsonb_build_object(
+   'demoDiscoveryEnabled', coalesce((select demo_discovery_enabled from marriage.testing_signup_config where id), false),
+   'demoInteractionsEnabled', exists (
+     select 1 from auth.users
+     where id = target and email_confirmed_at is not null
+       and (lower(email) = 'timgoldenz1999@yahoo.com' or id in ('4c6ad0d9-a5c5-42dd-bb6c-a0614e7341b9'::uuid, '8fc03514-e9cb-4908-a0d4-41f3028635b9'::uuid))
+   )
+ )
+$$;

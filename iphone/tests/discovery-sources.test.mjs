@@ -122,6 +122,31 @@ test('interactive simulated journey requires explicit user signature and support
   assert.equal((await source.thread(id)).at(-1).body,'هلا');
 });
 
+test('an accepted fictional peer can still sign after discovery preferences change', async () => {
+  for (const gender of ['man','woman']) {
+    const viewer={...demoProfile,gender};
+    const source=demoCommunity(()=>viewer,false,{interactiveJourney:true});
+    const [peer,other]=await source.discover({mode:'all',eligibleOnly:true});
+    const id=await source.request(peer.id);
+    await source.demoAcceptOutgoing(id);
+    viewer.preferredMinAge=60;
+    viewer.preferredMaxAge=65;
+    assert(!(await source.discover({mode:'all',eligibleOnly:true})).some(person=>person.id===peer.id));
+    await assert.rejects(source.request(other.id),/غير متاح/);
+    assert((await source.inbox()).some(row=>row.id===id && row.status==='accepted'));
+    if (gender==='woman') await source.agree(id,'propose',{days:7,signed:true});
+    await source.simulation.step();
+    if (gender==='man') {
+      const proposal=await source.agreement(id);
+      assert.equal(proposal.status,'proposed');
+      await source.agree(id,'accept',{signed:true,proposalId:proposal.proposalId});
+    }
+    assert.equal((await source.agreement(id)).status,'accepted');
+    await source.send(id,'السلام عليكم','after-preference-change');
+    assert.equal((await source.thread(id)).at(-1).body,'السلام عليكم');
+  }
+});
+
 test('score filters and displays reject incomplete, unsupported and invalid scores consistently', () => {
   assert.equal(preferencePercentage(completeFit), 92);
   assert.equal(personalityPercentage(completeFit), 88);
@@ -190,7 +215,7 @@ test('verified member testers can use the same bot workflow in either discovery 
       lunaSearch:async(alias,filters)=>({people:[],options:{...filters,lunaFields:{},luna:[{field:'alias',kind:'must',terms:[alias]}]}})};
     const directory=withTestingDiscovery(remote,()=>profile,'verified-'+gender,()=>'premium');
     const people=await directory.discover({mode:'all'});
-    assert.equal(people.length,10);
+    assert.equal(people.length,15);
     const person=people.find(row=>row.eligible!==false);
     const result=await directory.lunaSearch(person.alias,{mode:'all'});
     assert(result.people.some(row=>row.id===person.id));

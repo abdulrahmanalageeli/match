@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {readFile,access} from 'node:fs/promises';
 import ts from 'typescript';
 import {assessmentVersion,dimensionsForVersion,comparePreferences,interests} from '../compatibility/model.ts';
-import {personalityQuestionsFor,legacyPersonalityOptions as personalityOptions} from '../compatibility/personality.ts';
+import {personalityQuestionsFor,partnerTraitQuestions,partnerTraitRanges,legacyPersonalityOptions as personalityOptions} from '../compatibility/personality.ts';
 import {applicableDimensions,hasPartnerQuestion,practicalAnswerKeys} from '../compatibility/practical-catalog.ts';
 import personas from './demoPersonas.json' with {type:'json'};
 import {demoEvidence} from '../../api/_lib/demo-deep-evidence.mjs';
+import {beenaProgress, sharedBeenaStory} from '../beena/model.ts';
 
 // Load only the fictional fixture block. Browser transport/simulation imports
 // are tested separately and must never execute while inspecting seed coverage.
@@ -17,19 +18,23 @@ const content=await readFile(dataFile,'utf8');
 const fixtures=content.slice(content.indexOf('const sampleLifeAnswers'),content.indexOf('const demoPortraitFiles'));
 const imports=`import {assessmentVersion,dimensionsForVersion} from ${JSON.stringify(new URL('../compatibility/model.ts',import.meta.url).href)};
 import {personalityQuestionsFor,partnerTraitQuestions} from ${JSON.stringify(new URL('../compatibility/personality.ts',import.meta.url).href)};
-import {demoAssessmentSeeds,demoSurvey} from ${JSON.stringify(new URL('./demoAssessmentSeeds.mjs',import.meta.url).href)};
-import {beenaScenarios} from ${JSON.stringify(new URL('../beena/model.ts',import.meta.url).href)};`;
+import {demoAssessmentSeeds,demoSurvey} from ${JSON.stringify(new URL('./demoAssessmentSeeds.mjs',import.meta.url).href)};`;
 const compiled=ts.transpileModule(fixtures,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {demoPeople,demoProfile}=await import('data:text/javascript;base64,'+Buffer.from(imports+compiled).toString('base64'));
 
-test('fictional roster contains 10 distinct adults per gender with complete valid assessments',()=>{
-  assert.equal(demoPeople.length,20);
-  assert.equal(new Set(demoPeople.map(p=>p.id)).size,20);
-  assert.equal(new Set(demoPeople.map(p=>p.bio)).size,20);
-  for(const gender of ['man','woman'])assert.equal(demoPeople.filter(p=>p.gender===gender).length,10);
+test('fictional roster contains 15 distinct adults per gender with complete valid assessments',()=>{
+  assert.equal(demoPeople.length,30);
+  assert.equal(new Set(demoPeople.map(p=>p.id)).size,30);
+  assert.equal(new Set(demoPeople.map(p=>p.bio)).size,30);
+  for(const gender of ['man','woman']){
+    const pool=demoPeople.filter(p=>p.gender===gender);
+    assert.deepEqual(pool.map(p=>p.id),Array.from({length:15},(_,i)=>(gender==='man'?'p':'wp')+String(i+1).padStart(2,'0')));
+    assert(pool.filter(p=>p.membershipTier==='free').length>pool.length/2);
+    assert.deepEqual(new Set(pool.map(p=>p.membershipTier)),new Set(['free','premium','seriousness']));
+  }
   for(const p of demoPeople){
     assert.equal(p.isDemo,true);assert(p.age>=18);
-    assert(p.bio.length>=80);assert(p.lookingFor&&p.valuesStatement&&p.lifeTogether&&p.education);
+    assert(p.bio.length>=60);assert(p.marriageBasics.heightCm&&p.marriageBasics.weightKg&&p.marriageBasics.originCity);assert(p.lookingFor&&p.valuesStatement&&p.lifeTogether&&p.education);
     assert(p.interestIds.length>=2&&p.interestIds.length<=3);
     assert(p.interestIds.every(id=>interests.some(item=>item.id===id)));
     for(const d of dimensions){
@@ -47,6 +52,7 @@ test('fictional roster contains 10 distinct adults per gender with complete vali
     for(const q of personalityQuestionsFor(current.personalityVersion)){
       assert(q.options.some(o=>o.code===current.personalityAnswers[q.id]),`${p.id}: ${q.id}`);
     }
+    for(const question of partnerTraitQuestions)assert(partnerTraitRanges.some(option=>option.code===current.personalityAnswers[question.id]),p.id+': '+question.id);
     const currentComparison=comparePreferences(current,{...current,id:'current-'+p.id,gender:p.gender==='man'?'woman':'man'});
     assert.equal(currentComparison.fit.assessmentComplete,true);
     assert.equal(currentComparison.fit.personality.complete,true);
@@ -77,13 +83,36 @@ test('roster spans every measured personality dimension and realistic life situa
 });
 
 test('demo portraits remain valid and optional while server persona briefs match source profiles',async()=>{
-  for(const gender of ['man','woman'])assert.equal(demoPeople.filter(p=>p.gender===gender&&p.demoPhoto).length,7);
-  assert.equal(demoPeople.find(p=>p.id==='p01').demoPhoto,'/demo/portraits/fahad.webp');
-  assert.equal(demoPeople.find(p=>p.id==='wp01').demoPhoto,'/demo/portraits/sarah-realistic-v2.webp');
-  for(const p of demoPeople.filter(p=>p.demoPhoto))await access(new URL('../../public'+p.demoPhoto,import.meta.url));
-  assert.deepEqual(personas,demoPeople.map(p=>({id:p.id,name:p.alias,bio:p.bio,interests:p.interestIds,
-    style:personalityQuestions.map(q=>q.prompt+' '+personalityOptions.find(o=>o.code===p.personalityAnswers[q.id]).label).join('؛ '),
-    age:p.age,city:p.city,occupation:p.occupation,gender:p.gender})));
+  for(const gender of ['man','woman']){
+    const pool=demoPeople.filter(p=>p.gender===gender);
+    assert(pool.some(p=>p.demoPhoto) && pool.some(p=>!p.demoPhoto));
+    if(gender==='woman')assert(pool.filter(p=>!p.demoPhoto).every(p=>p.publicAvatar?.style));
+  }
+  const provenance=JSON.parse(await readFile(new URL('../../public/demo/portraits/provenance.json',import.meta.url),'utf8'));
+  for(const p of demoPeople.filter(p=>p.demoPhoto)){
+    const asset=provenance.assets.find(a=>p.demoPhoto.endsWith('/'+a.file));
+    assert.equal(asset?.profileId,p.id);
+    assert.equal(asset?.fictional,true);
+    await access(new URL('../../public'+p.demoPhoto,import.meta.url));
+  }
+  assert.equal(new Set(personas.map(p=>p.opener)).size, demoPeople.length);
+  assert.equal(new Set(personas.map(p=>p.style)).size, demoPeople.length);
+  for(const brief of personas){
+    const person=demoPeople.find(p=>p.id===brief.id);
+    assert.deepEqual([brief.name,brief.bio,brief.interests,brief.occupation,brief.gender,brief.membershipTier],
+      [person.alias,person.bio,person.interestIds,person.occupation,person.gender,person.membershipTier]);
+    assert(brief.opener && brief.daily && brief.followUp);
+  }
+});
+
+test('all fictional Beena scenarios are complete with a distinct story and an individual sharing choice',()=>{
+  assert.equal(new Set(demoPeople.map(p=>p.beena.story.text)).size,demoPeople.length);
+  assert(demoPeople.some(p=>p.beena.story.share) && demoPeople.some(p=>!p.beena.story.share));
+  for (const person of demoPeople) {
+    assert.equal(beenaProgress(person.beena).complete,true,person.id);
+    assert(person.beena.answers[person.beena.story.scenarioId]);
+    assert.equal(sharedBeenaStory(person.beena)?.text,person.beena.story.share?person.beena.story.text:undefined);
+  }
 });
 
 test('remote demo report evidence matches every applicable answer in the same profile and instrument', () => {

@@ -1,7 +1,17 @@
 import type { Message, PublicPerson } from './data';
+import personas from './demoPersonas.json' with { type: 'json' };
+import { demoVisitWindows, nextDemoVisit, rhythmHash, riyadhDay } from './simulationRhythm.ts';
 
-export type DemoSimulationEvent = { id: string; at: string; kind: string; personId?: string; detail: string };
-export type DemoSimulationSnapshot = { running: boolean; busy: boolean; participants: string[]; eventCount: number; log: DemoSimulationEvent[] };
+const chatBriefs = new Map(personas.map(person => [person.id, person]));
+
+export type DemoSimulationEvent = { id: string; at: string; kind: string; personId?: string; detail: string; connectionId?: string };
+type SocialKind = 'profile_visit' | 'interest' | 'request';
+export type PlannedDemoActivity = { id: string; personId: string; dueAt: number } & (
+  {kind:SocialKind} | {kind:'reply'|'match';connectionId:string}
+);
+type PreparedReply = { planId:string; turn:string; body:string; kind:string };
+export type DemoSimulationHistory = { eventCount?: number; log?: DemoSimulationEvent[]; plannedActivity?: PlannedDemoActivity; preparedReply?:PreparedReply; socialHistory?: {personId:string; stage:number; at:number}[] };
+export type DemoSimulationSnapshot = DemoSimulationHistory & { running: boolean; busy: boolean; participants: string[]; eventCount: number; log: DemoSimulationEvent[] };
 export type DemoSimulationOptions = {
   membershipTier?: () => 'free' | 'premium' | 'seriousness';
   storageKey?: string;
@@ -15,6 +25,8 @@ export type DemoSimulationOptions = {
 };
 export type DemoSimulationController = {
   snapshot(): DemoSimulationSnapshot;
+  nextActivity(): PlannedDemoActivity | undefined;
+  reconcileActivity(eventId:string): void;
   start(): void;
   pause(): void;
   step(): Promise<void>;
@@ -37,7 +49,9 @@ type World = {
   chatReady?(id: string): boolean;
   conversationAllowed?(id: string): boolean;
   advanceRelationship?(record: SimulationRecord): string | undefined;
-  activity(kind: 'profile_visit' | 'interest', personId: string): void;
+  activity(kind: 'profile_visit' | 'interest', personId: string, event?: PlannedDemoActivity): void;
+  activityEligible?(kind: 'profile_visit' | 'interest', personId: string): boolean;
+  canRequestAt?(id:string,at:number): boolean;
   changed(): void;
   reset(): void;
 };
@@ -57,80 +71,250 @@ export function simulationHistory(rows: readonly Message[]): { senderIsMe: boole
 export function fictionalReply(person: PublicPerson, history: { senderIsMe: boolean; body: string }[]): string {
   const recent = history.filter(message => message.senderIsMe).at(-1)?.body ?? '';
   const round = history.filter(message => !message.senderIsMe).length;
-  const style = (hash(person.id) >>> 1) % 3;
   if (/ذكاء اصطناعي|بوت|حقيقي[ةه]?|انسان|إنسان/.test(recent)) return 'أنا شخصية ضمن محاكاة وُدَين للتجربة، مو حساب شخص حقيقي.';
   if (/محتواها غير متاح/.test(recent)) return 'وصل المرفق، بس ما أقدر أشوف الصور أو أسمع الصوت في المحاكاة. اكتب لي اللي ودك تقوله وبرد عليك.';
   if (/رقم|واتساب|عنوان|موقعك|سناب/.test(recent)) return 'خلّنا نبقى هنا بالبداية لين نتعرف أكثر ونرتاح للخطوة الجاية.';
-  if (/زواج|شهر|رسمي|أهل|لقاء/.test(recent)) {
-    if (person.marriageBasics?.meetingPreference === 'family_before_formal') return 'أفضّل أن يكون اللقاء الأول بحضور الأهل، بعد أن نتفق على الأمور الأساسية. ما الذي يناسبك؟';
-    if (person.marriageBasics?.meetingPreference === 'after_formal') return 'أرتاح أكثر للقاء بعد الخطوة الرسمية. قبل ذلك يهمني أن نتحدث بوضوح عن توقعاتنا للحياة.';
-    return 'أحب أن نفهم توقعات بعض أولًا، ثم نتفق على لقاء وطريقة واضحة تناسب الطرفين. ما أهم شيء تريد معرفته قبلها؟';
+  const brief = chatBriefs.get(person.id);
+  if (!brief) return 'هلا فيك، وش تحب نتكلم عنه؟';
+  const said = new Set(history.filter(message => !message.senderIsMe).map(message => message.body));
+  if (!recent) return brief.opener;
+  if (/زواج|خطبة|رسمي|الأهل|الاهل|لقاء/.test(recent)) {
+    if (brief.meeting === 'family_before_formal') return 'أرتاح أكثر إذا اللقاء الأول كان بحضور الأهل، بعد ما نتفق على الأساسيات.';
+    if (brief.meeting === 'after_formal') return 'بالنسبة لي اللقاء يكون بعد الخطوة الرسمية. هنا نقدر نسولف عن اللي يهمنا قبلها.';
+    if (brief.meeting === 'public_before_formal') return 'أفضل مكان عام قبل الخطوة الرسمية، وقت ما نكون مرتاحين للفكرة.';
+    return 'ما عندي طريقة وحدة في بالي، ودي نتفق على اللي يناسبنا الاثنين.';
   }
-  if (/عمل|دوام|مهنة|شغل/.test(recent)) return `أنا في مجال ${person.occupation}، الدوام ياخذ جزء من اليوم بس أحب يكون فيه وقت للبيت بعد. كيف يومك عادة؟`;
-  if (/سفر|رحل|مكان/.test(recent)) return ['أستمتع بالرحلات الهادئة أكثر من البرنامج المزدحم. أحب أن أترك وقتًا للمشي واكتشاف المكان. وأنت؟', 'أحب السفر بين فترة وأخرى، لكن ما يهمني أكثر هو من أشارك معه الرحلة. هل تفضّل البحر أم الجبال؟'][style % 2];
-  if (/خلاف|زعل|عصب|نقاش/.test(recent)) return 'إذا صار خلاف، أفضّل أن نفهم السبب بدون تجريح. أحيانًا أحتاج وقتًا قصيرًا للهدوء ثم نرجع للكلام. هل يناسبك ذلك؟';
-  if (/كيفك|كيف حال|أخبار|السلام|مرحبا|أهل|هلا/.test(recent)) return ['هلا والله، الحمد لله بخير. كيف كان يومك؟', 'وعليكم السلام، أهلين. حلو نبدأ بهدوء ونتعرف شوي على بعض', 'هلا فيك، الحمد لله. وش أخبارك اليوم؟'][style];
-  const interest = person.interests[round % Math.max(1, person.interests.length)] || 'المشي';
-  return [
-    `من الأشياء التي أستمتع بها ${interest}. أحب أن تكون لنا اهتمامات مشتركة مع مساحة خاصة لكل واحد. ما الذي تحب فعله في نهاية الأسبوع؟`,
-    'أفهم وجهة نظرك. بالنسبة لي، التفاصيل اليومية والاهتمام الصغير تفرق كثيرًا. كيف تتخيل يومًا عاديًا جميلًا في البيت؟',
-    'أحب الوضوح في الأمور المهمة، حتى لو اختلفنا في بعض التفاصيل. ما الشيء الذي تعتبره أساسيًا في شريك الحياة؟',
-    'خلّني أفكر في كلامك قليلًا؛ ما أحب أعطي جوابًا مستعجلًا. أقدّر أننا نتكلم بصراحة ومن دون ضغط.',
-  ][(round + style) % 4];
+  if (/عمل|دوام|مهن|شغل|يومك|يومج/.test(recent)) return brief.daily;
+  if (/خلاف|زعل|نقاش|عص[بّ]/.test(recent)) {
+    const responses: Record<string, string> = {
+      A:'أفضل نتكلم في وقته. إذا فهمت وش ضايقك يسهل علي أوضح اللي عندي.',
+      B:'أحتاج أهدأ شوي، بس أحب نتفق متى نرجع نكمل الكلام.',
+      C:'أستعجل أحيان وأبي نحسمها وقتها. أحاول أعطي اللي قدامي فرصة يتكلم.',
+      D:'إذا تضايقت أسكت فترة. الرجوع لنفس السالفة مو سهل علي.',
+    };
+    return responses[brief.practical.conflict_response];
+  }
+  if (/بيت|سكن|منزل/.test(recent)) return brief.home;
+  if (/شريك|شريكة|تدور|تبحث|توقعات/.test(recent)) return brief.lookingFor;
+  if (/أوقات فراغ|فراغك|هواي|ويكند|إجاز|اجاز|اهتمام/.test(recent)) return brief.pastime;
+  if (/سلام عليكم/.test(recent) && !round) return brief.opener.replace(/^[^،.!]+[،.!]/u, 'وعليكم السلام،');
+  if (/كيفك|كيف حال|أخبار|اخبار|مرحبا|أهلين|اهلين|هلا/.test(recent) && !said.has(brief.opener)) return brief.opener;
+  const replies = [brief.followUp, brief.values, brief.lookingFor, brief.daily];
+  return replies.find(reply => !said.has(reply)) ?? replies[round % replies.length];
 }
 
-export function createDemoSimulation(world: World, options: DemoSimulationOptions = {}, initial?: { eventCount?: number; log?: DemoSimulationEvent[] }): DemoSimulationController {
+export function createDemoSimulation(world: World, options: DemoSimulationOptions = {}, initial?: DemoSimulationHistory): DemoSimulationController {
   let running = false, busy = false, disposed = false, generation = 0;
   let eventCount = Math.max(0, initial?.eventCount ?? 0);
   let log = (initial?.log ?? []).slice(-30);
   const random = options.random ?? Math.random;
-  const seed = Math.floor(random() * 0x7fffffff);
   const lastVisits = new Map<string, number>();
   const social = new Map<string, number>();
   const refusedTurns = new Map<string, string | undefined>();
+  let planned = initial?.plannedActivity;
+  let prepared = initial?.preparedReply;
+  let wasAuthorized = false;
+  for (const item of initial?.socialHistory ?? []) {
+    social.set(item.personId,item.stage);
+    lastVisits.set(item.personId,item.at);
+  }
   for (const event of log) if (event.personId && ['profile_visit', 'interest', 'request'].includes(event.kind)) {
     social.set(event.personId, Math.max(social.get(event.personId)??0,event.kind === 'profile_visit' ? 1 : event.kind === 'interest' ? 2 : 3));
-    if(event.kind==='profile_visit')lastVisits.set(event.personId,Date.parse(event.at));
+    lastVisits.set(event.personId,Math.max(lastVisits.get(event.personId) ?? 0,Date.parse(event.at)));
   }
   const typing = world.typing ?? new Set<string>();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const participants = () => {
-    const people = world.people();
-    // Spread participants across the roster instead of animating every account.
-    return [...new Set([...people.slice().sort((a,b)=>hash(a.id+seed)-hash(b.id+seed)).slice(0, 5).map(person => person.id),
+  let wakeAfterStep = false;
+  const participants = (people = world.people()) => {
+    const salt = (options.storageKey ?? 'standalone') + '/' + riyadhDay(Date.now());
+    return [...new Set([...people.slice().sort((a,b)=>rhythmHash(a.id+salt)-rhythmHash(b.id+salt)).slice(0, 5).map(person => person.id),
       ...world.records.filter(record => record.status !== 'closed').map(record => record.peer)])];
   };
-  function add(kind: string, personId: string | undefined, detail: string) {
+  function add(kind: string, personId: string | undefined, detail: string, plan?: PlannedDemoActivity) {
     eventCount++;
-    log = [...log, { id: crypto.randomUUID(), at: new Date().toISOString(), kind, personId, detail }].slice(-30);
+    log = [...log, { id: plan?.id ?? crypto.randomUUID(), at: new Date(plan?.dueAt ?? Date.now()).toISOString(), kind, personId, detail,
+      ...(plan && 'connectionId' in plan && {connectionId:plan.connectionId}) }].slice(-30);
+  }
+  const acceptedCount = () => world.records.filter(record => record.status === 'accepted').length + Math.max(0, options.externalAccepted?.() ?? 0);
+  const willAccept = (id:string) => options.interactiveJourney || hash(id) % 4 !== 0;
+  function activityAllowed(kind: SocialKind, id: string) {
+    if (world.exclusive() || !world.available(id) || world.records.some(r => r.peer === id && r.status !== 'closed')) return false;
+    if (kind !== 'request') return world.activityEligible?.(kind,id) !== false;
+    return world.records.filter(r => r.status === 'pending').length < 2 && acceptedCount() < 2;
+  }
+  function waitingTurn(record:SimulationRecord) {
+    if (record.status !== 'accepted' || !world.available(record.peer) || world.chatReady?.(record.id) === false ||
+      world.conversationAllowed?.(record.id) === false || (world.exclusive() && !world.conversationAllowed)) return;
+    const transcript = world.messages.get(record.id) ?? [];
+    const rows = transcript.filter(row=>!row.deletedAt);
+    const last = rows.at(-1);
+    if (!last && transcript.length) return;
+    if (last && !last.senderIsMe || refusedTurns.has(record.id) && refusedTurns.get(record.id) === last?.id) return;
+    const history = simulationHistory(rows);
+    const durableHistory = rows.some(row=>row.attachment) ? simulationHistory(rows.filter(row=>!row.attachment)) : history;
+    return {last,history,key:(last?.id ?? 'opener')+'/'+rhythmHash(JSON.stringify(durableHistory))};
+  }
+  function planValid(plan:PlannedDemoActivity) {
+    if (!('connectionId' in plan)) return activityAllowed(plan.kind,plan.personId) &&
+      (plan.kind !== 'request' || world.canRequestAt?.(plan.personId,plan.dueAt) !== false);
+    const record=world.records.find(row=>row.id===plan.connectionId && row.peer===plan.personId);
+    if (!record || !world.available(record.peer)) return false;
+    if (plan.kind==='match') return !world.exclusive() && record.status==='pending' && record.direction==='outgoing' && acceptedCount()<2 && willAccept(record.peer);
+    return prepared?.planId===plan.id && waitingTurn(record)?.key===prepared.turn;
+  }
+  function cancelPlan() { planned=undefined; prepared=undefined; }
+  function visiblePlan() {
+    if (options.canAct?.()===false) {
+      if (wasAuthorized) cancelPlan();
+      wasAuthorized=false;
+      return;
+    }
+    wasAuthorized=true;
+    if (planned && !planValid(planned)) cancelPlan();
+    return planned;
+  }
+  function chooseAmbientPlan(people: PublicPerson[]) {
+    if (visiblePlan() || options.canAct?.() === false || world.exclusive()) return;
+    const now = Date.now();
+    const slots = people.flatMap(person => {
+      const id = person.id, stage = social.get(id) ?? 0;
+      const disposition = rhythmHash(id + 'interest') % 10;
+      const kind = stage === 0 ? 'profile_visit' : stage === 1 && disposition >= 3 ? 'interest' :
+        stage === 2 && disposition >= 7 && person.membershipTier !== 'free' ? 'request' : 'profile_visit';
+      if (!activityAllowed(kind,id)) return [];
+      const seed = rhythmHash(id + '/' + riyadhDay(now) + '/' + eventCount);
+      const gap = kind === 'profile_visit' ? (24 + seed % 49) * 3600_000 : (3 + seed % 15) * 3600_000;
+      const earliest = Math.max(now + (35 + seed % 96) * 60_000, (lastVisits.get(id) ?? 0) + gap);
+      const dueAt = nextDemoVisit(id,earliest);
+      if (kind === 'request' && world.canRequestAt?.(id,dueAt) === false) return [];
+      return [{personId:id, kind, dueAt} as const];
+    });
+    const next = slots.sort((a,b)=>a.dueAt-b.dueAt)[0];
+    if (next) planned = {...next,id:crypto.randomUUID()};
+  }
+  async function writeReply(person:PublicPerson, history:ReturnType<typeof simulationHistory>, last?:Message) {
+    const fallback = fictionalReply(person,history);
+    if (!options.aiReply || last?.attachment) return {body:fallback,kind:'reply'};
+    try {
+      const text = await options.aiReply({person,messages:history});
+      return typeof text==='string' && text.trim() && text.length<=1000 ? {body:text.trim(),kind:'ai_reply'} : {body:fallback,kind:'reply_fallback'};
+    } catch (error) {
+      if (error instanceof Error && 'lunaSecurity' in error) {
+        if (typeof window!=='undefined') window.dispatchEvent(new CustomEvent('wudayn:luna-notice',{detail:error.message}));
+        return;
+      }
+      return {body:fallback,kind:'reply_fallback'};
+    }
+  }
+  async function choosePlan(people:PublicPerson[], ticket:number) {
+    const current=visiblePlan(), now=Date.now();
+    const candidates: {kind:'reply'|'match';connectionId:string;person:PublicPerson;dueAt:number}[]=[];
+    for (const record of world.records) {
+      const person=people.find(p=>p.id===record.peer);
+      if (!person) continue;
+      const matching=record.status==='pending' && record.direction==='outgoing' && !world.exclusive() && acceptedCount()<2 && willAccept(record.peer);
+      const turn=matching ? undefined : waitingTurn(record);
+      // Local demo media disappears on a cold launch. Only durable turns can be advertised to iOS.
+      if (!matching && (!turn || turn.last?.attachment)) continue;
+      if (current && 'connectionId' in current && current.connectionId===record.id) {
+        candidates.push({kind:current.kind,connectionId:record.id,person,dueAt:current.dueAt});
+        continue;
+      }
+      const at=Date.parse(turn?.last?.createdAt ?? record.updatedAt) || now;
+      const delay=(matching ? 5+rhythmHash(record.id)%26 : 1+rhythmHash(record.peer+(turn?.key ?? ''))%9)*60_000;
+      const dueAt=nextDemoVisit(person.id,Math.max(now+1000,at+delay));
+      candidates.push({kind:matching?'match':'reply',connectionId:record.id,person,dueAt});
+    }
+    const next=candidates.sort((a,b)=>a.dueAt-b.dueAt)[0];
+    if (!next) { chooseAmbientPlan(people); return; }
+    if (current && 'connectionId' in current && current.connectionId===next.connectionId) return;
+    const record=world.records.find(row=>row.id===next.connectionId)!;
+    const plan:PlannedDemoActivity={id:crypto.randomUUID(),kind:next.kind,connectionId:record.id,personId:record.peer,dueAt:next.dueAt};
+    if (next.kind==='reply') {
+      const turn=waitingTurn(record);
+      if (!turn) return;
+      const reply=await writeReply(next.person,turn.history,turn.last);
+      if (ticket!==generation || !running || disposed || options.canAct?.()===false || waitingTurn(record)?.key!==turn.key) return;
+      if (!reply) { refusedTurns.set(record.id,turn.last?.id); return; }
+      prepared={planId:plan.id,turn:turn.key,...reply};
+    } else prepared=undefined;
+    planned=plan;
+  }
+  function commitPlan(plan: PlannedDemoActivity, person: PublicPerson) {
+    const {kind,personId:id} = plan;
+    const at=new Date(plan.dueAt).toISOString();
+    if ('connectionId' in plan) {
+      const record=world.records.find(row=>row.id===plan.connectionId)!;
+      if (kind==='match') {
+        record.status='accepted';record.allowRematch=true;record.updatedAt=at;record.celebrationKey=plan.id;
+        add(kind,id,`${person.alias}: قبل طلب التعارف`,plan);
+      } else if (prepared) {
+        const rows=world.messages.get(record.id) ?? [];
+        for (const row of rows) if (row.senderIsMe && !row.deletedAt) { row.deliveredAt ??= at; row.readAt ??= at; }
+        rows.push({id:plan.id,createdAt:at,body:prepared.body,senderIsMe:false});
+        world.messages.set(record.id,rows);record.updatedAt=at;typing.delete(record.id);
+        add('reply',id,`${person.alias}: أرسل رسالة`,plan);
+      }
+      return;
+    }
+    if (plan.kind === 'request') {
+      world.records.unshift({id:plan.id, peer:id,direction:'incoming',status:'pending',createdAt:at,updatedAt:at});
+    } else world.activity(plan.kind,id,plan);
+    social.set(id, Math.max(social.get(id) ?? 0, kind === 'request' ? 3 : kind === 'interest' ? 2 : 1));
+    lastVisits.set(id,plan.dueAt);
+    add(kind,id,`${person.alias}: ${kind === 'request' ? 'أرسل طلب تعارف' : kind === 'interest' ? 'اهتمام بملفك' : 'زيارة لملفك'}`,plan);
+  }
+  function reconcileActivity(eventId:string, roster=world.people()) {
+    if (!running || disposed || (typeof document!=='undefined' && document.hidden)) return false;
+    const plan=visiblePlan();
+    if (!plan || plan.id!==eventId || plan.dueAt>Date.now()) return false;
+    const person=roster.find(p=>p.id===plan.personId);
+    if (person) commitPlan(plan,person);
+    cancelPlan();changed();
+    return Boolean(person);
   }
   function changed() { world.changed(); }
   function clearPresence() { generation++; world.online.clear(); typing.clear(); }
-  function pause() { running = false; clearPresence(); if (timer) clearTimeout(timer); timer = undefined; changed(); }
+  function stopTimer() { if (timer) clearTimeout(timer); timer = undefined; }
+  function pause() { running = false; clearPresence(); stopTimer();cancelPlan(); changed(); }
   function schedule(soon = false) {
-    if (!running || disposed) return;
-    if (timer) clearTimeout(timer);
+    stopTimer();
+    if (!running || disposed || typeof document!=='undefined' && document.hidden) return;
+    soon ||= wakeAfterStep; wakeAfterStep=false;
     timer = setTimeout(async () => {
       timer = undefined;
-      if (typeof document === 'undefined' || !document.hidden) await step();
+      if (typeof document === 'undefined' || !document.hidden) await step(true);
       schedule();
-    }, (soon || typing.size ? 2400 : world.records.some(record => record.status === 'accepted' && world.messages.get(record.id)?.at(-1)?.senderIsMe) ? 4200 : 12_000) + Math.floor(random() * (soon || typing.size ? 1800 : 12_000)));
+    }, soon ? 100 : Math.min(Math.max(100, (visiblePlan()?.dueAt ?? Infinity) - Date.now()),
+      typing.size ? 1800 + random() * 4000 : world.online.size ? 5000 + random() * 22_000 : 65_000 + random() * 45_000));
   }
-  const visible = () => { if (document.hidden) { clearPresence(); changed(); } else if (running) schedule(true); };
+  const visible = () => { if (document.hidden) { stopTimer();clearPresence(); changed(); } else if (running) schedule(true); };
   let observing = false;
-  async function step() {
+  async function step(automatic = false) {
     if (busy || disposed || (typeof document !== 'undefined' && document.hidden) || options.canAct?.() === false) return;
     busy = true; const ticket = generation;
     changed();
     try {
-      const pool = new Set(participants());
-      const people = world.people().filter(person => pool.has(person.id) && world.available(person.id));
+      const roster = world.people();
+      const pool = new Set(participants(roster));
+      const cohort = roster.filter(person => pool.has(person.id) && world.available(person.id));
+      let people = cohort;
+      if (automatic) {
+        const now = Date.now(), plan = visiblePlan();
+        if (plan && !roster.some(p => p.id === plan.personId)) planned = undefined;
+        const due = planned && reconcileActivity(planned.id,roster);
+        await choosePlan(cohort,ticket);
+        if (ticket!==generation || !running || disposed) return;
+        people = cohort.filter(person => demoVisitWindows(person.id,now).some(w => w.start <= now && now < w.end));
+        world.online.clear();
+        for (const person of people) world.online.add(person.id);
+        if (due) return;
+      }
       for (const id of typing) if (!world.records.some(record => record.id === id && record.status === 'accepted' && people.some(person => person.id === record.peer))) typing.delete(id);
       if (!people.length) return;
       const allowed = (id: string) => ticket === generation && !disposed && (!world.exclusive() || Boolean(world.conversationAllowed)) && options.canAct?.() !== false && world.available(id);
-      const acceptedCount = () => world.records.filter(record => record.status === 'accepted').length + Math.max(0, options.externalAccepted?.() ?? 0);
       const pending = world.records.find(record => record.status === 'pending' && record.direction === 'outgoing' && people.some(person => person.id === record.peer));
-      if (pending && acceptedCount() < 2 && !world.exclusive()) {
+      if (pending && (!automatic || !willAccept(pending.peer)) && acceptedCount() < 2 && !world.exclusive()) {
         const person = people.find(person => person.id === pending.peer)!;
         const decline = !options.interactiveJourney && hash(person.id) % 4 === 0;
         pending.status = decline ? 'closed' : 'accepted'; pending.updatedAt = new Date().toISOString();
@@ -147,6 +331,7 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
         if (record.status !== 'accepted' || !people.some(person => person.id === record.peer)) return false;
         if (world.chatReady?.(record.id) === false || world.conversationAllowed?.(record.id) === false || world.exclusive() && !world.conversationAllowed) return false;
         const rows = (world.messages.get(record.id) ?? []).filter(row => !row.deletedAt);
+        if (automatic && !rows.at(-1)?.attachment && (planned?.kind!=='reply' || planned.connectionId!==record.id || planned.dueAt-Date.now()>90_000)) return false;
         if (refusedTurns.has(record.id) && refusedTurns.get(record.id) === rows.at(-1)?.id) return false;
         return !rows.length || rows.at(-1)?.senderIsMe;
       });
@@ -171,34 +356,24 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
           add('reaction',person.id,`${person.alias}: تفاعل مع الرسالة`);return;
         }
         if (!typing.has(chat.id)) { typing.add(chat.id); world.online.add(person.id); add('typing', person.id, `${person.alias}: يكتب الآن`); return; }
+        if (automatic && !last?.attachment) return;
         const history = simulationHistory(rows);
-        let body = fictionalReply(person, history), kind = 'reply';
-        if (options.aiReply && !last?.attachment) {
-          try {
-            const reply = await options.aiReply({ person, messages: history });
-            if (typeof reply === 'string' && reply.trim() && reply.length <= 1000) { body = reply.trim(); kind = 'ai_reply'; }
-          } catch (error) {
-            if (error instanceof Error && 'lunaSecurity' in error) {
-              typing.delete(chat.id);
-              refusedTurns.set(chat.id, last?.id);
-              window.dispatchEvent(new CustomEvent('wudayn:luna-notice', { detail: error.message }));
-              return;
-            }
-            kind = 'reply_fallback';
-          }
-        }
+        const reply = planned?.kind==='reply' && planned.connectionId===chat.id && planValid(planned) && prepared ? prepared : await writeReply(person,history,last);
         typing.delete(chat.id);
         if (!allowed(person.id) || chat.status !== 'accepted' || world.chatReady?.(chat.id) === false || world.conversationAllowed?.(chat.id) === false || rows.filter(row => !row.deletedAt).at(-1)?.id !== last?.id || JSON.stringify(simulationHistory(rows)) !== JSON.stringify(history)) return;
+        if (!reply) { refusedTurns.set(chat.id,last?.id); return; }
+        const {body,kind}=reply;
         const createdAt = new Date().toISOString();
         rows.push({ id: crypto.randomUUID(), senderIsMe: false, body, createdAt });
         world.messages.set(chat.id, rows); chat.updatedAt = createdAt; world.online.add(person.id);
         add(kind, person.id, `${person.alias}: ${kind === 'reply_fallback' ? 'رد محلي مؤقت؛ المساعد غير متاح' : 'أرسل رسالة'}`);
         return;
       }
-      if (world.exclusive()) return;
+      if (world.exclusive() || automatic) return;
       const person = people[Math.min(people.length-1, Math.floor(random() * people.length))];
       const phase = social.get(person.id) ?? 0;
-      if (phase === 2 && world.records.filter(record => record.status === 'pending').length < 2 && !world.records.some(record => record.peer === person.id && (record.status !== 'closed' || !record.allowRematch))) {
+      if (phase === 2 && person.membershipTier !== 'free' && activityAllowed('request', person.id) &&
+        world.canRequestAt?.(person.id, Date.now()) !== false) {
         const time = new Date().toISOString();
         world.records.unshift({ id: crypto.randomUUID(), peer: person.id, direction: 'incoming', status: 'pending', createdAt: time, updatedAt: time });
         add('request', person.id, `${person.alias}: أرسل طلب تعارف`);
@@ -223,11 +398,18 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
     }
   }
   return {
-    snapshot: () => ({ running, busy, participants: participants(), eventCount, log: [...log] }),
+    nextActivity: () => running && !disposed ? visiblePlan() : undefined,
+    reconcileActivity:eventId=>{ if (reconcileActivity(eventId)) schedule(true); },
+    snapshot: () => ({ running, busy, participants: participants(), eventCount, log: [...log], plannedActivity:visiblePlan() ?? planned, preparedReply:prepared,
+      socialHistory:[...social].map(([personId,stage])=>({personId,stage,at:lastVisits.get(personId) ?? 0})) }),
     start() { if (running) return; disposed = false; running = true; if (!observing && typeof document !== 'undefined') { document.addEventListener('visibilitychange', visible); observing = true; } changed(); schedule(true); },
-    pause, step,
-    wake() { if (running && !busy) schedule(true); },
-    reset() { pause(); world.reset(); eventCount = 0; log = []; social.clear(); lastVisits.clear(); changed(); },
+    pause, step:()=>step(),
+    wake() {
+      if (!running) return;
+      if (busy) { wakeAfterStep=true;return; }
+      stopTimer();void step(true).finally(()=>schedule());
+    },
+    reset() { pause(); world.reset(); eventCount = 0; log = []; planned = undefined; social.clear(); lastVisits.clear(); refusedTurns.clear(); changed(); },
     dispose() { pause(); disposed = true; if (observing) { document.removeEventListener('visibilitychange', visible); observing = false; } },
   };
 }

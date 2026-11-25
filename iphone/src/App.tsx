@@ -56,6 +56,7 @@ import { PublicationCenter } from './publishing/PublicationCenter';
 import { ConductCenter } from './conduct/ConductCenter';
 import { usePushNotifications, setPushBadge, detachNotifications, syncNativePushOwner } from "./notifications/push";
 import { NotificationSetup } from './notifications/NotificationSetup';
+import { simulationActivityDestination } from "./notifications/simulationDeviceAlerts";
 import { RegistrationWait } from "./release/RegistrationWait";
 import { ActivityAlerts } from "./notifications/ActivityAlerts";
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
@@ -342,10 +343,24 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean } | null>(null);
   const clearConversationIntent = useCallback(() => setConversationIntent(null), []);
   useNativeCalls(!demo && memberAccess ? token : null,tester?.session);
+  const simulationAlerts = !demo && token && (!live || live.user.id !== token) ? undefined
+    : !memberAccess || paused || onboardingPreview ? null
+    : tester ? (tester.actor === 'abdulrahman' ? source : null)
+    : !demo && live?.demoDeviceAlertsEnabled ? source?.demoInteractions ?? null : null;
+  const currentSimulationAlerts = useRef(simulationAlerts);
+  currentSimulationAlerts.current = simulationAlerts;
   usePushNotifications(tester ? `tester:${tester.session}` : !demo ? token : null, async (id, kind,event) => {
     if(kind==='publication'){setPublicationOpen({id,owner:token});return;}
     if(!memberAccess)return;
     if (!source || (demo && !tester)) return;
+    if (kind === 'simulation') {
+      if (!simulationAlerts) return;
+      const destination = await simulationActivityDestination(simulationAlerts,id);
+      if (currentSimulationAlerts.current !== simulationAlerts) return;
+      setConversationIntent(destination ? {source,...destination} : null);
+      go(destination && !destination.requestOnly ? 'chats' : 'inbox');
+      return;
+    }
     // A notification carries navigation intent only. The inbox re-fetches the
     // authenticated connection before it can open a profile or conversation.
     if (event?.action && !(await source.inbox()).some(row => row.id === id && row.status === 'accepted')) {
@@ -361,7 +376,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       }
       if(event?.messageId&&['read','reply'].includes(event.action||''))await source.markRead(id,event.messageId);
     }catch(cause){setNotice('تعذّر إتمام إجراء الإشعار. سنعيد المحاولة عند فتح وُدَين.');throw cause;}
-  });
+  }, simulationAlerts);
   const curatedPrevious = useRef<{ owner: string | null; id?: string; status?: Proposal["status"] } | null>(null);
   const [curatedMatch, setCuratedMatch] = useState<{ owner: string | null; id: string; name: string } | null>(null);
   useEffect(() => {

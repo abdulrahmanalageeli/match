@@ -11,16 +11,23 @@ test('only the verified owner and Reham can switch memberships; reset and expiry
  async function member(email,id=randomUUID(),gender='man'){const u={id,sessionId:randomUUID(),email};await addUser(db,u);await seedCommunicationMember(db,u,gender);return u;}
  try{
   const owner=await member('timgoldenz1999@yahoo.com'),other=await member('other@example.test');
+  const sultan=await member('sultan@example.test','8fc03514-e9cb-4908-a0d4-41f3028635b9');
+  const sultanState=await rpc('marriage.member_state($1)',[sultan.id]);
+  assert.equal(sultanState.demoInteractionsEnabled,true);
+  assert.equal(sultanState.demoDeviceAlertsEnabled,true);
+  await assert.rejects(call(sultan,'premium'),/الاختبار/);
   const reham=await member('reham@example.test','4c6ad0d9-a5c5-42dd-bb6c-a0614e7341b9','woman');
   const rehamState=await call(reham,'premium');
   assert.equal(rehamState.membershipTesting.selected,'premium');
   assert.equal(rehamState.demoInteractionsEnabled,true);
+  assert.equal(rehamState.demoDeviceAlertsEnabled,false);
   assert.equal(rehamState.demoDiscoveryEnabled,true);
   assert.equal((await call(reham,'actual')).membershipTesting.selected,'actual');
   await assert.rejects(call(other,'seriousness'),/الاختبار/);
   const otherState=await rpc('marriage.member_state($1)',[other.id]);
   assert.equal(otherState.membershipTesting,undefined);
   assert.equal(otherState.demoInteractionsEnabled,false);
+  assert.equal(otherState.demoDeviceAlertsEnabled,false);
   await db.query('update auth.users set email_confirmed_at=null where id=$1',[reham.id]);
   assert.equal((await rpc('marriage.member_state($1)',[reham.id])).demoInteractionsEnabled,false);
   for(const [tier,active,capacity] of [['free',false,1],['premium',true,2],['seriousness',true,3]]){
@@ -28,6 +35,7 @@ test('only the verified owner and Reham can switch memberships; reset and expiry
    assert.equal(state.membership.active,active);assert.equal(state.membership.tier,tier);
    assert.equal(state.membership.connectionLimit,capacity);assert.equal(state.membershipTesting.selected,tier);
    assert.equal(state.demoInteractionsEnabled,true);
+   assert.equal(state.demoDeviceAlertsEnabled,true);
   }
   assert.equal((await db.query('select count(*)::int n from marriage.store_transactions')).rows[0].n,0);
   assert.equal((await call(owner,'actual')).membership.active,false);
@@ -36,6 +44,7 @@ test('only the verified owner and Reham can switch memberships; reset and expiry
   assert.equal((await rpc('marriage.member_state($1)',[owner.id])).membership.tier,'free');
   await assert.rejects(call(owner,'invalid'),/غير صالح/);
   await db.query('update auth.users set email_confirmed_at=null where id=$1',[owner.id]);
+  assert.equal((await rpc('marriage.member_state($1)',[owner.id])).demoDeviceAlertsEnabled,false);
   await assert.rejects(call(owner,'premium'));
   await db.query('update auth.users set email_confirmed_at=now() where id=$1',[owner.id]);
   await db.query('delete from auth.sessions where id=$1',[owner.sessionId]);

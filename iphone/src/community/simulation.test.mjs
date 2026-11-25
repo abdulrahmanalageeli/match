@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDemoSimulation, fictionalReply, simulationHistory } from './simulation.ts';
+import { demoVisitWindows, nextDemoVisit, demoMembershipTier } from './simulationRhythm.ts';
 
 function harness(options={}) {
   const people=Array.from({length:15},(_,i)=>({id:'p'+String(i+1).padStart(2,'0'),alias:'عضو '+i,age:28,city:'الرياض',occupation:'الهندسة',bio:'أفضل الحوار الهادئ',interests:['القراءة'],reasons:[]}));
@@ -12,6 +13,14 @@ function harness(options={}) {
   return {people,unavailable,activity,online,typing,records,messages,simulation,world,setExclusive:value=>exclusive=value};
 }
 const record=(peer='p01',status='accepted')=>({id:'conversation',peer,status,direction:'outgoing',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+
+test('manually advancing the tester clock respects the fictional sender’s membership',async()=>{
+  const h=harness();
+  for (const person of h.people) person.membershipTier='free';
+  for (let i=0;i<6;i++) await h.simulation.step();
+  assert(h.activity.some(event=>event.kind==='interest'));
+  assert.equal(h.records.length,0);
+});
 
 test('only five fictional participants generate bounded activity; stepping does not enable timers',async()=>{
   const h=harness();
@@ -30,13 +39,155 @@ test('only five fictional participants generate bounded activity; stepping does 
 });
 
 test('automatic activity runs only after start and stops when paused or disposed',async t=>{
-  t.mock.timers.enable({apis:['setTimeout']});
+  t.mock.timers.enable({apis:['setTimeout','Date'],now:Date.parse('2026-11-23T01:00:00Z')});
   const h=harness();
   t.mock.timers.tick(30_000);assert.equal(h.simulation.snapshot().eventCount,0);
   h.simulation.start();t.mock.timers.tick(12_000);await Promise.resolve();await Promise.resolve();
-  assert.equal(h.simulation.snapshot().eventCount,1);
+  const plan=h.simulation.snapshot().plannedActivity;
+  assert.equal(h.simulation.snapshot().eventCount,0,'Opening the app does not fabricate a visit');
+  assert(plan.dueAt>Date.now());assert.deepEqual(h.simulation.snapshot().plannedActivity,plan);
+  t.mock.timers.tick(plan.dueAt-Date.now());await Promise.resolve();await Promise.resolve();
+  assert.equal(h.simulation.snapshot().eventCount,1);assert.equal(h.simulation.snapshot().log[0].id,plan.id);
   h.simulation.pause();t.mock.timers.tick(120_000);await Promise.resolve();assert.equal(h.simulation.snapshot().eventCount,1);
   h.simulation.dispose();h.simulation.start();assert.equal(h.simulation.snapshot().running,true,'A remounted test panel can restart its controller');
+  h.simulation.dispose();
+});
+
+test('Saudi routines vary by person and weekend and retain the same check-ins on a cold return',()=>{
+  const wednesday=Date.parse('2026-11-25T01:00:00Z'),friday=wednesday+2*86400_000;
+  const early=demoVisitWindows('p11',wednesday),evening=demoVisitWindows('p13',wednesday);
+  assert.deepEqual(demoVisitWindows('p11',wednesday+3600_000),early);
+  assert(early[0].start<evening[0].start);
+  assert.notDeepEqual(early.map(w=>w.start-wednesday),demoVisitWindows('p11',friday).map(w=>w.start-friday));
+  assert.equal(nextDemoVisit('p11',early[0].start+1000),early[0].start+1000);
+  assert(nextDemoVisit('p11',early.at(-1).end)>early.at(-1).end);
+});
+
+test('selected fictional members change tiers on month-sized terms',()=>{
+  const start=Date.parse('2026-11-25T01:00:00Z');
+  const months=Array.from({length:4},(_,i)=>start+i*30*86400_000);
+  assert.deepEqual(new Set(months.map(at=>demoMembershipTier('p03','free',at))),new Set(['free','premium']));
+  assert(months.every(at=>demoMembershipTier('wp01','seriousness',at)==='seriousness'));
+});
+
+test('a scheduled answer supersedes an ambient visit, survives restart, and commits the same message only once',async t=>{
+  const now=Date.parse('2026-11-25T01:00:00Z');
+  t.mock.timers.enable({apis:['setTimeout','Date'],now});
+  const flush=()=>new Promise(resolve=>setImmediate(resolve));
+  let calls=0;
+  const h=harness({aiReply:async()=>{calls++;return 'هذه إجابة من الشخصية';}});
+  h.simulation.start();t.mock.timers.tick(100);await flush();
+  const ambient=h.simulation.nextActivity();
+  assert.equal(ambient.kind,'profile_visit');
+  h.records.push(record('p03'));
+  h.messages.set('conversation',[{id:'one',senderIsMe:true,body:'كيف الدوام؟',createdAt:new Date().toISOString()}]);
+  h.simulation.wake();await flush();
+  const reply=h.simulation.nextActivity(), saved=h.simulation.snapshot();
+  assert.equal(reply.kind,'reply');assert.equal(reply.connectionId,'conversation');assert.notEqual(reply.id,ambient.id);
+  assert(!('body' in reply));assert.equal(calls,1);
+  h.simulation.dispose();
+  const restored=createDemoSimulation(h.world,{aiReply:async()=>{throw Error('should never regenerate');}},saved);
+  restored.start();
+  restored.reconcileActivity(reply.id);assert.equal(h.messages.get('conversation').length,1);
+  t.mock.timers.setTime(reply.dueAt);restored.reconcileActivity(reply.id);restored.reconcileActivity(reply.id);
+  const rows=h.messages.get('conversation');
+  assert.equal(rows.length,2);assert.equal(rows[1].id,reply.id);assert.equal(rows[1].body,'هذه إجابة من الشخصية');
+  assert.equal(rows[0].readAt,rows[1].createdAt);assert.equal(restored.snapshot().log.at(-1).connectionId,'conversation');
+  restored.dispose();
+});
+
+test('outgoing acceptances require capacity at delivery and use the notification ID for exactly one celebration',async t=>{
+  t.mock.timers.enable({apis:['setTimeout','Date'],now:Date.parse('2026-11-25T01:00:00Z')});
+  for (const cancel of [false,true]) {
+    let other=0;
+    const h=harness({interactiveJourney:true,externalAccepted:()=>other});
+    h.records.push(record('p04','pending'));h.simulation.start();t.mock.timers.tick(100);
+    await new Promise(resolve=>setImmediate(resolve));
+    const plan=h.simulation.nextActivity();assert.equal(plan.kind,'match');assert.equal(plan.connectionId,h.records[0].id);
+    if(cancel)other=2;
+    t.mock.timers.setTime(plan.dueAt);h.simulation.reconcileActivity(plan.id);h.simulation.reconcileActivity(plan.id);
+    assert.equal(h.records[0].status,cancel?'pending':'accepted');
+    assert.equal(h.records[0].celebrationKey,cancel?undefined:plan.id);
+    h.simulation.dispose();
+  }
+});
+
+test('blocked, withdrawn, edited, superseded, exclusive or paused turns cannot deliver a staged reply',async t=>{
+  t.mock.timers.enable({apis:['setTimeout','Date'],now:Date.parse('2026-11-25T01:00:00Z')});
+  for(const change of ['block','withdraw','edit','deleted turn','another turn','exclusive','pause','security']){
+    const h=harness({aiReply:async()=>{if(change==='security')throw Object.assign(Error('declined'),{lunaSecurity:true});return 'تمام';}});
+    h.records.push(record());const rows=[{id:'one',senderIsMe:true,body:'هلا',createdAt:new Date().toISOString()}];
+    h.messages.set('conversation',rows);h.simulation.start();t.mock.timers.tick(100);
+    await new Promise(resolve=>setImmediate(resolve));
+    const plan=h.simulation.nextActivity();
+    if(change==='security')assert.notEqual(plan?.kind,'reply');
+    else {
+      assert.equal(plan.kind,'reply');
+      if(change==='block')h.unavailable.add(plan.personId);
+      if(change==='withdraw'){h.records[0].status='closed';h.records[0].allowRematch=false;}
+      if(change==='edit')rows[0].body='تغيرت الرسالة';
+      if(change==='deleted turn')rows[0].deletedAt=new Date().toISOString();
+      if(change==='another turn')rows.push({...rows[0],id:'two'});
+      if(change==='exclusive')h.setExclusive(true);
+      if(change==='pause')h.simulation.pause();
+      t.mock.timers.setTime(plan.dueAt);h.simulation.reconcileActivity(plan.id);
+      assert(rows.every(row=>row.senderIsMe),change);
+    }
+    h.simulation.dispose();
+  }
+});
+
+test('hiding the app stops the timer until foreground and preserves the already scheduled notification',async t=>{
+  t.mock.timers.enable({apis:['setTimeout','Date'],now:Date.parse('2026-11-25T01:00:00Z')});
+  const doc=Object.assign(new EventTarget(),{hidden:false});
+  const previous=Object.getOwnPropertyDescriptor(globalThis,'document');
+  Object.defineProperty(globalThis,'document',{configurable:true,value:doc});
+  try{
+    const h=harness();h.simulation.start();t.mock.timers.tick(100);
+    await new Promise(resolve=>setImmediate(resolve));const plan=h.simulation.nextActivity();
+    doc.hidden=true;doc.dispatchEvent(new Event('visibilitychange'));
+    t.mock.timers.tick(plan.dueAt-Date.now()+3600_000);await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(h.simulation.snapshot().eventCount,0);assert.equal(h.simulation.nextActivity().id,plan.id);
+    doc.hidden=false;doc.dispatchEvent(new Event('visibilitychange'));t.mock.timers.tick(100);
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(h.simulation.snapshot().log.at(-1).id,plan.id);h.simulation.dispose();
+  }finally{if(previous)Object.defineProperty(globalThis,'document',previous);else delete globalThis.document;}
+});
+
+test('an overdue external notification materializes once at its scheduled time, unless permission or availability changed',async t=>{
+  const now=Date.parse('2026-11-25T04:00:00Z');
+  t.mock.timers.enable({apis:['setTimeout','Date'],now});
+  const plan={id:crypto.randomUUID(),personId:'p03',kind:'interest',dueAt:now-3600_000};
+  for(const situation of ['resume','blocked','exclusive','duplicate','unauthorized']){
+    const h=harness();
+    let emitted;
+    h.world.activity=(kind,id,event)=>{emitted={kind,id,event};};
+    if(situation==='blocked')h.unavailable.add(plan.personId);
+    if(situation==='exclusive')h.setExclusive(true);
+    if(situation==='duplicate')h.world.activityEligible=()=>false;
+    const sim=createDemoSimulation(h.world,{canAct:()=>situation!=='unauthorized'},{plannedActivity:plan,socialHistory:[{personId:'p03',stage:1,at:now-2*86400_000}]});
+    sim.start();t.mock.timers.tick(100);await Promise.resolve();await Promise.resolve();
+    if(situation==='resume'){
+      assert.deepEqual(emitted,{kind:'interest',id:'p03',event:plan});
+      assert.equal(sim.snapshot().log[0].at,new Date(plan.dueAt).toISOString());
+      assert.equal(sim.snapshot().socialHistory.find(h=>h.personId==='p03').stage,2);
+      assert.notEqual(sim.snapshot().plannedActivity?.id,plan.id);
+    }else assert.equal(emitted,undefined,situation);
+    sim.dispose();
+  }
+});
+
+test('automatic members reply during a personal check-in and remain offline overnight',async t=>{
+  const night=Date.parse('2026-11-25T01:00:00Z');
+  t.mock.timers.enable({apis:['setTimeout','Date'],now:night});
+  const h=harness();
+  h.records.push(record('p11','pending'));
+  h.simulation.start();t.mock.timers.tick(100);await Promise.resolve();await Promise.resolve();
+  assert.equal(h.records[0].status,'pending');assert(!h.online.has('p11'));
+  const due=nextDemoVisit('p11',night);
+  t.mock.timers.tick(due-Date.now());await Promise.resolve();await Promise.resolve();
+  if(h.records[0].status==='pending'){h.simulation.wake();t.mock.timers.tick(100);await Promise.resolve();await Promise.resolve();}
+  assert.equal(h.records[0].status,'accepted');assert(h.online.has('p11'));
   h.simulation.dispose();
 });
 
@@ -148,6 +299,12 @@ test('simulated requests can decline as well as accept, respecting acceptance ca
 test('fallback uses conversation topic and respects contact boundaries',()=>{
   const p=harness().people[0];
   assert.match(fictionalReply(p,[{senderIsMe:true,body:'ممكن رقم واتساب'}]),/نبقى هنا/);
-  assert.match(fictionalReply(p,[{senderIsMe:true,body:'كيف دوامك'}]),/الهندسة/);
+  assert.match(fictionalReply(p,[{senderIsMe:true,body:'كيف دوامك'}]),/أحلل بيانات/);
+  assert.match(fictionalReply({...p,id:'wp15'},[{senderIsMe:true,body:'كيف دوامك'}]),/المحل/);
+  assert.match(fictionalReply({...p,id:'wp13'},[{senderIsMe:true,body:'هلا وأهلين'}]),/مشاعل/);
+  assert.match(fictionalReply({...p,id:'wp14'},[{senderIsMe:true,body:'وش هواياتك؟'}]),/ألغاز/);
+  const greeting=[{senderIsMe:true,body:'السلام عليكم'}];
+  assert.match(fictionalReply(p,greeting),/^وعليكم السلام/);
+  assert.notEqual(fictionalReply(p,greeting),fictionalReply({...p,id:'p04'},greeting));
   assert.notEqual(fictionalReply(p,[]),fictionalReply({...p,id:'p04'},[]));
 });

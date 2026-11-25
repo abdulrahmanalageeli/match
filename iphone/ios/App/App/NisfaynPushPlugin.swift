@@ -7,6 +7,7 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
     static let tokenEvent = Notification.Name("NisfaynPushToken")
     static let failureEvent = Notification.Name("NisfaynPushFailure")
     static let openEvent = Notification.Name("NisfaynPushOpen")
+    static let simulationRequest = "wudayn.simulation.activity"
     var token: String?
     var pending: [[String:String]] = []
     var pendingOpen: [String:String]? { pending.first }
@@ -15,6 +16,7 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
     func switchOwner(to next: String?) {
         guard next == nil || next != scope else { return }
         UIApplication.shared.unregisterForRemoteNotifications()
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.simulationRequest])
         pending.removeAll()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         UIApplication.shared.applicationIconBadgeNumber = 0
@@ -48,8 +50,10 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
         let info = response.notification.request.content.userInfo
+        let request = response.notification.request
+        let localSimulation = request.identifier == Self.simulationRequest && request.trigger is UNTimeIntervalNotificationTrigger
         if let id = info["requestId"] as? String, UUID(uuidString: id) != nil,
-           let kind = info["kind"] as? String, ["request", "mutual", "message", "reminder", "family", "analysis", "publication"].contains(kind) {
+           let kind = info["kind"] as? String, (localSimulation ? kind == "simulation" : ["request", "mutual", "message", "reminder", "family", "analysis", "publication"].contains(kind)) {
             DispatchQueue.main.async {
                 guard let scope = info["scope"] as? String, scope == self.scope else { completionHandler(); return }
                 var payload = ["scope":scope,"requestId":id,"kind":kind,"actionId":UUID().uuidString.lowercased()]
@@ -77,6 +81,7 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
     let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "clearDelivered", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setOwner", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setSimulationActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "register", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "unregister", returnType: CAPPluginReturnPromise),
@@ -139,6 +144,35 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func clearDelivered(_ call: CAPPluginCall) {
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         call.resolve()
+    }
+    @objc func setSimulationActivity(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let scope = call.getString("scope"), scope == NisfaynPushCenter.shared.scope else { call.resolve(); return }
+            let center = UNUserNotificationCenter.current()
+            let identifier = NisfaynPushCenter.simulationRequest
+            guard let id = call.getString("eventId"), UUID(uuidString: id) != nil,
+                  let due = call.getDouble("dueAt"), let body = call.getString("body"), !body.isEmpty else {
+                center.removePendingNotificationRequests(withIdentifiers: [identifier])
+                call.resolve()
+                return
+            }
+            let delay = due / 1000 - Date().timeIntervalSince1970
+            guard delay > 0, delay <= 7 * 86400 else {
+                center.removePendingNotificationRequests(withIdentifiers: [identifier])
+                call.resolve()
+                return
+            }
+            let content = UNMutableNotificationContent()
+            content.title = "وُدَين"
+            content.body = String(body.prefix(120))
+            if call.getBool("sound") == true { content.sound = .default }
+            content.userInfo = ["scope":scope, "requestId":id, "kind":"simulation"]
+            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, delay), repeats: false)
+            // Reusing this identifier replaces the previous plan, including after a cold restart.
+            center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)) { error in
+                if error != nil { call.reject("تعذّر جدولة التنبيه.") } else { call.resolve() }
+            }
+        }
     }
     @objc func setOwner(_ call: CAPPluginCall) {
         DispatchQueue.main.async {

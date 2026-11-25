@@ -19,10 +19,11 @@ import type { MarriageBasics, PartnerCriteria } from "../compatibility/marriage"
 import type { PublicAvatar } from "../compatibility/appearance";
 import { personalityQuestionsFor, partnerTraitQuestions } from "../compatibility/personality";
 import { comparePreferences, describeFit, normalizeNationality, preferencePercentage, assessmentVersion, dimensionsForVersion, interests, rankPreferences, type MatchFit } from "../compatibility/model";
-import { beenaScenarios, sharedBeenaStory, type BeenaProfile, type SharedBeenaStory } from "../beena/model";
+import { sharedBeenaStory, type SharedBeenaStory } from "../beena/model";
 import { createDemoReadiness, normalizeReadinessDraft, type ReadinessRequest } from '../readiness/model';
 import { boundedFamilyPayload, createDemoFamily, unwrapFamilyResult, type FamilyRequest } from '../family/model';
 import { createDemoSimulation, type DemoSimulationController, type DemoSimulationOptions, type SimulationRecord } from './simulation';
+import { demoMembershipTier } from './simulationRhythm.ts';
 
 export type GalleryPhoto = { id: string; path?: string };
 export type PublicPerson = {
@@ -452,21 +453,6 @@ const sampleLifeAnswers: Record<string, string> = {
   repair_after_conflict: "B", partner_repair_after_conflict: "B", housing_arrangement: "A", partner_housing_arrangement: "A",
   closeness_pace: "B", partner_closeness_pace: "B", marriage_timeline: "B", partner_marriage_timeline: "B",
 };
-// Fictional examples only. Real testing accounts start with no Beena answers.
-function fictionalBeena(index: number): BeenaProfile {
-  const stories = [
-    "إذا تعارض موعد عائلي مع وقت خططنا له معًا، أحب أن نفهم أهمية المناسبة ثم نختار موعدًا بديلًا يناسبنا ويحفظ قربنا من أهلنا.",
-    "عند مصروف غير متوقع، أفضّل أن نراجع ميزانيتنا بهدوء، ونقرر معًا ما يمكن تأجيله قبل أن نغيّر خططنا الكبيرة.",
-    "بعد سوء فهم، يساعدني وقت قصير للهدوء ثم حديث واضح. أقدّر أن يشرح كل منا ما قصده وما يحتاجه كي نبدأ صفحة أفضل.",
-    "لو جاءت فرصة عمل مؤثرة في روتيننا، أتمنى أن نتحدث عن مكاسبها وتبعاتها على الطرفين، ثم نجرّب ترتيبًا نراجعه معًا.",
-    "في أسبوع مزدحم، أحب أن نعيد توزيع مهام البيت حسب طاقة كل منا، وأن نطلب المساعدة عند الحاجة دون لوم.",
-    "حين يمر أحدنا بيوم صعب، أسأله إن كان يحتاج إلى من يستمع أو إلى مساعدة عملية. ما يريحنا قد يختلف من يوم لآخر.",
-  ];
-  return { version: "beena-v1", answers: Object.fromEntries(beenaScenarios.map((scenario, position) => [scenario.id, {
-    self: "ABCD"[(index + position) % 4], partner: ["ABCD"[(index + position + 1) % 4], "ABCD"[(index + position) % 4]],
-    importance: position === index % beenaScenarios.length ? 2 : 1,
-  }])), story: { scenarioId: beenaScenarios[index % beenaScenarios.length].id, text: stories[index % stories.length], share: true } };
-}
 export const demoProfile: Profile = {
   displayName: "عضوة تجريبية",
   age: 28,
@@ -481,7 +467,7 @@ export const demoProfile: Profile = {
   marriageIntent: "تعارف جاد يهدف إلى الزواج",
   assessmentVersion: "marriage-v3",
   personalityVersion: "personality-v1" as const,
-  beena: fictionalBeena(0),
+  beena: structuredClone(demoAssessmentSeeds.find(person => person.id === 'wp01')!.seed.beena),
   personalityAnswers: Object.fromEntries(personalityQuestionsFor("personality-v1").map((q, index) => [q.id, "BCDDE"[index % 5]])),
   marriageBasics: { polygynyPreference:"not_open", heightCm: 165, weightKg: 59, nationality: "سعودية", tribalBackground: "prefer_not_to_say", maritalStatus: "never_married", childrenCount: 0, smoking: "never", skinTone: "tone_3", dressStyle: "hijab", dressFlexibility: "keep" },
   publicAvatar: { style: "hijab", skinTone: "tone_3" },
@@ -500,13 +486,12 @@ export const demoProfile: Profile = {
     partner_match_disagreement_style: "B",
   },
 };
+const demoPhotoIds = new Set(['p01', 'p02', 'p04', 'p06', 'p08', 'p11', 'p14', 'wp01', 'wp02', 'wp06', 'wp12']);
 export const demoPeople = demoAssessmentSeeds.map(({ id, seed, index, genderIndex }) => {
   const woman = genderIndex === 1;
-  const menPhotos = ['fahad','saud','yasser','mazen-test-v3','','abdullah','omar','khalid-test-v3'];
-  const womenPhotos = ['sarah-realistic-v2','lulwa-realistic-v2','noura-realistic-v2','amal-realistic-v2','hind-test-v3','manal-realistic-v2','reem-test-v3'];
-  const photo = woman ? womenPhotos[index] : menPhotos[index];
+  const photo = demoPhotoIds.has(id) ? `/demo/portraits/${id}-everyday.webp` : undefined;
   const tone = (['tone_4','tone_5','tone_2','tone_8','tone_1','tone_6'] as const)[(index + (woman ? 0 : 1)) % 6];
-  const dress = (['hijab','niqab','uncovered','hijab','hijab','uncovered','hijab','niqab','hijab','uncovered'] as const)[index];
+  const dress = (['hijab','niqab','uncovered','hijab','hijab','uncovered','hijab','niqab','hijab','uncovered','niqab','hijab','hijab','uncovered','hijab'] as const)[index];
   const noChildren = seed.children === 'B';
   const partnerCriteria: PartnerCriteria = {
     sharedLanguage: {mode: 'prefer'},
@@ -524,15 +509,15 @@ export const demoPeople = demoAssessmentSeeds.map(({ id, seed, index, genderInde
   };
   const surveyAnswers = demoSurvey(seed, index, assessmentVersion);
   const originCities = woman
-    ? ['الطائف','الرياض','جدة','القصيم','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام']
-    : ['الرياض','الأحساء','جدة','الطائف','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام'];
+    ? ['الطائف','الرياض','جدة','القصيم','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام','بريدة','جدة','حائل','الخرج','الطائف']
+    : ['الرياض','الأحساء','جدة','الطائف','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام','بريدة','مكة المكرمة','حائل','الرياض','الطائف'];
   const tribeName = (woman ? ['عتيبة', 'بني تميم'] : ['عنزة', 'بني تميم'])[index % 2];
   const tribal = index % 3 !== 2;
   const expensePlans = {A:'husband_essentials',B:'equal',C:'proportional',D:'discuss'} as const;
   const housingPlans = {A:'independent',B:'discuss',C:'with_family',D:'discuss'} as const;
   const marriageBasics: MarriageBasics = {
-    heightCm: woman ? [165,169,162,167,164,166,160,171,158,163][index] : [179,183,174,181,176,178,172,180,185,175][index],
-    weightKg: woman ? [59,64,55,62,58,60,54,67,52,65][index] : [78,85,72,82,76,80,69,87,84,75][index],
+    heightCm: woman ? [165,169,162,167,164,166,160,171,158,163,155,168,161,172,159][index] : [179,183,174,181,176,178,172,180,185,175,170,177,182,168,175][index],
+    weightKg: woman ? [59,64,55,62,58,60,54,67,52,65,68,71,63,75,74][index] : [78,85,72,82,76,80,69,87,84,75,83,71,98,69,92][index],
     nationality: seed.nationality ?? (woman ? 'سعودية' : 'سعودي'),
     originCity: originCities[index],
     spokenLanguages: index % 4 === 3 ? ['العربية'] : ['العربية','الإنجليزية'],
@@ -563,7 +548,7 @@ export const demoPeople = demoAssessmentSeeds.map(({ id, seed, index, genderInde
   };
   return {
     id, isDemo:true as const,
-    membershipTier: (index%5===0?'seriousness':index%5===1||index%5===3?'premium':'free') as 'free'|'premium'|'seriousness',
+    membershipTier: seed.membershipTier,
     alias:seed.alias,age:seed.age,city:seed.city,occupation:seed.occupation,profession:seed.occupation,bio:seed.bio,
     gender:woman?'woman' as const:'man' as const,education:seed.education,
     lookingFor:seed.lookingFor,valuesStatement:seed.values,lifeTogether:seed.home,interestIds:seed.interests,
@@ -572,20 +557,20 @@ export const demoPeople = demoAssessmentSeeds.map(({ id, seed, index, genderInde
     assessmentVersion:'marriage-v3' as const,personalityVersion: "personality-v1" as const,
     personalityAnswers:Object.fromEntries(personalityQuestionsFor("personality-v1").map((q,qi)=>[q.id,'ABCDE'[seed.traits[qi]-1]])),
     relocationCities:seed.relocate?['الرياض','جدة']:[],
-    surveyAnswers:demoSurvey(seed,index,'marriage-v3'),beena:fictionalBeena(index+genderIndex*15+1),
+    surveyAnswers:demoSurvey(seed,index,'marriage-v3'),beena:seed.beena,
     currentAssessment: {
       assessmentVersion, personalityVersion:'personality-v2' as const,
       surveyAnswers,
       personalityAnswers: Object.fromEntries([
         ...personalityQuestionsFor('personality-v2').map((question, i) => [question.id, seed.currentTraits[i]]),
-        ...partnerTraitQuestions.map((question, i) => [question.id, ['C','E','C','A','C'][(i + index) % 5]]),
+        ...partnerTraitQuestions.map((question, i) => [question.id, seed.partnerTraits[i]]),
       ]),
     },
     preferredMinAge:Math.max(22,seed.age-7),preferredMaxAge:Math.min(48,seed.age+9),
     partnerCriteria,
     marriageBasics,
     publicAvatar:woman&&!photo?{style:dress,skinTone:tone} as PublicAvatar:null,
-    demoPhoto:photo?`/demo/portraits/${photo}.webp`:undefined,
+    demoPhoto:photo,
   };
 });
 const examples = demoPeople;
@@ -664,7 +649,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   let exclusiveId: string | null = null;
   const galleryPhotos: (GalleryPhoto & { url: string })[] = [];
   const storageKey = simulationOptions.storageKey ? `${simulationOptions.storageKey}:${viewer().gender}` : undefined;
-  let persistedSimulation: { eventCount?: number; log?: import('./simulation').DemoSimulationEvent[] } | undefined;
+  let persistedSimulation: import('./simulation').DemoSimulationHistory | undefined;
   function persist() {
     if (!storageKey || !simulation) return;
     try {
@@ -697,7 +682,19 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         exclusiveId=records.some(r=>r.id===saved.exclusiveId&&r.status==='accepted')?saved.exclusiveId:null;
         activityRows.push(...(Array.isArray(saved.activity)?saved.activity:[]).filter((n:ActivityNotification)=>n&&typeof n.id==='string'&&validPerson(n.person?.id)&&['profile_visit','interest'].includes(n.kind)).slice(-40));
         for(const id of Array.isArray(saved.seen)?saved.seen:[])if(typeof id==='string')celebrationsSeen.add(id);
-        if(saved.simulation&&Number.isFinite(saved.simulation.eventCount)&&Array.isArray(saved.simulation.log))persistedSimulation={eventCount:saved.simulation.eventCount,log:saved.simulation.log.filter((event:import('./simulation').DemoSimulationEvent)=>event&&typeof event.id==='string'&&typeof event.detail==='string'&&typeof event.at==='string'&&typeof event.kind==='string').slice(-30)};
+        const sim = saved.simulation;
+        if (sim && Number.isFinite(sim.eventCount) && Array.isArray(sim.log)) {
+          const plan = sim.plannedActivity;
+          const connectionPlan = plan && ['reply','match'].includes(plan.kind) && records.some(row=>row.id===plan.connectionId && row.peer===plan.personId);
+          const draft = sim.preparedReply;
+          persistedSimulation = {
+            eventCount:sim.eventCount,
+            log:sim.log.filter((event:import('./simulation').DemoSimulationEvent)=>event&&typeof event.id==='string'&&typeof event.detail==='string'&&Number.isFinite(Date.parse(event.at))&&typeof event.kind==='string').slice(-30),
+            plannedActivity:plan && validPerson(plan.personId) && typeof plan.id === 'string' && Number.isFinite(plan.dueAt) && (connectionPlan || ['profile_visit','interest','request'].includes(plan.kind)) ? plan : undefined,
+            preparedReply:connectionPlan && plan.kind==='reply' && draft?.planId===plan.id && typeof draft.turn==='string' && typeof draft.body==='string' && draft.body.length>0 && draft.body.length<=1000 && ['reply','ai_reply','reply_fallback'].includes(draft.kind) ? draft : undefined,
+            socialHistory:Array.isArray(sim.socialHistory) ? sim.socialHistory.filter((r:{personId:string;stage:number;at:number})=>r && validPerson(r.personId) && [1,2,3].includes(r.stage) && Number.isFinite(r.at)).slice(0,examples.length) : [],
+          };
+        }
       }
     } catch { /* Ignore an older/corrupt local fixture. */ }
   }
@@ -706,22 +703,26 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     const last = list.findIndex((row) => row.id === readThrough.get(id));
     return list.slice(last + 1).filter((row) => !row.senderIsMe && !row.deletedAt).length;
   }
-  function candidates(includeIneligible = false) {
+  function candidates(includeIneligible: boolean | 'accepted' = false) {
     const member = { ...viewer(), relocationCities, id: "demo-viewer" };
     const people = examples.map(person => demoAssessmentFor(person, member));
     const eligible = rankPreferences(member, people).map(({ person, ...fit }) => ({...card(person, fit), eligible:true}));
     if (!includeIneligible) return eligible;
     const eligibleIds = new Set(eligible.map(person => person.id));
-    const others = people.filter(person => person.gender !== member.gender && !eligibleIds.has(person.id))
+    const acceptedIds = includeIneligible === 'accepted'
+      ? new Set(records.filter(record => record.status === 'accepted').map(record => record.peer))
+      : undefined;
+    const others = people.filter(person => person.gender !== member.gender && !eligibleIds.has(person.id) && (!acceptedIds || acceptedIds.has(person.id)))
       .map(person => ({...card(person, describeFit(member, person)), eligible:false}));
     return [...eligible, ...others];
   }
   function card(person: ReturnType<typeof demoAssessmentFor>, { reasons, fit }: ReturnType<typeof describeFit>): PublicPerson {
     // This function only receives the built-in fictional roster. Its profile
     // details are authored for display. Real members use the separate server projection.
+    const membershipTier = demoMembershipTier(person.id, person.membershipTier, Date.now());
     return {
       id: person.id, isDemo:true, online:onlinePeople.has(person.id), interested:interestedPeople.has(person.id),
-      premium:person.membershipTier!=='free',membershipTier:person.membershipTier,
+      premium:membershipTier!=='free',membershipTier,
       atCapacity: false, viewerAtCapacity: records.filter(r => r.status === "accepted").length + (simulationOptions.externalAccepted?.()??0) >= 2,
       connectionId: records.find(r => r.peer === person.id && r.status !== "closed")?.id,
       connectionStatus: records.find(r => r.peer === person.id && r.status !== "closed")?.status as "accepted" | "pending" | undefined,
@@ -841,15 +842,20 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     }
   }
   simulation = createDemoSimulation({
-    people:candidates,records,messages,online:onlinePeople,typing:typingPeople,chatReady,
+    people:()=>candidates('accepted'),records,messages,online:onlinePeople,typing:typingPeople,chatReady,
     conversationAllowed:id=>!exclusiveId||exclusiveId===id,advanceRelationship,
     available:id=>!hiddenPeople.has(id)&&!blockedPeople.has(id)&&!records.some(r=>r.peer===id&&r.status==='closed'&&!r.allowRematch),
     exclusive:()=>Boolean(exclusiveId),
-    activity(kind,personId){
+    canRequestAt:(id,at)=>{
+      const peer=examples.find(person=>person.id===id);
+      return Boolean(peer && demoMembershipTier(id,peer.membershipTier,at)!=='free');
+    },
+    activityEligible:(kind,personId)=>!activityRows.some(row=>row.person.id===personId&&row.kind===kind&&!row.readAt),
+    activity(kind,personId,event){
       const person=candidates().find(p=>p.id===personId);if(!person)return;
       // One unread event per person/kind is enough to exercise the UI without flooding it.
       if(activityRows.some(row=>row.person.id===personId&&row.kind===kind&&!row.readAt))return;
-      activityRows.push({id:crypto.randomUUID(),kind,createdAt:new Date().toISOString(),person});
+      activityRows.push({id:event?.id ?? crypto.randomUUID(),kind,createdAt:new Date(event?.dueAt ?? Date.now()).toISOString(),person});
       if(activityRows.length>40)activityRows.splice(0,activityRows.length-40);
     },
     changed:notify,

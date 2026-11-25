@@ -41,6 +41,8 @@ Both users sign in and enable notifications. Put Reham's app in the background o
 
 Current tester delivery covers new text/photo/voice messages and a reopened mutual match. Private message content/names are not included. Read or deleted messages, expired sessions, disabled notifications and closed matches invalidate queued deliveries. Incoming system call UI/VoIP wake-up is separate and is not enabled by this message-push setup.
 
+Fictional discovery activity uses one device-local iOS notification for the simulator’s next scheduled visit, interest, request, acceptance or prepared reply. Test with notifications enabled on Abdulrahman’s account, then background the app. Tapping the alert reconciles the activity with his fictional inbox. The simulator schedules its next event when the app runs again. Reham receives fictional activity inside the app only. The signed member build uses the eligibility flag from the `simulation_device_alerts` migration. The private tester pair uses its authenticated actor.
+
 An installed older TestFlight build does not gain native frontend changes from a website deployment. Physical-device receipt cannot be confirmed until the APNs credentials are configured and the new build is installed.
 
 Apple references: https://developer.apple.com/help/account/keys/create-a-private-key and https://developer.apple.com/help/account/capabilities/communicate-with-apns-using-authentication-tokens/

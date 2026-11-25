@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react';
 import { callRpc, cloudSessionId } from '../cloud';
 import { notificationScope } from './scope';
 import { testRequest } from '../testing/pair';
+import { demoPeople, type CommunitySource } from '../community/data';
+import { deviceActivityNotice, type DemoAlertPreferences, type DeviceActivityNotice } from './simulationDeviceAlerts';
 const testerRequestId = '00000000-0000-4000-8000-000000000001';
 const isTester = (owner: string) => owner.startsWith('tester:');
 const currentOwner = async (owner: string) => isTester(owner) || (await cloudSessionId()) === owner;
@@ -12,13 +14,14 @@ const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(ow
   : callRpc<T>('marriage_push_' + action, payload, owner);
 import { disableWebPush, enableWebPush, registerWebPushDevice, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
-export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication';scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
+export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication' | 'simulation';scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
 type Device = { token: string; installationId: string; environment: 'sandbox' | 'production' };
 type Permission = { buildNumber?:string; permission: 'granted' | 'prompt' | 'denied'; installationId: string };
 interface NativePush {
   status(): Promise<Permission>;
   clearDelivered(): Promise<void>;
   setOwner(options: {scope: string | null}): Promise<void>;
+  setSimulationActivity(options: {scope:string} & Partial<DeviceActivityNotice>): Promise<void>;
   register(): Promise<Device>;
   unregister(): Promise<void>;
   openSettings(): Promise<void>;
@@ -45,7 +48,10 @@ export const getPushPreference = (owner: string) => pushRpc<{ enabled: boolean }
 export type PushPreview='private'|'event'|'name'|'content';
 export async function pushPrivacy(owner:string,preview_mode?:PushPreview) {
   const saved = await pushRpc<{preview:PushPreview;configured?:boolean}>(owner,'privacy',{preview_mode:preview_mode??null});
-  if (nativePush && preview_mode) await native.clearDelivered();
+  if (nativePush && preview_mode) {
+    window.dispatchEvent(new Event('wudayn:push-controls'));
+    await native.clearDelivered();
+  }
   return saved;
 }
 export async function pushThreadMute(owner:string,request_id:string,muted?:boolean) {
@@ -131,11 +137,13 @@ export async function enablePush(owner: string) {
   await registerPushDevice(owner);
   const next = await pushRpc<{ enabled: boolean }>(owner, 'enable', { enabled: true });
   window.dispatchEvent(new Event('wudayn:push-registration'));
+  window.dispatchEvent(new Event('wudayn:push-controls'));
   return next;
 }
 export async function disablePush(owner: string) {
   if (!nativePush) return disableWebPush(owner);
   const next = await pushRpc<{ enabled: boolean }>(owner, 'enable', { enabled: false });
+  window.dispatchEvent(new Event('wudayn:push-controls'));
   const state = await native.status();
   await pushRpc(owner, 'unregister', { installation: state.installationId });
   if (bindingOwner === owner && await currentOwner(owner)) { await native.unregister(); setRegisteredOwner(null); }
@@ -143,7 +151,7 @@ export async function disablePush(owner: string) {
 }
 
 // No permission prompt on launch. Only rebind already authorized, opted-in devices.
-export function usePushNotifications(owner: string | null, onOpen: (requestId: string, kind: PushOpen['kind'],event?:PushOpen) => void|Promise<void>) {
+export function usePushNotifications(owner: string | null, onOpen: (requestId: string, kind: PushOpen['kind'],event?:PushOpen) => void|Promise<void>, simulation?: CommunitySource | null) {
   const callback = useRef({owner,onOpen});
   callback.current = {owner,onOpen};
   useEffect(() => {
@@ -152,9 +160,43 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
       if (!webPushSupported()) return;
       return monitorWebPush(owner, event => { if (callback.current.owner === owner) void callback.current.onOpen(event.requestId, event.kind,event); });
     }
+    const notificationOwner = owner;
     let binding: Promise<string | null> | undefined;
     const getBinding = () => binding ??= syncNativePushOwner(owner).catch(error => { binding = undefined; throw error; });
     let active = true, refreshing = false, opening=false, reopen=false, failures=0;
+    let preferences:DemoAlertPreferences|null=null, preferenceRevision=0, simulatedScope:string|null=null, lastNotice:string|undefined;
+    function syncSimulation() {
+      if (!active || !simulatedScope || bindingOwner !== owner) return;
+      const plan = simulation?.simulation?.nextActivity();
+      const notice = deviceActivityNotice(plan, preferences, plan && demoPeople.find(person=>person.id===plan.personId)?.alias);
+      const signature = JSON.stringify(notice);
+      if (lastNotice === signature) return;
+      lastNotice = signature;
+      void native.setSimulationActivity({scope:simulatedScope,...notice}).catch(()=>{
+        if (lastNotice===signature) lastNotice=undefined;
+      });
+    }
+    const readDeliverySettings = () => Promise.all([getPushPreference(notificationOwner),native.status()]);
+    async function refreshSimulationPreferences(settings?: ReturnType<typeof readDeliverySettings>) {
+      if (simulation === undefined || document.hidden) return;
+      const revision = ++preferenceRevision;
+      const scope = await getBinding().catch(() => null);
+      if (!active || !scope || revision!==preferenceRevision || bindingOwner!==owner) return;
+      simulatedScope = scope;
+      preferences = null;
+      syncSimulation();
+      if (!simulation) return;
+      try {
+        const [setting, permission] = await (settings ?? readDeliverySettings());
+        if (!active || revision!==preferenceRevision || !setting.enabled || permission.permission !== 'granted') return;
+        const [controls,privacy] = await Promise.all([pushControls(notificationOwner),pushPrivacy(notificationOwner)]);
+        if (!active || revision!==preferenceRevision) return;
+        preferences = {controls, preview:privacy.preview};
+        syncSimulation();
+      } catch { /* An unconfirmed preference leaves the device schedule empty. */ }
+    }
+    const settingsChanged = () => { void refreshSimulationPreferences(); };
+    const stopSimulation = simulation?.watch(syncSimulation);
     let retry:ReturnType<typeof setTimeout>|undefined;
     let registrationRetry: ReturnType<typeof setTimeout> | undefined;
     let registrationFailures = 0;
@@ -168,6 +210,13 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
       if (!active || !scope) return;
       const { notification } = await native.consumeOpen();
       if (!notification || !await currentOwner(owner) || !active || callback.current.owner !== owner) return;
+      if (notification.kind === 'simulation') {
+        // Account state may still be restoring. Retry when the verified source arrives.
+        if (simulation === undefined) return;
+        if (scope === notification.scope && simulation && !notification.action) await callback.current.onOpen(notification.requestId, 'simulation', notification);
+        if (notification.actionId) { await native.acknowledgeOpen({actionId:notification.actionId}); acknowledged=true; }
+        return;
+      }
       if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family','analysis','publication'].includes(notification.kind)) {
         if (scope !== notification.scope || isTester(owner) !== (notification.requestId === testerRequestId)) {
           if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}return;
@@ -191,8 +240,9 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
       failures=0;void open();
       refreshing = true;
       try {
-        const preference = await getPushPreference(owner);
-        const permission = await native.status();
+        const settings = readDeliverySettings();
+        if (simulation !== undefined) void refreshSimulationPreferences(settings);
+        const [preference, permission] = await settings;
         if (active && callback.current.owner === owner && preference.enabled && permission.permission === 'granted') {
           await registerPushDevice(owner);
         }
@@ -212,9 +262,17 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
     const resume = () => { registrationFailures = 0; void refresh(); };
     document.addEventListener('visibilitychange', resume);
     window.addEventListener('online', resume);
+    if (simulation !== undefined) {
+      window.addEventListener('wudayn:push-controls', settingsChanged);
+    }
     void refresh();
-    return () => { active = false; clearTimeout(retry); clearTimeout(registrationRetry); listeners.forEach(handle => { void handle.remove(); }); document.removeEventListener('visibilitychange', resume); window.removeEventListener('online', resume); };
-  }, [owner]);
+    return () => {
+      active=false; stopSimulation?.(); clearTimeout(retry); clearTimeout(registrationRetry); listeners.forEach(handle=>{ void handle.remove(); });
+      document.removeEventListener('visibilitychange', resume); window.removeEventListener('online',resume);
+      window.removeEventListener('wudayn:push-controls',settingsChanged);
+      if (simulatedScope) void native.setSimulationActivity({scope:simulatedScope}).catch(()=>{});
+    };
+  }, [owner,simulation]);
 }
 
 // Installation does not request permission and never caches member data.

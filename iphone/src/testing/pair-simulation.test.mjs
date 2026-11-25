@@ -40,7 +40,7 @@ test('a paid tester can read all fictional directory scores with optional profil
   const cards=await directory('authorized-fixture-owner');
   assert.equal(cards[0],realCard);
   const roster=cards.filter(person=>person.isDemo);
-  assert.equal(roster.length,10);
+  assert.equal(roster.length,15);
   for(const alias of ['لولوة','دانة'])assert(roster.some(person=>person.alias===alias));
   for(const person of roster)assert(Number.isInteger(person.fit.percentage),person.alias);
   assert((await directory()).filter(person=>person.isDemo).every(person=>person.fit.percentage===null));
@@ -205,7 +205,7 @@ test('exclusivity and blocked profiles stop simulated activity without sending r
   assert(!h.calls.some(call=>call.action==='send'));
 });
 
-test('all ten eligible opposite-gender profiles retain selective photos through paired discovery',async t=>{
+test('both eligible and ineligible profiles retain selective photos through paired discovery',async t=>{
   const h=harness(t);
   const viewer=demoPeople.find(p=>p.gender==='woman');
   Object.assign(h.profile,viewer.currentAssessment,{
@@ -213,19 +213,19 @@ test('all ten eligible opposite-gender profiles retain selective photos through 
     partnerCriteria:viewer.partnerCriteria,marriageBasics:{...viewer.marriageBasics,polygynyPreference:'not_open'},
   });
   const all=await h.source.discover({mode:'all'});
-  const openToDiscussion=['p04','p09'];
-  assert.equal(all.length,10);
+  const openToDiscussion=['p04','p09','p14'];
+  assert.equal(all.length,15);
   assert.deepEqual(all.filter(person=>person.eligible===false).map(person=>person.id).sort(),openToDiscussion);
   const strict=await h.source.discover({mode:'all',eligibleOnly:true});
-  assert.equal(strict.length,8);assert(strict.every(person=>person.eligible===true));
+  assert.equal(strict.length,12);assert(strict.every(person=>person.eligible===true));
   await assert.rejects(h.source.request('p04'),/غير متاح/);
   h.profile.marriageBasics={...h.profile.marriageBasics,polygynyPreference:'open_to_discussion'};
   const people=await h.source.discover({mode:'all'});
-  assert.equal(people.length,10);assert(people.every(person=>person.isDemo));
-  assert.equal(people.find(p=>p.id==='p01').demoPhoto,'/demo/portraits/fahad.webp');
-  assert.equal(people.find(p=>p.id==='p07').demoPhoto,'/demo/portraits/omar.webp');
+  assert.equal(people.length,15);assert(people.every(person=>person.isDemo));
+  assert.equal(people.find(p=>p.id==='p01').demoPhoto,'/demo/portraits/p01-everyday.webp');
+  assert.equal(people.find(p=>p.id==='p11').demoPhoto,'/demo/portraits/p11-everyday.webp');
   assert.equal(people.find(p=>p.id==='p10').demoPhoto,undefined);
-  assert.equal(people.filter(p=>!p.demoPhoto).length,3);
+  assert.equal(people.filter(p=>!p.demoPhoto).length,8);
 });
 
 test('old tester commitment does not erase new fictional matches when reloading after exclusivity ends',async t=>{
@@ -245,6 +245,32 @@ test('old tester commitment does not erase new fictional matches when reloading 
   assert.equal((await restored.thread(id))[0].body,'هذه محادثة توضيحية محفوظة');
 });
 
+test('a locally scheduled chat answer is restored through tester storage and the ordinary thread without a remote send',async t=>{
+  t.mock.timers.enable({apis:['setTimeout','Date'],now:Date.parse('2026-11-25T01:00:00Z')});
+  const previous=Object.getOwnPropertyDescriptor(globalThis,'localStorage'),stored=new Map();
+  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:key=>stored.get(key)??null,setItem:(key,value)=>stored.set(key,value)}});
+  t.after(()=>{if(previous)Object.defineProperty(globalThis,'localStorage',previous);else delete globalThis.localStorage;});
+  const h=harness(t,{matched:false});
+  await h.source.inbox();
+  const [peer]=await h.source.discover({mode:'all'}),id=await acceptFictional(h.source,peer.id);
+  await signAsReham(h.source,id);
+  await h.source.send(id,'متى يناسبك نتكلم؟','my-turn');
+  h.source.simulation.start();t.mock.timers.tick(100);
+  await new Promise(resolve=>setImmediate(resolve));
+  const plan=h.source.simulation.nextActivity();
+  assert.equal(plan.kind,'reply');assert.equal(plan.connectionId,id);
+  const restored=h.reopen();
+  h.source.simulation.dispose();restored.simulation.start();
+  assert.equal(restored.simulation.nextActivity(),undefined,'The saved tester session must first revalidate');
+  await restored.inbox();
+  assert.equal(restored.simulation.nextActivity().id,plan.id);
+  t.mock.timers.setTime(plan.dueAt);
+  restored.simulation.reconcileActivity(plan.id);restored.simulation.reconcileActivity(plan.id);
+  const rows=await restored.thread(id);
+  assert.equal(rows.length,2);assert.equal(rows[1].id,plan.id);assert.equal(rows[1].senderIsMe,false);
+  assert(!h.calls.some(call=>call.action==='send'));restored.simulation.dispose();
+});
+
 test('Abdulrahman can explore both fictional pools with a partially saved assessment',async t=>{
   const saved={
     displayName:'Test account',age:33,city:'الرياض',assessmentVersion:'marriage-v4',
@@ -260,7 +286,7 @@ test('Abdulrahman can explore both fictional pools with a partially saved assess
     const source=h.reopen();
     const people=await source.discover({mode:'all'});
     const roster=people.filter(person=>person.isDemo);
-    assert.equal(roster.length,10);
+    assert.equal(roster.length,15);
     assert(roster.every(person=>person.fit.version==='marriage-v4'&&
       person.fit.assessmentComplete&&Number.isInteger(person.fit.percentage)));
     assert.equal(people.find(person=>person.id==='reham').fit.percentage,null);
@@ -276,7 +302,7 @@ test('fictional discovery uses Abdulrahman’s complete assessment and honors ac
     ...fixture,...fixture.currentAssessment,preferredMinAge:25,preferredMaxAge:25
   }}});
   const directory=(await h.source.discover({mode:'all'})).filter(person=>person.isDemo);
-  assert.equal(directory.length,10);
+  assert.equal(directory.length,15);
   const people=(await h.source.discover({mode:'all',eligibleOnly:true})).filter(person=>person.isDemo);
   assert.deepEqual(people.map(person=>person.id),['wp07']);
   assert.equal(people[0].fit.assessmentComplete,true);
@@ -288,7 +314,7 @@ for (const actor of ['reham','abdulrahman']) {
     const h=harness(t,{actor});
     const peers=(await h.source.discover({mode:'all'})).filter(person=>person.isDemo);
     const readings=h.source.profileReading;
-    assert.equal(peers.length,10);
+    assert.equal(peers.length,15);
     const reports=new Set();
     for (const person of peers) {
       const accepted=await readings.request(person.id,'request');
@@ -302,7 +328,7 @@ for (const actor of ['reham','abdulrahman']) {
       assert(result.findings.some(row=>row.section==='patterns'));
       reports.add(JSON.stringify(result.findings));
     }
-    assert.equal(reports.size,10);
+    assert.equal(reports.size,peers.length);
     await assert.rejects(readings.request('tester-pair','request'));
     const person=peers.find(p=>p.eligible!==false);
     const id=await h.source.request(person.id);

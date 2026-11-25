@@ -70,6 +70,7 @@ export type AccountState = {
   prelaunch?: { locked: boolean; subscribed: boolean };
   demoDiscoveryEnabled?: boolean;
   demoInteractionsEnabled?: boolean;
+  demoDeviceAlertsEnabled?: boolean;
   testingTrial?: {enabled:boolean;eligible?:boolean;expiresAt:string|null};
   user: {
     id: string;

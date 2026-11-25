@@ -91,6 +91,7 @@ import { MatchesOverview } from './MatchesOverview';
 import { dressStyles, type PublicAvatar } from "../compatibility/appearance";
 import type { StepProgress } from "./data";
 import { journeyStages } from '../notifications/ActivityAlerts';
+import { NativePushAction } from '../notifications/NativePushAction';
 import { NotificationFeed } from '../notifications/NotificationFeed';
 import './chat-polish.css';
 import './message-actions.css';
@@ -137,6 +138,7 @@ function AddPersonMark({ compact = false }: { compact?: boolean }) {
 
 type Tab = "discover" | "curated" | "inbox" | "chats";
 type CommunityProps = {
+  pushOwner?: string | null;
   viewerGender?: "man" | "woman";
   onMutual: (connection: Connection) => void;
   openConversation?: string;
@@ -1766,7 +1768,7 @@ const categories = [
 type Category = (typeof categories)[number]["id"];
 const requestScrollMemory = new WeakMap<CommunitySource, Map<string, number>>();
 function Requests({
-  source,
+  source, pushOwner,
   onChatChange,
   onMutual,
   openConversation,
@@ -1782,6 +1784,7 @@ function Requests({
   onBrowse,
   onMatches,
 }: {
+  pushOwner?: string | null;
   source: CommunitySource;
   onChatChange: (chat: boolean) => void;
   onMutual: (connection: Connection) => void;
@@ -2202,6 +2205,7 @@ function Requests({
     {exitFeedback}
     {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
     {notice && <Banner text={notice}/>}
+    {pushOwner && <NativePushAction key={pushOwner} owner={pushOwner}/>}
     <NotificationFeed source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
       onProfile={person => { setVisitPerson(person); void source.noteProfileOpen?.(person.id).catch(() => {}); }}
       onConversation={(id, openFeedback) => { if (list.some(row => row.id === id && row.status === 'accepted')) enterChat(id, null, false, openFeedback); else setNotice('هذا التعارف لم يعد متاحًا.'); }}
@@ -2228,6 +2232,7 @@ function Requests({
       <div className="cm-title">
         <h1 tabIndex={-1}>{conversations ? "المحادثات" : "الإشعارات"}</h1>
       </div>
+      {pushOwner && <NativePushAction key={pushOwner} owner={pushOwner}/>}
       {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
 
       {conversations ? <div className="cm-segments" role="group" aria-label="عرض المحادثات">
@@ -2353,7 +2358,7 @@ export function Community(props: CommunityProps) {
       ) : tab === "discover" ? (
         <Discovery source={source} onAccount={onAccount} profileSaved={props.profileSaved} onBeena={props.onBeena} beenaAnswered={props.beenaAnswered} onInbox={entry => { setRequestToOpen(entry); onTab("inbox"); }} onConversation={id=>{setConversationToOpen(id);onTab('chats');}} />
       ) : (
-        <Requests key={tab} source={source} onChatChange={setChat} conversations={tab === "chats"} matches={tab === 'curated'}
+        <Requests key={tab} pushOwner={props.pushOwner} source={source} onChatChange={setChat} conversations={tab === "chats"} matches={tab === 'curated'}
           onBrowse={() => onTab('discover')}
           onMatches={() => onTab('curated')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}

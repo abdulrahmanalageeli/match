@@ -2,13 +2,11 @@
 .st-completion .screen-content{padding-bottom:32px}.st-completion h1{font-size:1.8rem;color:var(--accent);margin:16px 0 8px}.st-completion p{line-height:1.85;font-size:.94rem}.st-completion>.screen-content>.st-dialog-icon{margin-top:20px}
 .st-completion-stage{display:grid;gap:8px;font-weight:600;margin-block:20px 8px}.st-completion-stage select{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);width:100%;min-width:0}
 .st-completion .st-completion-note{font-size:.82rem;color:var(--muted)}.st-completion-card{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--paper)}.st-completion-card h2{font-size:1.1rem;margin:0;color:var(--accent)}.st-completion-actions{display:flex;flex-wrap:wrap;gap:10px}.st-completion-card button{max-width:100%;white-space:normal;min-height:44px}.st-completion-status{display:flex;align-items:center;gap:8px}
-.demo-notice ~ .st-screen { min-height: calc(100svh - 42px - var(--nf-safe-top)); }
 .st-content { flex: 1; padding-bottom: max(20px, var(--nf-safe-bottom)); }
 .st-top {
   min-height: 65px; padding-block: max(13px, var(--nf-safe-top)) 13px;
   display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gold);
 }
-.demo-notice ~ .st-screen .st-top { padding-top: 13px; }
 .st-back { border: none; background: transparent; color: var(--accent); min-height: 44px; display: flex; gap: 5px; align-items: center; font-weight: 600; }
 .st-title { margin: 18px 0 13px; font-size: clamp(2.06rem, 8vw, 2.65rem); line-height: 1.25; color: var(--ink); }
 .st-profile {
@@ -111,6 +109,11 @@
 .phone-app .st-member-avatar { width: 60px; height: 72px; border: 2px solid #f3dbd5a1; border-radius: 30px 30px 13px 13px; background: #f3e3dd; color: #54152a; }
 .phone-app .st-member-identity .st-profile-kicker, .phone-app .st-member-card .st-member-identity p { color: #f2dce1; font-size: .875rem; }
 .phone-app .st-member-card .st-member-identity h2 { margin: 2px 0; color: #fff; font-size: 1.4rem; font-weight: 600; line-height: 1.5; }
+.st-member-id { display:flex; align-items:center; gap:6px; width:100%; min-width:0; margin-top:4px; padding:0; border:0; background:transparent; color:#f2dce1; font:inherit; text-align:start; cursor:pointer; }
+.st-member-id span { flex:none; font-size:.68rem; }
+.st-member-id code { min-width:0; overflow:hidden; color:#fff; font-size:.65rem; text-overflow:ellipsis; white-space:nowrap; direction:ltr; }
+.st-member-id svg { flex:none; }
+.st-member-id:focus-visible { outline:2px solid #fff; outline-offset:3px; border-radius:4px; }
 .phone-app .st-member-actions { grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 16px 0; }
 .phone-app .st-member-actions button { min-height: 48px; border-color: #cfcac7; border-radius: 10px; background: #fff; color: #54152a; font-size: 14px; font-weight: 500; line-height: 1.5; letter-spacing: 0; box-shadow: none; }
 .phone-app .st-member-actions button:first-child { background: #fff; border-color: #cfcac7; color: #54152a; box-shadow: none; }

@@ -11,7 +11,6 @@
   display: flex; align-items: center; gap: 13px; padding: max(12px, var(--nf-safe-top)) var(--intake-pad) 12px;
   min-height: 70px; border-bottom: 1px solid var(--line);
 }
-.demo-notice ~ .nf-intake .nf-intake-header { padding-top: 12px; }
 .nf-intake-later, .nf-intake-policy, .nf-intake-review-group header button {
   display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; background: transparent;
   border: 0; color: var(--accent); font: inherit; font-size: .9rem; font-weight: 700;

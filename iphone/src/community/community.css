@@ -359,7 +359,6 @@
   min-height: 300px;
   background: var(--page-background);
 }
-.demo-notice ~ .cm-shell .cm-chat { height: calc(100dvh - 42px - var(--nf-safe-top)); }
 .cm-chat-head {
   flex: none;
   justify-content: flex-start;
@@ -389,7 +388,7 @@
 }
 .cm-chat-head h1:focus, .cm-view .cm-title h1:focus { outline: none; }
 .cm-chat-head > div > span { color: var(--muted); font-size: .85rem; }
-.cm-chat[style], .demo-notice ~ .cm-shell .cm-chat[style] { height: var(--chat-available-height, 100dvh); }
+.cm-chat[style] { height: var(--chat-available-height, 100dvh); }
 html[data-nf-chat-viewport] { height: var(--chat-viewport-height); min-height: 0; overflow: hidden; overscroll-behavior: none; }
 html[data-nf-chat-viewport] body { position: fixed; top: 0; inset-inline: 0; width: 100%; height: var(--chat-viewport-height); min-height: 0; overflow: hidden; }
 html[data-nf-chat-viewport] :is(#root, .phone-app, .cm-shell) { height: 100%; min-height: 0; overflow: hidden; }

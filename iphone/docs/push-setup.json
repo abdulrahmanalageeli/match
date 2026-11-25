@@ -2,6 +2,7 @@
   "status": "Implemented; disabled until Apple credentials and physical-device validation are complete",
   "apple": {
     "bundleId": "com.blindmatch.marriage",
+    "messageReceiptExtension": "Register com.blindmatch.marriage.MessageReceipt and add its App Store provisioning profile under the same distribution certificate in Codemagic Team code signing identities. The existing com.blindmatch.marriage signing selector includes its extension profiles. The signed app embeds MessageReceipt.appex.",
     "requirements": ["Enable Push Notifications for the bundle ID in the Apple Developer account", "Generate an APNs signing key restricted to the intended topic/environment where supported", "Refresh the app provisioning profile and sign the native build", "Debug uses aps-environment=development and APNs sandbox; Release/TestFlight uses production"],
     "references": ["https://developer.apple.com/documentation/usernotifications/registering-your-app-with-apns", "https://developer.apple.com/documentation/usernotifications/establishing-a-token-based-connection-to-apns"]
   },

@@ -175,7 +175,7 @@ type TabsProps = {
 };
 
 // Each screen owns its tab bar. Hand off only the visible marker position on a tab tap.
-let tabGlide: { target: string; left: number; started: number } | null = null;
+let tabGlide: { from: string; target: string; left: number; started: number } | null = null;
 
 export function MemberTabs({
   active,
@@ -198,14 +198,32 @@ export function MemberTabs({
     tabGlide = null;
     const element = marker.current;
     if (!origin || origin.target !== active || !element?.animate || reduced ||
-        document.hidden || performance.now() - origin.started > 700) return;
+        document.hidden || performance.now() - origin.started > 3000) return;
     const distance = origin.left - element.getBoundingClientRect().left;
     if (Math.abs(distance) < 1) return;
-    const glide = element.animate(
-      [{ transform: `translateX(${distance}px)` }, { transform: "translateX(0)" }],
-      { duration: 225, easing: "cubic-bezier(.22,.78,.28,1)" },
-    );
-    return () => glide.cancel();
+    const bar = element.closest('nav');
+    const previousIcon = bar?.querySelector(`[data-tab="${origin.from}"] .mi-tab-icon > svg`);
+    const currentIcon = element.parentElement?.querySelector('.mi-tab-icon > svg');
+    const timing = { duration: 430, easing: 'cubic-bezier(.18,.78,.2,1)' };
+    const animations = [
+      element.animate([
+        { transform: `translate3d(${distance}px,0,0) scaleX(.68)`, opacity: .48, boxShadow: '0 0 0 rgba(92,19,45,0)' },
+        { transform: `translate3d(${distance * .57}px,0,0) scaleX(2.25)`, opacity: .92, boxShadow: '0 0 13px rgba(92,19,45,.32)', offset: .36 },
+        { transform: `translate3d(${distance * .09}px,0,0) scaleX(1.35)`, opacity: 1, boxShadow: '0 0 8px rgba(92,19,45,.18)', offset: .78 },
+        { transform: 'translate3d(0,0,0) scaleX(1)', opacity: 1, boxShadow: '0 0 0 rgba(92,19,45,0)' },
+      ], timing),
+      previousIcon?.animate([
+        { color: 'var(--accent)', transform: 'translateY(-2px) scale(1.06)' },
+        { color: 'var(--muted)', transform: 'translateY(1px) scale(.92)', offset: .45 },
+        { transform: 'none' },
+      ], timing),
+      currentIcon?.animate([
+        { opacity: .32, transform: 'translateY(4px) scale(.68)', filter: 'drop-shadow(0 0 0 transparent)' },
+        { opacity: 1, transform: 'translateY(-2px) scale(1.1)', filter: 'drop-shadow(0 3px 5px rgba(92,19,45,.22))', offset: .65 },
+        { transform: 'none', filter: 'drop-shadow(0 0 0 transparent)' },
+      ], timing),
+    ];
+    return () => animations.forEach(animation => animation?.cancel());
   }, [active, reduced]);
   const items = [
     { id: "discover", text: "استكشف", icon: Compass, open: onDiscover },
@@ -226,13 +244,13 @@ export function MemberTabs({
           <span>{text}</span>{unread && <span className="mi-sr-only">{arabicNumber.format(count)} {id === "home" ? "طلبات تعارف بانتظار ردك" : "غير مقروءة"}</span>}
         </>;
         return active === id
-          ? <span className="mi-tab mi-tab-active" key={id} aria-current="page">
+          ? <span className="mi-tab mi-tab-active" key={id} data-tab={id} aria-current="page">
               <span ref={marker} className="mi-tab-marker" aria-hidden="true" />{label}
             </span>
-          : <button className="mi-tab" key={id} type="button" onClick={() => {
+          : <button className="mi-tab" key={id} data-tab={id} type="button" onClick={() => {
               const element = marker.current;
               tabGlide = element && !reduced ? {
-                target: id, left: element.getBoundingClientRect().left, started: performance.now(),
+                from: active, target: id, left: element.getBoundingClientRect().left, started: performance.now(),
               } : null;
               open?.();
             }}>{label}</button>;

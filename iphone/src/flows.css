@@ -465,7 +465,6 @@ body {
   margin: 20px 0;
   color: var(--accent);
 }
-.demo-notice,
 .feedback {
   display: flex;
   align-items: center;
@@ -477,38 +476,12 @@ body {
   color: var(--accent);
   border-bottom: 1px solid var(--gold);
 }
-.demo-notice > span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.demo-notice button,
 .feedback button {
   min-height: 30px;
   background: transparent;
   border: 0;
   color: inherit;
   font-weight: 700;
-}
-.demo-notice {
-  padding-top: calc(5px + var(--nf-safe-top));
-}
-.demo-notice ~ .app-screen .mi-header,
-.demo-notice ~ .app-screen .mi-detail-header {
-  padding-top: 16px;
-}
-.demo-notice ~ .cm-shell :is(.cm-header, .cm-detail-head, .cm-chat-head) { padding-top: 12px; }
-.demo-notice ~ .flow-frame { padding-top: 0; }
-.demo-notice .demo-pool {
-  min-width: 0;
-  max-width: 112px;
-  padding: 4px 2px;
-  border: 0;
-  border-bottom: 1px solid #ddc9c6;
-  border-radius: 0;
-  background: transparent;
-  color: var(--accent-fill);
-  font: inherit;
 }
 .feedback {
   position: sticky;

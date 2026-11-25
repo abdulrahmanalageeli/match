@@ -1,6 +1,6 @@
 :root {
   --nf-ease-settle: cubic-bezier(.22,.78,.28,1);
-  --nf-motion-press: 140ms;
+  --nf-motion-press: 180ms;
   --nf-motion-shift: 220ms;
   --nf-motion-reveal: 280ms;
   --nf-ease-release: cubic-bezier(.2,.8,.25,1);
@@ -36,6 +36,16 @@ html[data-nf-motion="reduced"] *, html[data-nf-motion="reduced"] *::before, html
   to { opacity: 1; transform: none; }
 }
 @keyframes nf-veil { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nf-window-open {
+  0% { opacity: 0; transform: translateY(22px) scale(.958); filter: blur(5px); clip-path: inset(14% 4% 0 round 28px); }
+  68% { opacity: 1; transform: translateY(-2px) scale(1.004); filter: blur(0); clip-path: inset(0 round 18px); }
+  100% { opacity: 1; transform: none; filter: blur(0); clip-path: inset(0 round 0); }
+}
+@keyframes nf-sheet-rise {
+  0% { opacity: .28; transform: translateY(54px) scale(.985); filter: blur(4px); clip-path: inset(12% 0 0 round 28px 28px 0 0); }
+  72% { opacity: 1; transform: translateY(-3px) scale(1.002); filter: blur(0); clip-path: inset(0 round 24px 24px 0 0); }
+  100% { opacity: 1; transform: none; filter: blur(0); clip-path: inset(0 round 0); }
+}
 @keyframes nf-logo-settle {
   from { opacity: .62; transform: translateY(11px) scale(.96); }
   to { opacity: 1; transform: none; }
@@ -96,15 +106,19 @@ html[data-nf-motion="reduced"] *, html[data-nf-motion="reduced"] *::before, html
   html:not([data-nf-motion="reduced"]) .mi-rationale {
     animation: nf-card-settle .24s cubic-bezier(.2,.8,.25,1) .085s backwards;
   }
-  html:not([data-nf-motion="reduced"]) :is(.action-dialog,.cm-sheet,.st-dialog,.nf-help,.nf-support-dialog)[open] {
-    animation: nf-arrive var(--nf-motion-shift) var(--nf-ease-settle);
+  html:not([data-nf-motion="reduced"]) :is(.action-dialog,.cm-sheet:not(.dr-filter-sheet),.st-dialog,.nf-help,.nf-support-dialog)[open] {
+    transform-origin: 50% 90%;
+    animation: nf-window-open 360ms cubic-bezier(.18,.78,.2,1) both;
   }
-  html:not([data-nf-motion="reduced"]) dialog[open]::backdrop { animation: nf-veil .14s ease-out; }
+  html:not([data-nf-motion="reduced"]) .dr-filter-sheet[open] { transform-origin:50% 100%; animation:nf-sheet-rise 390ms cubic-bezier(.16,.8,.18,1) both; }
+  html:not([data-nf-motion="reduced"]) dialog[open]::backdrop { animation: nf-veil 220ms ease-out; backdrop-filter:blur(2px); }
+  html:not([data-nf-motion="reduced"]) :is(.cm-sheet,.action-dialog)[data-dismissing]::backdrop { animation: nf-sheet-veil-out 210ms ease-in both; }
   html:not([data-nf-motion="reduced"]) :where(button,summary):not(:disabled):not([aria-disabled="true"]) {
     transition: scale var(--nf-motion-press) var(--nf-ease-release), background-color var(--nf-motion-press) ease-out, border-color var(--nf-motion-press) ease-out, color var(--nf-motion-press) ease-out;
   }
   /* Independent scale preserves positioning transforms and keeps hit boxes stable. */
-  html:not([data-nf-motion="reduced"]) :where(button,summary):not([data-motion-press]):not(:disabled):not([aria-disabled="true"]):active { scale: .982; transition-duration: 80ms; }
+  html:not([data-nf-motion="reduced"]) :where(button,summary):not([data-motion-press]):not(:disabled):not([aria-disabled="true"]):active { scale: .965; transition-duration: 75ms; }
 }
+@keyframes nf-sheet-veil-out { from { opacity: 1; } to { opacity: 0; } }
 /* Reduced motion retains a visible press response without shrinking controls. */
 :where(button,summary):not(:disabled):not([aria-disabled="true"]):active { filter: brightness(.96); }

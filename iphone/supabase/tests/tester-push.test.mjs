@@ -27,6 +27,15 @@ test('tester APNs routes privately, deduplicates, and revokes stale notification
   const first=await send('abdulrahman');
   let jobs=await claim();assert.equal(jobs.length,1);assert.equal(jobs[0].token,'c'.repeat(64));assert.equal(await valid(jobs[0]),true);
   assert(!JSON.stringify(jobs).includes('Private text'));
+  const native=(await asService(db,()=>db.query('select public.nisfayn_push_delivery($1,$2,true,$3) as detail',[jobs[0].id,jobs[0].leaseId,jobs[0].token]))).rows[0].detail;
+  assert.equal(native.receipt.job,jobs[0].id);
+  await db.exec('set role anon');
+  try {
+   await db.query('select public.wudayn_confirm_notification($1,$2)',[native.receipt.job,native.receipt.proof]);
+  } finally {await db.exec('reset role');}
+  const state=(await db.query('select data from nisfayn_test.room')).rows[0].data;
+  assert.ok(state.messages.find(message=>message.id===first.id).deliveredAt);
+  assert.deepEqual(state.read,{},'a device receipt does not mark a tester chat read');
   assert.equal((await claim()).length,0,'leased jobs cannot be claimed twice');
   await db.query("update nisfayn_test.room set data=jsonb_set(data,'{read,reham}',to_jsonb($1::text))",[first.createdAt]);
   assert.equal(await valid(jobs[0]),false,'read message is suppressed');

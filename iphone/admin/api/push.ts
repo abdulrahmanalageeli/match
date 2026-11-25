@@ -19,8 +19,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const nativeReady = ['APNS_TEAM_ID', 'APNS_KEY_ID', 'APNS_PRIVATE_KEY_BASE64'].every(name => Boolean(env[name]))
     && ['sandbox', 'production'].includes(env.APNS_ENVIRONMENT!) && env.APNS_TOPIC === 'com.blindmatch.marriage';
   const webReady = ['WEB_PUSH_VAPID_PUBLIC_KEY', 'WEB_PUSH_VAPID_PRIVATE_KEY', 'WEB_PUSH_VAPID_SUBJECT'].every(name => Boolean(env[name]));
-  if ((!nativeEnabled && !webEnabled) || env.VERCEL_ENV !== 'production' || !env.NISFAYN_SUPABASE_URL || !env.NISFAYN_SERVICE_ROLE_KEY ||
-      (nativeEnabled && !nativeReady) || (webEnabled && !webReady)) {
+  const deliverNative = nativeEnabled && nativeReady;
+  if ((!deliverNative && !(webEnabled && webReady)) || env.VERCEL_ENV !== 'production' || !env.NISFAYN_SUPABASE_URL || !env.NISFAYN_SERVICE_ROLE_KEY) {
     return res.status(503).json({ error: 'push_not_configured' });
   }
   if (env.NISFAYN_SUPABASE_URL !== 'https://wupkifqbwhhebwrgvwai.supabase.co') {
@@ -36,23 +36,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return response.json() as Promise<T>;
   };
   let transport: ReturnType<typeof openApns> | undefined;
-  const webTransport = webEnabled ? openWebPush({ subject: env.WEB_PUSH_VAPID_SUBJECT!, publicKey: env.WEB_PUSH_VAPID_PUBLIC_KEY!, privateKey: env.WEB_PUSH_VAPID_PRIVATE_KEY! }) : undefined;
+  let webTransport: ReturnType<typeof openWebPush> | undefined;
   const count = { claimed: 0, sent: 0, retry: 0, invalid: 0, failed: 0, revoked: 0 };
   try {
     if (!cronAuthorized && !await rpc<boolean>('nisfayn_push_wake_authorized', { candidate: wakeToken })) return res.status(401).json({ error: 'unauthorized' });
+    if (webEnabled && webReady) {
+      try { webTransport = openWebPush({ subject: env.WEB_PUSH_VAPID_SUBJECT!, publicKey: env.WEB_PUSH_VAPID_PUBLIC_KEY!, privateKey: env.WEB_PUSH_VAPID_PRIVATE_KEY! }); }
+      catch { if (!deliverNative) return res.status(503).json({ error: 'push_not_configured' }); }
+    }
+    if ((nativeEnabled && !deliverNative) || (webEnabled && !webTransport)) {
+      console.error(JSON.stringify({event: 'push_channel_unavailable', channel: deliverNative ? 'web' : 'ios'}));
+    }
     if (cronAuthorized) await rpc('nisfayn_enqueue_deadline_reminders',{});
     const deadline = Date.now() + 40000;
     // Refill the batch while this invocation still has time for another delivery.
     while (Date.now() + 8000 < deadline) {
       const jobs: ((PushJob | WebPushJob) & { tester?: boolean })[] = [];
-      if (nativeEnabled) {
+      if (deliverNative) {
         const config: ApnsConfig = { teamId: env.APNS_TEAM_ID!, keyId: env.APNS_KEY_ID!, privateKey: env.APNS_PRIVATE_KEY_BASE64!, topic: env.APNS_TOPIC!, environment: env.APNS_ENVIRONMENT as ApnsConfig['environment'] };
-        jobs.push(...await rpc<PushJob[]>('marriage_push_claim', { delivery_environment: config.environment, batch_size: webEnabled ? 10 : 20 }));
+        jobs.push(...await rpc<PushJob[]>('marriage_push_claim', { delivery_environment: config.environment, batch_size: webTransport ? 10 : 20 }));
         const testerJobs = await rpc<PushJob[]>('nisfayn_test_push_claim', { delivery_environment: config.environment, batch_size: 10 });
         jobs.push(...testerJobs.map(job => ({ ...job, tester: true })));
         if (jobs.some(job => job.environment !== 'web')) transport ??= openApns(config);
       }
-      if (webEnabled) jobs.push(...await rpc<WebPushJob[]>('marriage_push_claim', { delivery_environment: 'web', batch_size: nativeEnabled ? 10 : 20 }));
+      if (webTransport) jobs.push(...await rpc<WebPushJob[]>('marriage_push_claim', { delivery_environment: 'web', batch_size: deliverNative ? 10 : 20 }));
       if (!jobs.length) break;
       count.claimed += jobs.length;
       for (let start = 0; start < jobs.length; start += 5) {

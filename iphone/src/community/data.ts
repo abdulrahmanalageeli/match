@@ -425,8 +425,12 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
         userId,
       );
     },
-    thread: (requestId, beforeId) =>
-      timedRpc("marriage_thread_page", { request_id: requestId, before_id: beforeId ?? null }),
+    async thread(requestId, beforeId) {
+      const rows = await timedRpc<Message[]>("marriage_thread_page", { request_id: requestId, before_id: beforeId ?? null });
+      const received = rows.filter(row => !row.senderIsMe && !row.deletedAt && !row.deliveredAt).map(row => row.id);
+      if (received.length) void timedRpc("marriage_confirm_thread_delivery", { request_id: requestId, message_ids: received }).catch(() => {});
+      return rows;
+    },
     messageChanges: (requestId, messageIds) => timedRpc("marriage_message_changes", { request_id: requestId, message_ids: messageIds }),
     searchMessages: (requestId, query, beforeId, kind) => timedRpc('marriage_search_messages', { request_id: requestId, search_query: query, before_id: beforeId ?? null, media_kind: kind ?? null }),
     readState: requestId => timedRpc('marriage_thread_read_state', { request_id: requestId }),

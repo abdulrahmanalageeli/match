@@ -2,7 +2,7 @@ import { connect, constants, type ClientHttp2Session, type ClientHttp2Stream } f
 import { createPrivateKey, sign, type KeyObject } from 'node:crypto';
 
 export type PushKind = 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication';
-export type PushDetails={preview:'private'|'event'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number;scope?:string;launch?:boolean;passive?:boolean;sound?:boolean};
+export type PushDetails={preview:'private'|'event'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number;scope?:string;launch?:boolean;passive?:boolean;sound?:boolean;receipt?:{job:string;proof:string}};
 export type PushJob = { id: string; leaseId: string; requestId: string; kind: PushKind; token: string; environment: 'sandbox' | 'production'; expiresAt: string;details?:PushDetails };
 export type ApnsConfig = { teamId: string; keyId: string; privateKey: string; topic: string; environment: 'sandbox' | 'production' };
 export type DeliveryResult = 'sent' | 'invalid' | 'retry' | 'failed';
@@ -21,6 +21,7 @@ export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>
   if (!copy[job.kind] || !/^[0-9a-f-]{36}$/i.test(job.requestId)) throw new Error('Invalid push event');
   const clean=(value:string,limit:number)=>value.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g,' ').trim().slice(0,limit);
   const details=job.details;
+  const receipt=job.kind==='message' && details?.receipt;
   const named=details&&['name','content'].includes(details.preview);
   const title=named&&details.sender?clean(details.sender,50):'وُدَين';
   const discreet = !details || !['event','name','content'].includes(details.preview);
@@ -28,7 +29,9 @@ export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>
   const body=job.kind==='publication' && details?.launch === true ? 'انطلق وُدَين. افتح التطبيق للاطلاع على الجديد.' : discreet ? 'لديك تحديث جديد.' : details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160):copy[job.kind];
   return { aps: { alert: { title, body }, ...(passive ? {'interruption-level':'passive'} : {}), ...(!passive && details?.sound !== false ? {sound:'default'} : {}), 'thread-id':job.requestId,
     ...(details?{badge:Math.max(0,Math.min(999,Math.floor(details.badge)||0))}:{}),
+    ...(receipt ? {'mutable-content':1} : {}),
     ...(!discreet && job.kind==='message'?{category:'NISFAYN_MESSAGE'}:{}) }, requestId: job.requestId, kind: job.kind,
+    ...(receipt ? {receipt} : {}),
     ...(details?.scope ? {scope:details.scope} : {}),
     ...(details?.roomId&&/^[0-9a-f-]{36}$/i.test(details.roomId)?{roomId:details.roomId}:{}),
     ...(details?.messageId&&/^[0-9a-f-]{36}$/i.test(details.messageId)?{messageId:details.messageId}:{}) };
@@ -69,7 +72,7 @@ export function openApns(config: ApnsConfig, makeConnection: (authority: string)
           ':method': 'POST', ':path': '/3/device/' + job.token, authorization: 'bearer ' + token,
           'apns-topic': config.topic + (call ? '.voip' : ''), 'apns-push-type': call ? 'voip' : 'alert', 'apns-priority': '10',
           'apns-expiration': call ? '0' : String(Math.floor(new Date(job.expiresAt).getTime() / 1000)),
-          ...(!call ? {'apns-id': job.id, 'apns-collapse-id': job.kind + ':' + job.requestId} : {}),
+          ...(!call ? {'apns-id': job.id, 'apns-collapse-id': job.kind==='message' ? job.id : job.kind + ':' + job.requestId} : {}),
           'content-type': 'application/json',
         });
         request.setEncoding('utf8');

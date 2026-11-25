@@ -11,7 +11,6 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  Sparkles,
 } from "./BrandIcons";
 import { Brand } from "./Brand";
 import { phoneOtpEnabled } from "./cloud";
@@ -316,18 +315,4 @@ export function Policy() {
   return <LegalNotice />;
 }
 
-export function DemoNotice({ onExit, gender, onGenderChange }: { onExit: Click; gender?: "woman" | "man"; onGenderChange?: (gender: "woman" | "man") => void }) {
-  return (
-    <div className="demo-notice" dir="rtl">
-      <span>
-        <Sparkles size={13} /> وضع التجربة
-      </span>
-      {onGenderChange && <select className="demo-pool" aria-label="نوع الملفات في التجربة" value={gender} onChange={event => onGenderChange(event.target.value as "woman" | "man")}>
-        <option value="woman">ملفات الرجال</option>
-        <option value="man">ملفات النساء</option>
-      </select>}
-      <button onClick={onExit}>خروج</button>
-    </div>
-  );
-}
 import {WhyWudayn} from './WhyWudayn';

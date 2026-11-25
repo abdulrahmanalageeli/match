@@ -11,7 +11,6 @@
 }
 .phone-app .nf-intake.nf-intake--new::before,
 .phone-app .nf-intake.nf-intake--new::after { content: none; }
-.phone-app:has(.nf-intake--new) > .demo-notice { display: none; }
 .nf-intake-brand, .nf-intake-header-actions { display: flex; align-items: center; gap: 10px; }
 .nf-intake-brand > span:last-child:not(.nisfayn-brand) { font-size: .65rem; color: var(--muted); border: 1px solid var(--line); border-radius: 7px; padding: 3px 6px; }
 .nf-intake-header-actions { margin-inline-start: auto; }

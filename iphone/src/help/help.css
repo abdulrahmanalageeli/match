@@ -6,3 +6,11 @@
 .nf-help-search input::placeholder { font-size: 14px; }
 .nf-help-search input:focus-visible { outline: none; box-shadow: none; }
 .nf-help-search > svg { width: 16px; height: 16px; flex: none; }
+.nf-help { background:var(--paper); }
+.nf-help .nf-help-answers { gap:0; }
+.nf-help .nf-help-answers details { padding-inline:0; border:0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; }
+.nf-help .nf-help-answers details[open] summary { color:var(--accent); }
+.nf-help .nf-help-answers p { padding:0; border:0; margin:0 0 12px; color:var(--supporting-ink,var(--muted)); }
+.wd-guide-answer-image { display:block; width:min(62%,15rem); height:auto; object-fit:contain; object-position:top; border:1px solid var(--line); border-radius:18px; margin:4px auto 18px; box-shadow:0 12px 30px #36121e14; }
+@media (prefers-reduced-motion:reduce) { .nf-help .nf-help-answers details[open] p { animation:none; } }
+html[data-nf-motion="reduced"] .nf-help .nf-help-answers details[open] p { animation:none; }

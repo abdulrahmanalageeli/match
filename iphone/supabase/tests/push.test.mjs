@@ -99,12 +99,35 @@ test('free paused recipient gets unread chat, shared badge total and scoped acti
   let detail=await content(first);
   assert.equal(detail.preview,'private');assert.equal(detail.passive,false);
   assert.match(detail.scope,/^[a-f0-9]{64}$/);
-  assert.deepEqual(await service('public.nisfayn_push_delivery($1,$2,false,$3)',[first.id,first.leaseId,first.token]),detail);
+  const {receipt,...nativeDetail}=await service('public.nisfayn_push_delivery($1,$2,false,$3)',[first.id,first.leaseId,first.token]);
+  assert.deepEqual(nativeDetail,detail);assert.equal(receipt.job,first.id);
   await assert.rejects(call(sender,'public.nisfayn_push_delivery($1,$2,false,$3)',[first.id,first.leaseId,first.token]),/permission denied/);
   assert.equal(detail.badge,await call(recipient,'public.marriage_unread_count()'));assert.equal(detail.badge,1);
   await service("public.marriage_push_finish($1,$2,'sent')",[first.id,first.leaseId]);
+  const messageState=async messageId=>(await call(sender,'public.marriage_message_changes($1,$2)',[id,[messageId]]))[0];
+  const acknowledge=async(job,proof)=>{
+   await db.exec('set role anon');
+   try {await db.query('select public.wudayn_confirm_notification($1,$2)',[job,proof]);} finally {await db.exec('reset role');}
+  };
+  assert.equal((await messageState(detail.messageId)).deliveredAt,null,'provider acceptance alone never marks a device receipt');
+  await acknowledge(first.id,randomUUID());
+  assert.equal((await messageState(detail.messageId)).deliveredAt,null);
+  await db.exec('truncate realtime.messages');
+  await acknowledge(first.id,receipt.proof);
+  const delivered=await messageState(detail.messageId);assert.ok(delivered.deliveredAt);assert.equal(delivered.readByPeer,false);
+  const wakes=async()=>(await db.query("select topic,event,private from realtime.messages where event='changed'")).rows;
+  assert.deepEqual(await wakes(),[{topic:'marriage:member:'+sender.id,event:'changed',private:true}]);
+  await acknowledge(first.id,receipt.proof);
+  assert.equal((await messageState(detail.messageId)).deliveredAt,delivered.deliveredAt,'duplicate device acknowledgments are idempotent');
+  assert.equal((await wakes()).length,1);
   await call(sender,'public.marriage_message($1,$2,$3)',[id,'رسالة ثانية',randomUUID()]);
   const [second]=await claim();detail=await content(second);
+  await acknowledge(second.id,receipt.proof);
+  assert.equal((await messageState(detail.messageId)).deliveredAt,null,'proof is scoped to its exact job');
+  await call(sender,'public.marriage_confirm_thread_delivery($1,$2)',[id,[detail.messageId]]);
+  assert.equal((await messageState(detail.messageId)).deliveredAt,null,'senders cannot mark their own messages delivered');
+  await call(recipient,'public.marriage_confirm_thread_delivery($1,$2)',[id,[detail.messageId]]);
+  assert.ok((await messageState(detail.messageId)).deliveredAt);
   assert.equal(detail.passive,true);assert.equal(detail.badge,2);
   assert.equal(detail.badge,await call(recipient,'public.marriage_unread_count()'));
   await call(recipient,'public.marriage_push_controls($1)',[{sound:false}]);assert.equal((await content(second)).sound,false);
@@ -114,7 +137,14 @@ test('free paused recipient gets unread chat, shared badge total and scoped acti
   assert.equal(await call(recipient,'public.marriage_unread_count()'),0);
   await call(sender,'public.marriage_message($1,$2,$3)',[id,'تحديث',randomUUID()]);
   const [last]=await claim();
+  const lastDetail=await service('public.nisfayn_push_delivery($1,$2,false,$3)',[last.id,last.leaseId,last.token]);
+  await db.query("update marriage.push_outbox set expires_at=now()-interval '1 second' where id=$1",[last.id]);
+  await acknowledge(last.id,lastDetail.receipt.proof);
+  assert.equal((await messageState(lastDetail.messageId)).deliveredAt,null,'expired proof cannot confirm delivery');
+  await db.query("update marriage.push_outbox set expires_at=now()+interval '1 minute' where id=$1",[last.id]);
   await call(recipient,"public.marriage_act($1,'block')",[id]);
+  await acknowledge(last.id,lastDetail.receipt.proof);
+  assert.equal((await db.query('select device_delivered_at from marriage.thread_messages where id=$1',[lastDetail.messageId])).rows[0].device_delivered_at,null);
   assert.equal(await content(last),null);assert.equal(await call(recipient,'public.marriage_unread_count()'),0);
  } finally {await db.close();}
 });

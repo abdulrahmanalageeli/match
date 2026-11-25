@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA2500000000000000000001 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2500000000000000000002; };
+		AA2500000000000000000003 /* MessageReceipt.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = AA2500000000000000000004; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		490000000000000000000034 /* WudaynReportExportPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000024 /* WudaynReportExportPlugin.swift */; };
         490000000000000000000019 /* NisfaynCallCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000009 /* NisfaynCallCenter.swift */; };
 		490000000000000000000018 /* NisfaynFeedbackPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490000000000000000000008 /* NisfaynFeedbackPlugin.swift */; };
@@ -30,6 +32,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		AA2500000000000000000002 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		AA2500000000000000000004 /* MessageReceipt.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MessageReceipt.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA2500000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		490000000000000000000024 /* WudaynReportExportPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WudaynReportExportPlugin.swift; sourceTree = "<group>"; };
         490000000000000000000009 /* NisfaynCallCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NisfaynCallCenter.swift; sourceTree = "<group>"; };
 		490000000000000000000008 /* NisfaynFeedbackPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NisfaynFeedbackPlugin.swift; sourceTree = "<group>"; };
@@ -66,11 +71,13 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		AA2500000000000000000006 /* MessageReceipt */ = {isa = PBXGroup; children = (AA2500000000000000000002, AA2500000000000000000005, ); path = MessageReceipt; sourceTree = "<group>"; };
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
+				AA2500000000000000000006 /* MessageReceipt */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -79,6 +86,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				AA2500000000000000000004 /* MessageReceipt.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -112,6 +120,7 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		AA2500000000000000000007 /* MessageReceipt */ = {isa = PBXNativeTarget; buildConfigurationList = AA2500000000000000000008; buildPhases = (AA2500000000000000000009, ); buildRules = (); dependencies = (); name = MessageReceipt; productName = MessageReceipt; productReference = AA2500000000000000000004; productType = "com.apple.product-type.app-extension"; };
 		504EC3031FED79650016851F /* App */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
@@ -119,10 +128,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				AA250000000000000000000A /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AA250000000000000000000B /* MessageReceipt */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -171,6 +182,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				AA2500000000000000000007 /* MessageReceipt */,
 			);
 		};
 /* End PBXProject section */
@@ -192,6 +204,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		AA2500000000000000000009 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (AA2500000000000000000001, ); runOnlyForDeploymentPostprocessing = 0; };
 		504EC3001FED79650016851F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -233,6 +246,42 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		AA250000000000000000000D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = MessageReceipt/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.blindmatch.marriage.MessageReceipt;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		AA250000000000000000000E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = MessageReceipt/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.blindmatch.marriage.MessageReceipt;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
@@ -399,6 +448,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		AA2500000000000000000008 /* MessageReceipt configuration */ = {isa = XCConfigurationList; buildConfigurations = (AA250000000000000000000D, AA250000000000000000000E, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		504EC2FF1FED79650016851F /* Build configuration list for PBXProject "App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -418,6 +468,18 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AA250000000000000000000A /* Embed App Extensions */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (AA2500000000000000000003, ); name = "Embed App Extensions"; runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		AA250000000000000000000C = {isa = PBXContainerItemProxy; containerPortal = 504EC2FC1FED79650016851F; proxyType = 1; remoteGlobalIDString = AA2500000000000000000007; remoteInfo = MessageReceipt; };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		AA250000000000000000000B = {isa = PBXTargetDependency; target = AA2500000000000000000007; targetProxy = AA250000000000000000000C; };
+/* End PBXTargetDependency section */
 
 /* Begin XCLocalSwiftPackageReference section */
 		D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */ = {

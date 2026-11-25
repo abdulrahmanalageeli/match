@@ -1,7 +1,7 @@
 import {MemberBadge} from '../membership/MemberBadge';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowRight, BookOpen, ChevronLeft, CirclePause, CirclePlay, CreditCard, Download, Eye, Feather,
+  ArrowRight, BookOpen, ChevronLeft, CirclePause, CirclePlay, Copy, CreditCard, Download, Eye, Feather,
   LogOut, MapPin, Pencil, ShieldCheck, Trash2, Type, UserRound, Volume2, Vibrate, Image, UsersRound,
 } from "../BrandIcons";
 import { Brand } from "../Brand";
@@ -137,6 +137,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const [confirm, setConfirm] = useState<"pause" | "exit" | null>(null);
   const [dataSheet, setDataSheet] = useState<{ mode: "export" | "visibility"; owner: string } | null>(null);
   const [appleError,setAppleError] = useState(false);
+  const [memberIdCopied,setMemberIdCopied] = useState(false);
   const [showHelp,setShowHelp]=useState(false);
   const [showCompletion,setShowCompletion]=useState(false);
   useEffect(() => { if (completionEntry) setShowCompletion(true); }, [completionEntry]);
@@ -164,6 +165,15 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
     draft:'أكمل ملفك وأرسله للمراجعة ليظهر في الترشيحات.',
     membership:'ظهورك يتطلب عضوية سارية',exclusive:'الترشيحات متوقفة أثناء التعارف الحصري',unavailable:'ملفك غير متاح للترشيحات',
   }[visibility] : null;
+  async function copyMemberId() {
+    if (!state?.user.id) return;
+    try {
+      await navigator.clipboard.writeText(state.user.id);
+      setMemberIdCopied(true);
+    } catch {
+      setMemberIdCopied(false);
+    }
+  }
   if(showCompletion)return <JourneyCompletion paused={paused} busy={busy} demo={demo} canPause={canManageMatching}
     onBack={()=>{setShowCompletion(false);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.st-completion-entry button')?.focus());}}
     onPause={()=>{if(!paused&&!busy)onToggle();}} onMembership={canSeeMembership?onMembership:undefined}
@@ -193,9 +203,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
           {onBack && <button className="st-back" type="button" onClick={onBack} aria-label="رجوع"><ArrowRight size={18} aria-hidden="true" /> رجوع</button>}
         </header>
         <h1 className="st-title">الإعدادات</h1>
-        {state?.user.id&&<p className="flow-note">معرّف العضو <code dir="ltr" style={{overflowWrap:"anywhere",userSelect:"all"}}>{state.user.id}</code></p>}
         <section className="st-member-card" aria-label="ملفي الشخصي">
-          <div className="st-member-identity"><span className="st-member-avatar">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}<MemberBadge tier={state?.membership.tier} active={state?.membership.active}/></span><div><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p></div></div>
+          <div className="st-member-identity"><span className="st-member-avatar">{member?.portrait?<PortraitPhoto portrait={member.portrait} source={source} alt=""/>:member?.publicAvatar?<AvatarPortrait avatar={member.publicAvatar} decorative/>:previewPhoto?<img src={previewPhoto} alt=""/>:firstLetter||<UserRound size={28}/>}<MemberBadge tier={state?.membership.tier} active={state?.membership.active}/></span><div><h2>{member?.displayName||'ملفي الشخصي'}</h2><VerifiedBadge claims={ownClaims}/><p>{member?.city&&<MapPin size={13}/>}<bdi>{location||'أضف تفاصيلك الأولى'}</bdi>{member?.age&&<span>· {new Intl.NumberFormat('ar-SA').format(member.age)} عامًا</span>}</p>{state?.user.id&&<button type="button" className="st-member-id" onClick={()=>void copyMemberId()} aria-label="نسخ معرّف العضو"><Copy size={13}/><span aria-live="polite">{memberIdCopied?'تم النسخ':'معرّف العضو'}</span><code dir="ltr" title={state.user.id}>{state.user.id}</code></button>}</div></div>
           <div className="st-member-actions"><button type="button" disabled={!member||busy} onClick={()=>openPanel('preview')} aria-label="عرض ملفي كما يراه الآخرون"><Eye size={16}/> معاينة ملفي</button><button type="button" onClick={onEdit} disabled={busy} aria-label="ملفي وتفضيلاتي"><Pencil size={15}/> تعديل الملف</button></div>
           <div className="st-discovery-state" data-visibility={visibility}><span role="status">{visibilityText ?? (summary.error?'تعذّر التحقق من ظهور ملفك.':'جارٍ التحقق من ظهور ملفك…')}</span>
             {summary.error && !visibilityText && <button className="btn-text" onClick={summary.refresh}>إعادة المحاولة</button>}

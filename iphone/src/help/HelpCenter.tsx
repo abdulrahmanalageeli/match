@@ -1,9 +1,9 @@
 import { usePublishedCopy } from '../publishing/PublicationCenter';
 import { useEffect, useId, useRef, useState } from 'react';
-import { BookOpen, CircleHelp, Search, X } from "../BrandIcons";
+import { BookOpen, ChevronLeft, CircleHelp, Search, X } from "../BrandIcons";
 import { helpTopics, searchGuide, type HelpTopic } from './guide';
 import './help.css';
-import { FeatureOverview } from './FeatureOverview';
+import { FeatureOverview, GuideAnswerPreview } from './FeatureOverview';
 import { SupportContact } from './SupportContact';
 
 export function HelpButton({topic='all',label='دليلك في وُدَين'}:{topic?:HelpTopic;label?:string}){
@@ -23,11 +23,14 @@ export function HelpCenter({initialTopic='all',close}:{initialTopic?:HelpTopic;c
   {tour?<FeatureOverview replay close={finishTour}/>:<>
   <header><span className="nf-help-mark"><BookOpen size={24}/></span><button className="icon-btn" onClick={close} aria-label="إغلاق الدليل"><X size={20}/></button></header>
   <h2 ref={heading} tabIndex={-1} id={titleId}>دليلك في وُدَين</h2>{intro && <p className="nf-help-intro">{intro}</p>}
-  <button ref={tourButton} type="button" className="nf-help-link" onClick={()=>setTour(true)}><BookOpen size={16}/>جولة في وُدَين</button>
+  <button ref={tourButton} type="button" className="wd-guide-replay" onClick={()=>setTour(true)}>
+    <img src="/brand/guide/discovery-screen.png" alt="" width="52" height="76"/>
+    <span>جولة في وُدَين<small>بالصور من داخل التطبيق</small></span><ChevronLeft size={16} aria-hidden="true"/>
+  </button>
   <label className="nf-help-search"><Search size={17}/><input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="مثل: الحصرية، الصور، المكالمات…" aria-label="ابحث في دليل وُدَين" maxLength={100}/>{query&&<button onClick={()=>setQuery('')} aria-label="مسح بحث الدليل"><X size={15}/></button>}</label>
   <div className="nf-help-topics" role="group" aria-label="مواضيع الدليل">{helpTopics.map(t=><button key={t.id} aria-pressed={topic===t.id} onClick={()=>setTopic(t.id)}>{t.label}</button>)}</div>
   <p className="nf-help-count" role="status">{new Intl.NumberFormat('ar').format(results.length)} إجابة{topic!=='all'&&query?' في هذا القسم':''}</p>
-  <div className="nf-help-answers" key={topic}>{results.map(item=><details key={item.id}><summary>{item.q}</summary><p>{item.a}</p></details>)}</div>
+  <div className="nf-help-answers" key={topic}>{results.map(item=><details key={item.id}><summary>{item.q}</summary><p>{item.a}</p><GuideAnswerPreview answerId={item.id}/></details>)}</div>
   {!results.length&&<div className="nf-help-empty"><CircleHelp size={24}/><h3>لنجرّب صياغة أبسط</h3><p>ابحث بكلمة مثل «صور» أو «مدة»، أو اعرض جميع الأقسام.</p><button className="btn-secondary" onClick={()=>{setQuery('');setTopic('all');}}>عرض جميع الإجابات</button></div>}
   <SupportContact />
   </>}

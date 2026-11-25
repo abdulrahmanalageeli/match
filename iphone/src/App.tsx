@@ -29,7 +29,6 @@ import { RoutePlaceholder } from './feedback/RoutePlaceholder';
 import { Home, MemberTabs, ProposalDetail } from "./Home";
 import {
   Auth,
-  DemoNotice,
   Frame,
   Membership,
   Pending,
@@ -125,6 +124,28 @@ type View =
   | "inbox"
   | "chats";
 type Confirmation = "pass" | "block" | "report" | "delete" | null;
+const memberNavigationOrder: Partial<Record<View, number>> = { main: 0, discover: 0, curated: 1, inbox: 2, chats: 3, settings: 4, proposal: 5, membership: 6, gifting: 7 };
+function MemberRouteArrival({view, pending}: {view: View; pending: {current: number}}) {
+  useLayoutEffect(() => {
+    const direction = pending.current;
+    pending.current = 0;
+    if (!direction || document.hidden || document.documentElement.dataset.nfMotion === 'reduced' ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const page = document.querySelector('.phone-app main');
+    const content = page?.querySelector<HTMLElement>(':scope > .screen-content, :scope > .flow-body, :scope > .cm-view') ?? page;
+    if (!content?.animate) return;
+    // Animate the live destination. Browser snapshots can retain private profile or chat pixels.
+    const x = direction * -32;
+    const edge = direction > 0 ? '0 12% 0 0' : '0 0 0 12%';
+    const arrival = content.animate([
+      { opacity: .16, transform: `translate3d(${x}px,8px,0) scale(.988)`, filter: 'blur(5px)', clipPath: `inset(${edge} round 18px)` },
+      { opacity: .9, transform: `translate3d(${x * -.08}px,-1px,0) scale(1.002)`, filter: 'blur(0)', clipPath: 'inset(0 round 0)', offset: .7 },
+      { opacity: 1, transform: 'translate3d(0,0,0) scale(1)', filter: 'blur(0)', clipPath: 'inset(0 round 0)' },
+    ], { duration: 430, easing: 'cubic-bezier(.18,.78,.2,1)' });
+    return () => arrival.cancel();
+  }, [view, pending]);
+  return null;
+}
 function problem(err: unknown) {
   return err instanceof Error && /[\u0600-\u06ff]/.test(err.message)
     ? err.message
@@ -140,12 +161,27 @@ function Modal({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const closing = useRef<Animation | null>(null);
+  const closeRef = useRef(close);
+  useLayoutEffect(() => { closeRef.current = close; }, [close]);
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
     dialog.showModal();
-    return () => dialog.close();
+    return () => { closing.current?.cancel(); dialog.close(); };
   }, []);
+  function dismiss() {
+    const dialog = ref.current;
+    if (!dialog || closing.current) return;
+    if (!dialog.animate || document.hidden || document.documentElement.dataset.nfMotion === 'reduced' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches) { closeRef.current(); return; }
+    dialog.dataset.dismissing = '';
+    closing.current = dialog.animate([
+      { opacity: 1, transform: 'translateY(0) scale(1)', filter: 'blur(0)' },
+      { opacity: 0, transform: 'translateY(16px) scale(.975)', filter: 'blur(2px)' },
+    ], { duration: 190, easing: 'cubic-bezier(.4,0,.7,.2)', fill: 'forwards' });
+    closing.current.onfinish = () => closeRef.current();
+  }
   return (
     <dialog
       dir="rtl"
@@ -153,13 +189,13 @@ function Modal({
       className="action-dialog"
       onCancel={(e) => {
         e.preventDefault();
-        close();
+        dismiss();
       }}
       aria-labelledby="dialog-title"
     >
       <header>
         <h2 id="dialog-title">{title}</h2>
-        <button className="f-icon" onClick={close} aria-label="إغلاق">
+        <button className="f-icon" onClick={dismiss} aria-label="إغلاق">
           <X size={20} />
         </button>
       </header>
@@ -220,6 +256,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const navigationVersion = useRef(0);
   const tabScroll = useRef(new Map<View, number>());
   const pendingScroll = useRef<number | null>(null);
+  const routeDirection = useRef(0);
+  const routeExit = useRef<Animation | null>(null);
+  const pendingView = useRef<View | null>(null);
   const [demo, setDemo] = useState(Boolean(tester));
   const [sampleIndex, setSampleIndex] = useState(0);
   const [sampleStatus, setSampleStatus] =
@@ -361,18 +400,37 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     version.current++;
   }
   function go(next: View) {
-    if (next === view) return;
+    if (next === view || pendingView.current) return;
     // Capture the outgoing tab before replacing it; never visibly scroll that page.
     window.dispatchEvent(new Event('nisfayn:before-navigation'));
     const tab = (value: View) => value === 'main' ? 'discover' : value;
     const remembered = (value: View) => ['discover', 'curated', 'inbox', 'chats', 'settings'].includes(value);
     if (remembered(tab(view)) && !document.querySelector('[data-conversation-id], .mp-profile')) tabScroll.current.set(tab(view), window.scrollY);
     pendingScroll.current = remembered(tab(next)) ? tabScroll.current.get(tab(next)) ?? 0 : 0;
-    navigationVersion.current++;
-    setFromIntake(false);
-    setView(next);
-    setError("");
-    setNotice("");
+    const from = memberNavigationOrder[view], to = memberNavigationOrder[next];
+    routeDirection.current = memberAccess && from !== undefined && to !== undefined ? Math.sign(to - from) : 0;
+    const commit = () => {
+      routeExit.current?.cancel();
+      routeExit.current = null;
+      pendingView.current = null;
+      navigationVersion.current++;
+      setFromIntake(false);
+      setView(next);
+      setError("");
+      setNotice("");
+    };
+    const page = document.querySelector('.phone-app main');
+    const content = page?.querySelector<HTMLElement>(':scope > .screen-content, :scope > .flow-body, :scope > .cm-view') ?? page;
+    const reduced = document.hidden || document.documentElement.dataset.nfMotion === 'reduced' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!memberAccess || !routeDirection.current || !content?.animate || reduced) { commit(); return; }
+    pendingView.current = next;
+    const x = routeDirection.current * 13;
+    routeExit.current = content.animate([
+      { opacity: 1, transform: 'translate3d(0,0,0) scale(1)', filter: 'blur(0)', clipPath: 'inset(0 round 0)' },
+      { opacity: .72, transform: `translate3d(${x}px,-2px,0) scale(.994)`, filter: 'blur(2px)', clipPath: `inset(0 ${routeDirection.current > 0 ? '0 0 4%' : '4% 0 0'} round 14px)` },
+    ], { duration: 145, easing: 'cubic-bezier(.4,0,.75,.3)', fill: 'forwards' });
+    routeExit.current.onfinish = commit;
   }
   useLayoutEffect(() => {
     const top = pendingScroll.current;
@@ -380,7 +438,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     pendingScroll.current = null;
     // Lists also restore their precise anchor after their asynchronous data load.
     window.scrollTo({ top, behavior: 'instant' });
-  }, [view]);
+  }, [view, ios]);
   const atWelcome = !loading && !demo && !token && !live && view === "main";
   const [guideSeen, setGuideSeen] = useState(overviewSeen);
   const [guideReplayed, setGuideReplayed] = useState(false);
@@ -1186,6 +1244,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     publicationScreen = view === 'main' ? 'discover' : view;
     screen = (
       <Community
+        pushOwner={tester ? "tester:" + tester.session : !demo ? token : null}
         viewerGender={(demo ? sampleProfile : live?.profile)?.gender}
         key={demo ? "walkthrough-" + sampleSession : token}
         tab={view === "main" ? "discover" : view}
@@ -1271,12 +1330,9 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       {tester && !onboardingPreview && !showArrivalGuide && <details className="nf-tester-tools">
         <summary aria-label="أدوات الاختبار الخاص" className="nf-simulation-toggle"><span>إعدادات الحساب</span><ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="nf-tester-drawer">
-        <div className="nf-tester-bar"><strong>{tester.actor==='reham'?'رهام':'عبدالرحمن'} · اختبار خاص</strong><span>الرسائل والمكالمات مشتركة بينكما</span><select aria-label="نوع الملفات في التجربة" value={sampleProfile.gender} onChange={e=>changeDemoPool(e.target.value as Profile['gender'])}><option value="man">ملفات النساء</option><option value="woman">ملفات الرجال</option></select>{tester.actor==='abdulrahman'&&<button onClick={()=>void run(async()=>{await pair!.reset();go('chats');})}>إعادة فتح التعارف</button>}<button onClick={exitDemo}>خروج</button></div>
-
+          <div className="nf-tester-bar"><strong>{tester.actor==='reham'?'رهام':'عبدالرحمن'} · اختبار خاص</strong><span>الرسائل والمكالمات مشتركة بينكما</span><select aria-label="نوع الملفات في التجربة" value={sampleProfile.gender} onChange={e=>changeDemoPool(e.target.value as Profile['gender'])}><option value="man">ملفات النساء</option><option value="woman">ملفات الرجال</option></select>{tester.actor==='abdulrahman'&&<button onClick={()=>void run(async()=>{await pair!.reset();go('chats');})}>إعادة فتح التعارف</button>}<button onClick={exitDemo}>خروج</button></div>
         </div>
       </details>}
-      {demo && !tester && !onboardingPreview && <DemoNotice onExit={exitDemo} gender={sampleProfile.gender}
-        onGenderChange={view === "application" ? undefined : changeDemoPool} />}
       {pendingPhoto && (memberAccess || waitingForLaunch || view === 'settings') && <div className="feedback" role="status">
         <span>حُفظ ملفك. بقي إكمال خطوة الصورة.</span>
         <button type="button" onClick={retryPortrait} disabled={busy}>إعادة محاولة حفظ الصورة</button>
@@ -1302,7 +1358,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       {!demo && cloudSelected && token && !socialPending && <ConductCenter key={token} owner={token}/>}
       <PublicationCenter key={demo?'demo':token??'public'} enabled={!showArrivalGuide && !demo && !tester && !loading && cloudSelected} owner={token} screen={publicationScreen}
         openedId={publicationOpen?.owner===token?publicationOpen.id:null} onConsumed={()=>setPublicationOpen(null)} navigate={go}>
-        <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>{screen}</Suspense>
+        <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>
+          {screen}
+          <MemberRouteArrival view={view} pending={routeDirection}/>
+        </Suspense>
       </PublicationCenter>
 
       {source && memberAccess && !paused && !onboardingPreview && !showArrivalGuide && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts pushOwner={tester ? 'tester:'+tester.session : !demo ? token : null} source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {

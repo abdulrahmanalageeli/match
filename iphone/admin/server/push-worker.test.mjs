@@ -28,7 +28,7 @@ test('worker drains multiple batches, rechecks rotated routes and retries lost a
     }
     return {ok:true,json:async()=>result};
   };
-  const env={CRON_SECRET:'fixture',VERCEL_ENV:'production',NISFAYN_PUSH_ENABLED:'true',NISFAYN_SERVICE_ROLE_KEY:'fixture',
+  const env={CRON_SECRET:'fixture',VERCEL_ENV:'production',NISFAYN_PUSH_ENABLED:'true',NISFAYN_WEB_PUSH_ENABLED:'true',NISFAYN_SERVICE_ROLE_KEY:'fixture',
     NISFAYN_SUPABASE_URL:'https://wupkifqbwhhebwrgvwai.supabase.co',APNS_TEAM_ID:'fixture',APNS_KEY_ID:'fixture',
     APNS_PRIVATE_KEY_BASE64:'fixture',APNS_ENVIRONMENT:'sandbox',APNS_TOPIC:'com.blindmatch.marriage'};
   const handler=vm.runInNewContext(handlerSource+';handler',{process:{env},URL,AbortSignal,Date,createHash,timingSafeEqual,fetch:rpc,

@@ -58,3 +58,43 @@ test('a reply from another member is discarded and logout clears the installatio
  assert.deepEqual(events.slice(-2),[['owner',null],['rpc','marriage_push_unregister']]);
  disposed();
 });
+
+test('an opted-in iPhone recovers from a failed device registration without another tap', async () => {
+  const timers = new Map(), calls = [], listeners = {};
+  let timerId = 0, cleanup, registrationAttempt = 0;
+  const dom = {hidden:false, addEventListener(){}, removeEventListener(){}, dispatchEvent(){}};
+  const native = {
+    status: async () => ({permission:'granted', installationId:'device', buildNumber:'1'}),
+    setOwner: async () => {},
+    consumeOpen: async () => ({notification:null}),
+    addListener: async (name, fn) => { listeners[name] = fn; return {remove(){}}; },
+    register: async () => {
+      if (++registrationAttempt === 1) throw Error('temporarily unreachable');
+      const device = {token:'opaque-token', installationId:'device', environment:'production'};
+      listeners.registration(device);
+      return device;
+    },
+  };
+  const modules = {
+    '@capacitor/core':{Capacitor:{isNativePlatform:()=>true,getPlatform:()=>'ios'},registerPlugin:()=>native},
+    react:{useRef:current=>({current}),useEffect:fn=>{cleanup=fn();}},
+    './scope':{notificationScope:async()=> 'tester-scope'},
+    '../testing/pair':{testRequest:async name=>{ calls.push(name); return {enabled:true}; }},
+    '../cloud':{}, './webPush':{},
+  };
+  const source=readFileSync(new URL('../src/notifications/push.ts',import.meta.url),'utf8').replaceAll('import.meta.env.VITE_MARRIAGE_PUSH_ENABLED',"'true'");
+  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const api={};
+  new Function('require','exports','document','window','setTimeout','clearTimeout',code)(name=>modules[name],api,dom,dom,
+    fn=>{timers.set(++timerId,fn);return timerId;},id=>timers.delete(id));
+  api.usePushNotifications('tester:session',async()=>{});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(api.pushDeviceRegistered('tester:session'),false);
+  assert.equal(timers.size,1);
+  const [retry] = timers.values(); retry();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(api.pushDeviceRegistered('tester:session'),true);
+  assert.equal(registrationAttempt,2);
+  assert.equal(calls.filter(name=>name==='push_register').length,1);
+  cleanup();
+});

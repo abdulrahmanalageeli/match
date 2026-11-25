@@ -113,7 +113,9 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   notify();return s;
  }
  function acknowledge(s:State){const latest=s.messages.filter(m=>m.sender!==account.actor).at(-1);if(!latest||acknowledging||latest.id===deliveredId)return;acknowledging=true;void testRequest('delivered',account.session,{id:latest.id}).then(()=>{deliveredId=latest.id;}).catch(()=>{}).finally(()=>{acknowledging=false;});}
- const messages=(s:State)=>s.messages.map(m=>sanitizeMessage({...m,reply:m.reply?{id:m.reply.id,body:m.reply.body,senderIsMe:m.reply.sender===account.actor,deletedAt:m.reply.deletedAt}:null,senderIsMe:m.sender===account.actor,deliveredAt:m.sender===account.actor&&s.delivered?.[peer]&&s.delivered[peer]!>=m.createdAt?s.delivered[peer]:null,readAt:m.sender===account.actor&&s.read[peer]&&s.read[peer]!>=m.createdAt?s.read[peer]:null}));
+ const messages=(s:State)=>s.messages.map(m=>sanitizeMessage({...m,reply:m.reply?{id:m.reply.id,body:m.reply.body,senderIsMe:m.reply.sender===account.actor,deletedAt:m.reply.deletedAt}:null,senderIsMe:m.sender===account.actor,
+  deliveredAt:m.sender===account.actor?(m.deliveredAt??(s.delivered?.[peer]&&s.delivered[peer]!>=m.createdAt?s.delivered[peer]:null)):null,
+  readAt:m.sender===account.actor&&s.read[peer]&&s.read[peer]!>=m.createdAt?s.read[peer]:null}));
  const permission=(s:State)=>({status:s.callPermission?.status||'none' as const,direction:s.callPermission?.invitedBy?(s.callPermission.invitedBy===account.actor?'outgoing' as const:'incoming' as const):undefined});
  const unread=(s:State)=>s.messages.filter(m=>!m.deletedAt&&m.sender!==account.actor&&(!s.read[account.actor]||m.createdAt>s.read[account.actor]!)).length;
  function requirePairHistory(s:State){if(!s.matched)throw Object.assign(Error('المحادثة غير متاحة.'),{status:403});}

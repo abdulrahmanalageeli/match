@@ -12,7 +12,7 @@
     "build:demo": "tsc --noEmit && vite build --mode demo",
     "typecheck": "tsc --noEmit",
     "test:unit": "node --experimental-strip-types --experimental-vm-modules --test tests/*.test.mjs tests/chat-viewport.test.cjs tests/swipe-reply.test.cjs src/compatibility/*.test.mjs src/beena/*.test.mjs src/onboarding/*.test.mjs src/community/*.test.mjs src/testing/*.test.mjs src/verification/*.test.mjs",
-    "ios:sync": "npm run build && cap sync ios",
+    "ios:sync": "node --experimental-strip-types scripts/configure-ios-receipts.mjs && npm run build && cap sync ios",
     "ios:open": "cap open ios"
   },
   "dependencies": {

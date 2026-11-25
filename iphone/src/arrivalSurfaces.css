@@ -12,11 +12,11 @@
 /* Match the compact discovery masthead across the other member screens. */
 .phone-app .app-screen :is(.mi-header, .mi-detail-header, .st-top),
 .phone-app .cm-shell :is(.cm-header, .cm-detail-head, .cm-chat-head) { padding-block-start: max(4px, var(--nf-safe-top)); }
-/* The tester strip and demo notice already occupy the safe area above ordinary headers. */
-.phone-app > :is(.nf-tester-tools, .demo-notice) ~ .app-screen :is(.mi-header, .mi-detail-header, .st-top),
-.phone-app > :is(.nf-tester-tools, .demo-notice) ~ .cm-shell :is(.cm-header, .cm-detail-head, .cm-chat-head) { padding-block-start: 4px; }
-.phone-app > :is(.nf-tester-tools, .demo-notice) ~ .app-screen .mp-navigation,
-.phone-app > :is(.nf-tester-tools, .demo-notice) ~ .cm-shell .mp-navigation { padding-block-start: 0; }
+/* The private tester tools occupy the safe area above ordinary headers. */
+.phone-app > .nf-tester-tools ~ .app-screen :is(.mi-header, .mi-detail-header, .st-top),
+.phone-app > .nf-tester-tools ~ .cm-shell :is(.cm-header, .cm-detail-head, .cm-chat-head) { padding-block-start: 4px; }
+.phone-app > .nf-tester-tools ~ .app-screen .mp-navigation,
+.phone-app > .nf-tester-tools ~ .cm-shell .mp-navigation { padding-block-start: 0; }
 /* The chat is fixed to the visual viewport when the keyboard is open. */
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat-head { padding-block-start: max(4px, var(--nf-safe-top)); }
 .phone-app .cm-chat-arrival-paths { opacity: .08; inset: -40px 0 0; }
@@ -471,7 +471,7 @@ html:has(.dr-directory) { overscroll-behavior-y: contain; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea { font-size: 1.0625rem; font-weight: 400; line-height: 1.5; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-meta { font-size: 0.625rem; line-height: 1.4; margin-top: 5px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { min-height: 64px; padding: max(9px, var(--nf-safe-top)) 12px 9px; gap: 8px; }
-.phone-app > :is(.nf-tester-tools, .demo-notice) ~ .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { padding-block-start: 9px; }
+.phone-app > .nf-tester-tools ~ .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { padding-block-start: 9px; }
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head { padding-block-start: max(9px, var(--nf-safe-top)); }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head .cm-chat-person-copy small { font-size: 0.6875rem; margin-top: 1px; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] { display: flex; align-items: center; gap: 5px; padding: 0 12px; min-height: 38px; background: var(--surface); }

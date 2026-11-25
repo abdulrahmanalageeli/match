@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { NativePushAction } from './NativePushAction';
 import { NewsPreference } from '../publishing/NewsPreference';
 import { Bell, Settings2 } from "../BrandIcons";
 import { disablePush, enablePush, getPushPreference, nativePush, openPushSettings, pushConfigured, pushStatus, pushSupported, pushPrivacy, type PushPreview, pushControls, defaultPushControls, type PushControls } from './push';
@@ -66,7 +67,8 @@ export function PushSettings({ owner, demo, testerSession }: { owner: string | n
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
       {owner && !demo && <NewsPreference key={owner} owner={owner}/>}
-      {available && enabled && permission==='prompt' && <button type="button" className="st-row" disabled={busy} onClick={async()=>{
+      {nativePush && available && enabled && owner && <NativePushAction key={owner} owner={owner} settings/>}
+      {!nativePush && available && enabled && permission==='prompt' && <button type="button" className="st-row" disabled={busy} onClick={async()=>{
         if(!owner)return;
         setBusy(true);setError('');
         try { await enablePush(owner);setPermission((await pushStatus()).permission); }

@@ -11,7 +11,7 @@
   background: radial-gradient(circle at 50% 8%, rgba(101,17,46,.055), transparent 27%), #faf8f7;
   color: var(--auth-ink);
 }
-.phone-app :is(.demo-notice, .nf-tester-tools) ~ main.nf-auth-frame { padding-block-start: 0; }
+.phone-app .nf-tester-tools ~ main.nf-auth-frame { padding-block-start: 0; }
 .phone-app .nf-auth-frame .flow-header {
   gap: 6px; min-height: 46px; padding-inline: 0;
   border: 0; background: transparent; font-size: 14px; color: var(--auth-muted);

@@ -26,7 +26,7 @@ workflows:
           cd "$CM_BUILD_DIR/iphone"
           node scripts/check-ios-icons.mjs
           export VITE_MARRIAGE_ENV="${VITE_MARRIAGE_ENV:-production}"
-          node --experimental-strip-types --input-type=module -e 'import { resolveDeployment } from "./src/deployment.ts"; const { VITE_MARRIAGE_ENV:mode, VITE_MARRIAGE_SUPABASE_URL:url, VITE_MARRIAGE_SUPABASE_PUBLISHABLE_KEY:key } = process.env; if (!resolveDeployment({mode,url,key}).ready) throw Error("Invalid membership backend for this build");'
+          node --experimental-strip-types scripts/configure-ios-receipts.mjs
           npm run build
           npx cap sync ios
       - name: Resolve native Swift packages
@@ -49,6 +49,21 @@ workflows:
           set -euo pipefail
           cd "$CM_BUILD_DIR/iphone/ios/App"
           xcode-project build-ipa --project App.xcodeproj --scheme App
+          # Both targets need their own distribution profile in the signed archive.
+          python3 - <<'PY'
+          from pathlib import Path
+          from plistlib import loads
+          from zipfile import ZipFile
+          ipa, = Path("build/ios/ipa").glob("*.ipa")
+          with ZipFile(ipa) as archive:
+              app, = (name for name in archive.namelist() if name.startswith("Payload/") and name.endswith(".app/Info.plist") and name.count("/") == 2)
+              extension = app.removesuffix("Info.plist") + "PlugIns/MessageReceipt.appex/"
+              host, receipt = loads(archive.read(app)), loads(archive.read(extension + "Info.plist"))
+              assert archive.read(extension + "embedded.mobileprovision") and archive.read(extension + "_CodeSignature/CodeResources")
+              assert receipt["CFBundleVersion"] == host["CFBundleVersion"]
+              assert receipt["CFBundleIdentifier"] == host["CFBundleIdentifier"] + ".MessageReceipt"
+              assert receipt["ReceiptURL"].startswith("https://") and receipt["ReceiptPublicKey"].startswith("sb_publishable_")
+          PY
     artifacts:
       - iphone/ios/App/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log

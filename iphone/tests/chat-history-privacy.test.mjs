@@ -38,3 +38,19 @@ test('denied historical authorization clears loaded content and private drafts',
  const m=mount();m.render();await settle();let view=m.render();await view.older();view=m.render();view.outbox.write('private draft');m.render();
  m.setFail(Object.assign(Error('closed'),{status:403}));await m.refresh();view=m.render();assert.equal(view.ready,false);assert.equal(view.rows.length,0);assert.equal(view.outbox.read().draft,'');m.cleanup();
 });
+
+test('an open sender thread shows a recipient device acknowledgement on its existing update subscription',async()=>{
+ const m=mount(),message=m.list.at(-1);
+ message.senderIsMe=true;
+ m.render();await settle();
+ const outgoing=()=>m.render().rows.find(row=>row.id===message.id);
+ assert.equal(outgoing().deliveredAt,undefined);
+ message.deliveredAt='2026-11-25T08:00:00.000Z';
+ await m.refresh();
+ assert.equal(outgoing().deliveredAt,message.deliveredAt);
+ assert.ok(!outgoing().readByPeer);
+ delete message.deliveredAt;
+ await m.refresh();
+ assert.ok(outgoing().deliveredAt,'a stale refresh cannot reverse delivery');
+ m.cleanup();
+});

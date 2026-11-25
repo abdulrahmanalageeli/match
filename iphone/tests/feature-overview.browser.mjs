@@ -30,9 +30,12 @@ try {
     for (let chapter = 0; chapter < 4; chapter++) {
       const tab = guide.locator('nav button').nth(chapter);
       assert.equal(await tab.getAttribute('aria-current'), 'step');
-      const disclosure = guide.getByRole('button', { expanded: false }).last();
-      await disclosure.click();
-      assert.equal(await guide.locator('.wd-overview-topics p:visible').count(), 1);
+      const shot=guide.locator('.wd-overview-screen--current');
+      await shot.evaluate(img=>img.decode());
+      assert.ok(await shot.evaluate(img=>img.naturalWidth>=390 && img.naturalHeight>=844 && !!img.alt));
+      assert.equal(await shot.evaluate(img=>img.getAnimations().length),0);
+      assert.equal(await guide.locator('.wd-overview-points li').count(), 3);
+      assert.ok(await shot.evaluate(img=>Math.abs((img.clientWidth/img.clientHeight)-(img.naturalWidth/img.naturalHeight))<.01),'whole screenshot is visible without cropping');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
       await page.screenshot({ animations: 'disabled', path: resolve(output, `chapter-${chapter}-${width}.png`) });
       await guide.locator('footer .f-primary').click();
@@ -47,9 +50,24 @@ try {
     await welcome.waitFor();
     assert.equal(await guide.count(), 0);
     await welcome.getByRole('button', { name: 'جولة في وُدَين' }).click();
-    await guide.getByRole('button', { name: 'العضويات', exact: true }).click();
+    if (width===393) {
+      await page.emulateMedia({reducedMotion:'no-preference'});
+      const frames=await guide.evaluate(async node=>{
+        node.querySelectorAll('nav button')[1].click();
+        const samples=[];
+        for(let i=0;i<20;i++){
+          await new Promise(requestAnimationFrame);
+          const screen=node.querySelector('.wd-overview-screen--current');
+          samples.push(getComputedStyle(screen).transform+' '+getComputedStyle(screen).opacity);
+        }
+        return samples;
+      });
+      assert.ok(new Set(frames).size>4,'switching chapters visibly animates the full scene');
+      await page.emulateMedia({reducedMotion:'reduce'});
+    }
+    await guide.getByRole('button', { name: /العضويات/ }).click();
     await guide.getByRole('button', { name: 'السابق' }).click();
-    assert.equal(await guide.getByRole('button', { name: 'الخصوصية', exact: true }).getAttribute('aria-current'), 'step');
+    assert.equal(await guide.getByRole('button', { name: /الخصوصية/ }).getAttribute('aria-current'), 'step');
     await guide.getByRole('button', { name: 'تخطّي الجولة' }).click();
     await welcome.waitFor();
     assert.deepEqual(errors, []);

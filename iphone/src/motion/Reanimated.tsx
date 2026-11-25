@@ -101,7 +101,7 @@ const ButtonHost = forwardRef<HTMLButtonElement, ButtonHostProps>(function Butto
 });
 const AnimatedButton = Animated.createAnimatedComponent(ButtonHost);
 
-/** Native button semantics, with quiet 120ms Reanimated press compression. */
+/** Native button semantics with separate touch-down and release curves. */
 const AnimatedMotionPressButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(function AnimatedMotionPressButton({
   disabled, type = 'button', style, onPointerDown, onPointerUp, onPointerCancel,
   onPointerLeave, onKeyDown, onKeyUp, onBlur, ...props
@@ -111,10 +111,10 @@ const AnimatedMotionPressButton = forwardRef<HTMLButtonElement, ButtonHTMLAttrib
   const reduced = value.reducedMotion || systemReduced;
   const scale = useSharedValue(1);
   const settle = () => {
-    scale.value = reduced || disabled || document.hidden ? 1 : withTiming(1, { duration: 120 });
+    scale.value = reduced || disabled || document.hidden ? 1 : withTiming(1, { duration: 190, easing: Easing.bezier(.2,.8,.25,1) });
   };
   const press = () => {
-    if (!disabled && !reduced && !document.hidden) scale.value = withTiming(.97, { duration: 120 });
+    if (!disabled && !reduced && !document.hidden) scale.value = withTiming(.97, { duration: 75, easing: Easing.out(Easing.quad) });
   };
   useEffect(() => {
     const finish = () => { cancelAnimation(scale); scale.value = 1; };

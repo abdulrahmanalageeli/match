@@ -43,6 +43,9 @@ let agreement: SeriousnessAgreement = {
 };
 let failNextSend = params.has('interrupt');
 const source:CommunitySource = {...base,
+ conversationPilot: async () => params.has('feedback')
+   ? {initialOpen:true, followupOpen:false, followupTalked:null, answer:null, mutualContinue:false}
+   : null,
  ...(params.has('interrupt') ? {
    demoAcceptOutgoing: undefined,
    profileVisible: async () => {

@@ -1540,9 +1540,13 @@ export function Chat({
   }
   useLayoutEffect(() => {
     if (!screen.current) return;
-    return lockChatViewport(screen.current, () => {
+    const keepLatestVisible = () => {
       if (reading.positioned && atBottom.current && log.current) log.current.scrollTop = log.current.scrollHeight;
-    });
+    };
+    const unlock = lockChatViewport(screen.current, keepLatestVisible);
+    const observer = new ResizeObserver(keepLatestVisible);
+    if (log.current) observer.observe(log.current);
+    return () => { observer.disconnect(); unlock(); };
   }, [profileOpen, familyOpen, conversationAllowed, reading.positioned]);
   useLayoutEffect(() => {
     if (!reading.positioned) return;
@@ -1745,15 +1749,17 @@ export function Chat({
         </div>
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
       </div>
+      {source.conversationPilot && <div className="cm-chat-feedback">
+        <ConversationPilotFeedback requestId={connection.id} respond={source.conversationPilot}
+          expanded={openFeedback} showUnavailable={openFeedback} resumeChat={()=>composer.current?.focus()}/>
+      </div>}
       {canDraft && <ChatComposer outbox={thread.outbox} composer={composer} canSend={canSend} conversationAllowed={conversationAllowed}
         typing={typing} onSubmit={submit} name={connection.person.alias}>
         <ChatMediaComposer source={source} requestId={connection.id} disabled={!canSend || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} sent={() => { atBottom.current = true; thread.refresh(); }}/>
       </ChatComposer>}
       <div className="cm-chat-plan" data-ready>
         {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
-        {!thread.accessDenied && <ConversationAgreement key={connection.id} peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
-        {source.conversationPilot && <ConversationPilotFeedback key={connection.id} requestId={connection.id}
-          respond={source.conversationPilot} expanded={openFeedback} showUnavailable={openFeedback} resumeChat={()=>composer.current?.focus()}/>}
+        {agreementSlot && !thread.accessDenied && <ConversationAgreement peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
         <button className="cm-end-visible" type="button" aria-label="إنهاء التعارف" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}><span>إنهاء</span></button>
       </div>
       <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة للتفاعل أو الرد أو الحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>

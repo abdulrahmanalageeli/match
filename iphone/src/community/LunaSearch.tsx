@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {Search, Sparkles, ArrowRight, LockKeyhole, CircleHelp} from '../BrandIcons';
+import {Search, Sparkles, ArrowRight, LockKeyhole} from '../BrandIcons';
 import {useMembershipAccess} from '../membership/access';
 import type {LunaResults} from './lunaSearchClient';
 import type {CommunitySource, Filters, PublicPerson} from './data';
@@ -57,8 +57,8 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
   }
   return <section className="luna-search" aria-label="البحث مع لونا">
     <button className="luna-search-entry" type="button" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>
-      <span className="luna-search-orb"><Sparkles size={18}/></span>
-      <span className="luna-search-title"><strong>ابحث مع لونا</strong><CircleHelp size={14} aria-hidden="true"/></span>
+      <span className="luna-search-orb"><img src="/brand/wudayn-emblem-v2.png" width="22" height="22" alt=""/></span>
+      <span className="luna-search-title"><strong>ابحث مع لونا</strong><img className="luna-search-info-mark" src="/brand/wudayn-guide-info-cursive.png" width="13" height="13" alt=""/></span>
       <span className="luna-search-access" data-unlocked={tier==='seriousness'||undefined}>
         {tier==='seriousness'?<Search size={17}/>:<><LockKeyhole size={14}/><small>وسام الجدية</small></>}
       </span>

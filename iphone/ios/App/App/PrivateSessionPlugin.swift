@@ -199,10 +199,12 @@ final class WudaynPrivacyNote: UIView {
     let detail = UILabel()
     let button = UIButton(type: .system)
     private let profileLock = UIImageView()
+    private let chatArtwork = UIImageView()
     private let wordmark = UILabel()
     func setArtwork(for scope: CaptureScope, isScreenshotBacking: Bool = false) {
         let profileNote = isScreenshotBacking && scope == .profile
         let showsText = profileNote || scope == .publicScreen
+        chatArtwork.isHidden = scope != .chat || chatArtwork.image == nil
         profileLock.isHidden = scope != .profile
         wordmark.isHidden = !showsText
         heading.isHidden = !showsText
@@ -299,6 +301,17 @@ final class WudaynPrivacyNote: UIView {
             stack.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 28),
             stack.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -28)
         ])
+        if let url = Bundle.main.url(forResource: "wudayn-chat-privacy", withExtension: "webp", subdirectory: "public/brand"),
+           let image = UIImage(contentsOfFile: url.path) {
+            chatArtwork.image = image
+            chatArtwork.frame = bounds
+            chatArtwork.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            chatArtwork.contentMode = .scaleAspectFill
+            chatArtwork.clipsToBounds = true
+            chatArtwork.isHidden = true
+            chatArtwork.isUserInteractionEnabled = false
+            addSubview(chatArtwork)
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

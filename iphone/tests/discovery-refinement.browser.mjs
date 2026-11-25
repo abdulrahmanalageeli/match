@@ -189,7 +189,11 @@ try{
  await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة',pressed:false}).waitFor();
  await page.evaluate(()=>window.__failInterest=true);await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await page.getByRole('alert').waitFor();
  assert.equal(await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).getAttribute('aria-pressed'),'false');
- await page.evaluate(()=>window.__failInterest=false);await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة',pressed:true}).waitFor();assert.equal((await first.locator('.dr-row-interest').innerText()).trim(),'مهتم');
+ await page.evaluate(()=>window.__failInterest=false);
+ await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة',exact:true,pressed:false}).click();
+ const selectedInterest=first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة',exact:true,pressed:true});
+ await selectedInterest.waitFor();
+ assert.equal(await selectedInterest.locator('svg').getAttribute('fill'),'currentColor');
  for(const width of [320,375,393,430,768]){
    await page.setViewportSize({width,height:844});await page.screenshot({path:resolve(output,'rows-'+width+'.png'),fullPage:true});
    assert(await page.evaluate(width=>document.documentElement.scrollWidth<=width+1,width),'rows should not overflow at '+width);

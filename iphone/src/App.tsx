@@ -225,6 +225,19 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [live, setLive] = useState<AccountState | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [dismissedReceipts, setDismissedReceipts] = useState<string[]>([]);
+  const sentReceiptAcks = useRef(new Set<string>());
+  const membershipReceipt = live?.membershipNotice;
+  const receiptDismissed = Boolean(membershipReceipt && dismissedReceipts.includes(membershipReceipt.id));
+  useEffect(() => {
+    if (!membershipReceipt || !receiptDismissed || !token || live?.user.id !== token) return;
+    const id = membershipReceipt.id;
+    const sent = sentReceiptAcks.current;
+    if (sent.has(id)) return;
+    sent.add(id);
+    // A failed acknowledgement can retry when the next account refresh returns the receipt.
+    void callRpc('wudayn_ack_membership_notice', { notice_id: id }, token).catch(() => sent.delete(id));
+  }, [membershipReceipt, receiptDismissed, token, live?.user.id]);
   const [entryReceipt, setEntryReceipt] = useState<{ owner: string; value: SignupAgreements | null } | null>(null);
   const [notificationSetupOwner,setNotificationSetupOwner]=useState<string|null>(null);
   const completeNotificationSetup=useCallback(()=>setNotificationSetupOwner(token),[token]);
@@ -262,7 +275,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const pendingScroll = useRef<number | null>(null);
   const routeDirection = useRef(0);
   const routeExit = useRef<Animation | null>(null);
-  const pendingView = useRef<View | null>(null);
   const [demo, setDemo] = useState(Boolean(tester));
   const [sampleIndex, setSampleIndex] = useState(0);
   const [sampleStatus, setSampleStatus] =
@@ -404,6 +416,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
 
   function remember(t: string | null, draftCleared = false) {
     if (tokenRef.current !== t) {
+      setDismissedReceipts([]);
+      sentReceiptAcks.current = new Set();
       void syncNativePushOwner(t).catch(()=>{});
       if (liveDraftOwner.current && !draftCleared) {
         void (cloudSelected ? releaseIntake(liveDraftOwner.current) : discardLocalIntake(liveDraftOwner.current)).catch(() => {
@@ -418,7 +432,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     version.current++;
   }
   function go(next: View) {
-    if (next === view || pendingView.current) return;
+    if (next === view || routeExit.current) return;
     // Capture the outgoing tab before replacing it; never visibly scroll that page.
     window.dispatchEvent(new Event('nisfayn:before-navigation'));
     const tab = (value: View) => value === 'main' ? 'discover' : value;
@@ -428,9 +442,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     const from = memberNavigationOrder[view], to = memberNavigationOrder[next];
     routeDirection.current = memberAccess && from !== undefined && to !== undefined ? Math.sign(to - from) : 0;
     const commit = () => {
-      routeExit.current?.cancel();
-      routeExit.current = null;
-      pendingView.current = null;
       navigationVersion.current++;
       setFromIntake(false);
       setView(next);
@@ -442,13 +453,25 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     const reduced = document.hidden || document.documentElement.dataset.nfMotion === 'reduced' ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (!memberAccess || !routeDirection.current || !content?.animate || reduced) { commit(); return; }
-    pendingView.current = next;
     const x = routeDirection.current * 13;
-    routeExit.current = content.animate([
+    const duration = 145;
+    const navigationOwner = tokenRef.current;
+    const animation = content.animate([
       { opacity: 1, transform: 'translate3d(0,0,0) scale(1)', filter: 'blur(0)', clipPath: 'inset(0 round 0)' },
       { opacity: .72, transform: `translate3d(${x}px,-2px,0) scale(.994)`, filter: 'blur(2px)', clipPath: `inset(0 ${routeDirection.current > 0 ? '0 0 4%' : '4% 0 0'} round 14px)` },
-    ], { duration: 145, easing: 'cubic-bezier(.4,0,.75,.3)', fill: 'forwards' });
-    routeExit.current.onfinish = commit;
+    ], { duration, easing: 'cubic-bezier(.4,0,.75,.3)', fill: 'forwards' });
+    routeExit.current = animation;
+    const finish = () => {
+      if (routeExit.current !== animation) return;
+      window.clearTimeout(fallback);
+      routeExit.current = null;
+      animation.onfinish = animation.oncancel = null;
+      animation.cancel();
+      if (mounted.current && viewRef.current === view && tokenRef.current === navigationOwner) commit();
+    };
+    // WebKit can suspend an exit animation before delivering either animation event.
+    const fallback = window.setTimeout(finish, duration + 100);
+    animation.onfinish = animation.oncancel = finish;
   }
   useLayoutEffect(() => {
     const top = pendingScroll.current;
@@ -1341,9 +1364,11 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const deviceOfferOwner = tester ? 'tester:' + tester.actor : !demo && token && live ? live.user.id : null;
   if(showArrivalGuide) screen=<FeatureOverview close={closeArrivalGuide}/>;
   if(onboardingPreview)screen=<OnboardingSandbox close={()=>{setOnboardingPreview(false);window.scrollTo(0,0);}}/>;
+  const showMembershipNotices = !demo && !loading && !socialPending && !showArrivalGuide && Boolean(live);
+  const giftReceipt = showMembershipNotices && !receiptDismissed ? membershipReceipt : null;
   return (
     <MembershipAccess.Provider value={{premium:active,tier,demo,connectionLimit:live?.membership.connectionLimit??(active?2:1),upgrade:openMembership,gift:giftingAvailable?openGifts:undefined,giftAttention}}>
-    {ios && deviceOfferOwner && canShowArrivalPrompt && !showArrivalGuide &&
+    {ios && deviceOfferOwner && canShowArrivalPrompt && !showArrivalGuide && !giftReceipt && !dismissedReceipts.length &&
       <DeviceUnlockOffer key={deviceOfferOwner} owner={deviceOfferOwner}/>}
     <SupportProvider key={demo ? 'demo-' + sampleSession : token} source={supportSource} onReview={live?.user.id && !demo ? (chapter,field)=>{setSupportField({owner:live.user.id,chapter,field});setApplicationChapter(chapter);go("application");} : undefined}>
     <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${memberAccess}`}
@@ -1367,8 +1392,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           </button>
         </div>
       )}
-      {!demo&&live&&<MembershipChangeNotice key={live.user.id} tier={tier} receipt={live.membershipNotice}
-        ack={id=>{const owner=live.user.id;void callRpc('wudayn_ack_membership_notice',{notice_id:id},owner).then(()=>refresh(owner,true)).catch(()=>{});}}/>}
+      {showMembershipNotices&&live&&<MembershipChangeNotice key={live.user.id} tier={tier} receipt={giftReceipt}
+        ack={id=>setDismissedReceipts(previous=>previous.includes(id)?previous:[...previous,id])}/>}
       {notice && (
         <div className="feedback" role="status">
           {notice}

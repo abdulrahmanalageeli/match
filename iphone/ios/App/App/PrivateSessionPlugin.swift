@@ -2,6 +2,7 @@ import Capacitor
 import Foundation
 import Security
 import UIKit
+import WebKit
 import LocalAuthentication
 
 @objc(PrivateSessionPlugin)
@@ -18,10 +19,14 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "privacyConfigure", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setCaptureScope", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setScreenshotContext", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showScreenshotGlow", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "discoveryPortrait", returnType: CAPPluginReturnPromise)
     ]
 
     private var screenshotContext: UUID?
+    private weak var activeGlow: UIImageView?
+    private lazy var glowImage = UIImage(named: "ScreenshotGlow")?.resizableImage(
+        withCapInsets: UIEdgeInsets(top: 60, left: 60, bottom: 60, right: 60), resizingMode: .stretch)
 
     override func load() {
         NotificationCenter.default.addObserver(self, selector: #selector(didTakeScreenshot),
@@ -44,13 +49,43 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc private func didTakeScreenshot() {
-        guard let context = screenshotContext, NisfaynPrivacy.shared.mayReportChatScreenshot,
-              let controller = bridge?.viewController, controller.presentedViewController == nil,
+        guard NisfaynPrivacy.shared.mayOpen, let controller = bridge?.viewController,
               let window = controller.viewIfLoaded?.window, window.isKeyWindow,
               window.windowScene?.activationState == .foregroundActive
         else { return }
+        bridge?.webView?.evaluateJavaScript("document.documentElement.dataset.nfMotion === 'reduced'") { [weak self] value, _ in
+            self?.pulseEdge(reducedMotion: value as? Bool ?? true)
+        }
+        guard let context = screenshotContext, NisfaynPrivacy.shared.mayReportChatScreenshot,
+              controller.presentedViewController == nil else { return }
         notifyListeners("chatScreenshot", data: ["context": context.uuidString.lowercased(),
                                                   "eventId": UUID().uuidString.lowercased()])
+    }
+
+    @objc func showScreenshotGlow(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.pulseEdge(reducedMotion: call.getBool("reducedMotion") ?? false)
+            call.resolve()
+        }
+    }
+
+    private func pulseEdge(reducedMotion: Bool) {
+        guard activeGlow == nil, NisfaynPrivacy.shared.mayOpen,
+              let window = bridge?.viewController?.viewIfLoaded?.window, window.isKeyWindow,
+              window.windowScene?.activationState == .foregroundActive, let image = glowImage else { return }
+        let glow = UIImageView(image: image)
+        glow.frame = window.bounds
+        glow.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        glow.isUserInteractionEnabled = false
+        glow.accessibilityElementsHidden = true
+        glow.alpha = 0
+        window.addSubview(glow)
+        activeGlow = glow
+        let quiet = reducedMotion || UIAccessibility.isReduceMotionEnabled
+        UIView.animateKeyframes(withDuration: quiet ? 0.5 : 0.85, delay: 0, options: [.calculationModeCubic], animations: {
+            UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.22) { glow.alpha = quiet ? 0.32 : 0.95 }
+            UIView.addKeyframe(withRelativeStartTime: 0.28, relativeDuration: 0.72) { glow.alpha = 0 }
+        }, completion: { _ in glow.removeFromSuperview() })
     }
 
     @objc func appearance(_ call: CAPPluginCall) {

@@ -17,8 +17,9 @@ try {
   const sender=await context.newPage(), peer=await context.newPage(), errors=[];
   for(const page of [sender,peer]) page.on('pageerror',error=>errors.push(error.message));
   await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
-  await sender.addInitScript(() => {
-    window.CapacitorCustomPlatform={name:'ios'};
+  const mockPlatform = platform => {
+    window.CapacitorCustomPlatform={name:platform};
+    window.__glows=0;
     const listeners = new Map();
     window.__emitCapture=(context=window.__visibleChat) => {
       const eventId=crypto.randomUUID();
@@ -27,11 +28,12 @@ try {
     };
     window.Capacitor={
       PluginHeaders:[{name:'PrivateSession',methods:[
-        ...['setScreenshotContext','setCaptureScope','read','save','clear'].map(name=>({name,rtype:'promise'})),
+        ...['setScreenshotContext','setCaptureScope','showScreenshotGlow','read','save','clear'].map(name=>({name,rtype:'promise'})),
         ...['addListener','removeListener'].map(name=>({name,rtype:'callback'})),
       ]}],
       nativePromise:async(_plugin,method,options)=>{
         if(method==='read')return {token:null};
+        if(method==='showScreenshotGlow')window.__glows++;
         if(method==='setScreenshotContext'){
           if(options.active)window.__visibleChat=options.context;
           else if(window.__visibleChat===options.context)window.__visibleChat=null;
@@ -44,7 +46,9 @@ try {
         return id;
       },
     };
-  });
+  };
+  await sender.addInitScript(mockPlatform,'ios');
+  await peer.addInitScript(mockPlatform,'web');
   const base=server.resolvedUrls.local[0]+'tests/fixtures/chat-privacy-qa.html?case=notice&captures&actor=';
   await Promise.all([sender.goto(base+'reham'),peer.goto(base+'abdulrahman')]);
   const open = page => page.getByRole('button',{name:/فتح المحادثة مع/}).first();
@@ -93,6 +97,42 @@ try {
   await sender.evaluate(previous=>window.__emitCapture(previous),old);
   const stored=await sender.evaluate(()=>JSON.parse(localStorage.getItem('nisfayn-local-chat-privacy-qa-notice-captures')||'[]'));
   assert.deepEqual(stored.map(row=>[row.requestId,row.id]),[['local-privacy-qa',event]]);
+  const nativePeer=await context.newPage();
+  nativePeer.on('pageerror',e=>errors.push(e.message));
+  await nativePeer.addInitScript(mockPlatform,'ios');
+  await nativePeer.goto(base+'abdulrahman');
+  await nativePeer.bringToFront();
+  await nativePeer.locator('button[data-kind=screenshot]').click();
+  await nativePeer.waitForFunction(()=>!!window.__visibleChat);
+  const notice=page=>page.locator('.cm-chat-capture-event time');
+  await notice(nativePeer).waitFor();
+  assert.equal(await nativePeer.evaluate(()=>window.__glows),0,'opening a recent alert is history');
+  const store='nisfayn-local-chat-privacy-qa-notice-captures';
+  async function receive(page) {
+    const timestamp=await sender.evaluate(key=>{
+      const rows=JSON.parse(localStorage.getItem(key));
+      const createdAt=new Date().toISOString();
+      rows.push({requestId:'local-privacy-qa',sender:'reham',id:crypto.randomUUID(),createdAt});
+      localStorage.setItem(key,JSON.stringify(rows));
+      return createdAt;
+    },store);
+    await page.waitForFunction(at=>document.querySelector('.cm-chat-capture-event time')?.dateTime===at,timestamp,{timeout:15000});
+    assert.equal(await notice(page).count(),1,'one chat notice remains after refreshing the thread');
+  }
+  await receive(nativePeer);
+  assert.equal(await nativePeer.evaluate(()=>window.__glows),1,'a new peer capture triggers one native glow');
+  await nativePeer.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'nisfayn-local-chat-privacy-qa-notice-captures'})));
+  await nativePeer.getByRole('button',{name:'رجوع',exact:true}).click();
+  await open(nativePeer).click();
+  await notice(nativePeer).waitFor();
+  assert.equal(await nativePeer.evaluate(()=>window.__glows),1,'refresh and reopening do not replay the glow');
+  await nativePeer.evaluate(()=>{const sheet=document.createElement('dialog');sheet.id='test-sheet';document.body.append(sheet);sheet.showModal();});
+  await receive(nativePeer);
+  await nativePeer.evaluate(()=>document.querySelector('#test-sheet').remove());
+  assert.equal(await nativePeer.evaluate(()=>window.__glows),1,'a modal suppresses the glow');
+  await peer.bringToFront();
+  await receive(peer);
+  assert.equal(await peer.evaluate(()=>window.__glows),0,'a browser receives the notice without native feedback');
   assert.deepEqual(errors,[]);
-  console.log('Verified callback routing, cover and navigation suppression, retry, peer notification and layout at 320, 390 and 430px.');
+  console.log('Verified screenshot routing, retry, peer notifications, iOS-only live glow, modal/replay suppression, and layout at 320, 390 and 430px.');
 } finally {await browser.close();await server.close();}

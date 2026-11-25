@@ -19,6 +19,7 @@ interface SecureSessionPlugin {
   setAppearance(options: { icon?: string; callerName?: boolean }): Promise<DeviceAppearance>;
   setCaptureScope(options: {scope: 'discovery' | 'profile' | 'chat' | 'public'; portraitOnly: boolean}): Promise<void>;
   setScreenshotContext(options: { context: string; active: boolean }): Promise<void>;
+  showScreenshotGlow(options: { reducedMotion: boolean }): Promise<void>;
   addListener(event: 'chatScreenshot', listener: (event: { context: string; eventId: string }) => void): Promise<PluginListenerHandle>;
   discoveryPortrait(options: PortraitPlacement): Promise<{ placed: boolean }>;
 }
@@ -28,6 +29,12 @@ export { native as nativeSession };
 const useKeychain = () =>
   Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 const key = "marriage.session";
+
+export function showScreenshotGlow() {
+  if (useKeychain() && !document.hidden) {
+    void native.showScreenshotGlow({ reducedMotion: document.documentElement.dataset.nfMotion === 'reduced' }).catch(() => {});
+  }
+}
 
 export function placeDiscoveryPortrait(options: PortraitPlacement) {
   return native.discoveryPortrait(options).catch(() => ({ placed: false }));

@@ -38,6 +38,13 @@ window.__state=JSON.parse(sessionStorage.getItem(id)||'null')??{
  user:{id,email:id+'@example.test',applicationStatus:journey==='pending'?'pending':'draft',appAccountToken:'account-'+id,paused:false},
  profile:journey==='pending'?{...demoProfile,gender}:null,membership:{active:false,canStart:false,tier:'free',connectionLimit:1,status:'free',expiresAt:null},introduction:null
 };
+if(journey==='gift'){
+ window.__state.user.applicationStatus='approved';
+ window.__state.profile={...demoProfile,gender};
+ window.__state.membership={active:true,status:'granted',tier:'premium',connectionLimit:2};
+ window.__state.membershipNotice={id:'fixture-grant',source:'staff',kind:'grant',tier:'premium',
+  startsAt:new Date(Date.now()-86400000).toISOString(),endsAt:new Date(Date.now()+30*86400000).toISOString()};
+}
 window.__holdFinalization=journey==='verified';
 window.__failFinalization=journey==='recovery'&&!sessionStorage.getItem('photo-retry');
 window.__calls=[];window.__issued=null;window.__purchaseMode='cancel';
@@ -67,6 +74,12 @@ function answer(name,params){
  switch(name){
   case 'marriage_social_onboarding_status':return {required:false};
   case 'marriage_state':return structuredClone(member);
+  case 'wudayn_ack_membership_notice':
+   window.__calls.push({action:'ack',id:params.notice_id});
+   return new Promise((resolve,reject)=>{
+    window.__failGiftAck=()=>reject(Error('Offline'));
+    window.__acceptGiftAck=()=>{member.membershipNotice=null;resolve(null);};
+   });
   case 'marriage_onboarding_draft':
    if(params.command==='save')window.__draft=structuredClone(params.payload);
    if(params.command==='delete')window.__draft=null;
@@ -241,8 +254,10 @@ async function captureDiscovery(page,filename){
  assert.deepEqual(layout,{atTop:true,identityVisible:true,opacity:'1',aligned:true,controlsUsable:true,hitboxPosition:'absolute',hitboxBorder:'none',coversCard:true});
  await page.screenshot({path:resolve(output,filename)});
 }
-try{
+async function runChecks(){
  browser=await chromium.launch({headless:true,channel:'chrome'});
+ await checkGiftReceipt();
+ if(process.argv.includes('--gift-receipt'))return;
  for(const [gender,plan,productId,expectedPrice,peer] of [
   ['man','premium','com.blindmatch.marriage.monthly.men','149.99 SAR','سارة'],
   ['woman','seriousness','com.blindmatch.marriage.monthly.seriousness.women','199.99 SAR','سعود']
@@ -338,4 +353,85 @@ try{
   }catch(error){console.error(journey,errors,external,await page.locator('body').innerText().catch(()=>''));throw error;}
   finally{await page.close();}
  }
-}finally{await browser?.close();await server.close();}
+}
+
+async function checkGiftReceipt(){
+ const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,locale:'ar-SA'});
+ const {errors,external}=await localPage(page);
+ try {
+  await page.addInitScript(()=>{
+   window.CapacitorCustomPlatform={name:'ios'};
+   window.Capacitor={
+    PluginHeaders:[{name:'PrivateSession',methods:['read','save','clear','privacyStatus','setCaptureScope'].map(name=>({name,rtype:'promise'}))}],
+    async nativePromise(plugin,method){
+     if(method==='read')return {token:null};
+     if(method==='privacyStatus')return {available:true,enabled:false,delay:60,biometry:'Face ID'};
+     return {};
+    }
+   };
+   window.__closedGift=[];
+   const close=HTMLDialogElement.prototype.close;
+   HTMLDialogElement.prototype.close=function(...args){
+    if(this.open&&this.matches('.wd-membership-receipt'))window.__closedGift.push(this.isConnected);
+    return close.apply(this,args);
+   };
+  });
+  await page.goto('http://127.0.0.1:5294/__app-state?journey=gift',{waitUntil:'domcontentloaded'});
+  const guide=page.locator('.wd-overview'), gift=page.locator('dialog.wd-membership-receipt[open]');
+  const unlock=page.locator('dialog.device-unlock-offer[open]');
+  await guide.waitFor();
+  assert.equal(await gift.count(),0,'the gift waits for the first-open tour');
+  await guide.getByRole('button',{name:'تخطّي الجولة'}).tap();
+  await gift.getByText('هدية عضوية من وُدَين').waitFor();
+  assert.equal(await unlock.count(),0,'Face ID waits for the gift');
+  await gift.getByRole('button',{name:'متابعة',exact:true}).tap();
+  await gift.waitFor({state:'detached'});
+  assert.deepEqual(await page.evaluate(()=>window.__closedGift),[true],'release the modal before detaching its element');
+  assert.equal(await unlock.count(),0,'Continue returns to the app without another startup dialog');
+  const directory=page.locator('.df-discovery');
+  const all=directory.getByRole('button',{name:'جميع الملفات',exact:true});
+  await all.tap();
+  await directory.locator('.dr-row-profile').first().waitFor();
+  assert.deepEqual(await page.evaluate(()=>window.__calls.filter(c=>c.action==='ack').map(c=>c.id)),['fixture-grant']);
+  await page.evaluate(()=>window.__failGiftAck());
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await page.waitForFunction(()=>window.__calls.filter(c=>c.action==='ack'&&c.id==='fixture-grant').length===2);
+  await directory.getByRole('button',{name:'ترشيحات لك',exact:true}).tap();
+  await directory.getByRole('button',{name:'عرض ملف سارة',exact:true}).waitFor();
+  assert.equal(await gift.count(),0,'a failed acknowledgement and a stale refresh do not reopen the receipt');
+  await page.evaluate(()=>window.__acceptGiftAck());
+  async function interruptExit(action,button){
+   await page.evaluate(action=>{
+    window.__interruptedExit=false;
+    document.addEventListener('click',()=>{
+     const exit=document.getAnimations().find(animation=>animation.effect?.getKeyframes().some(frame=>frame.clipPath?.includes('14px')));
+     if(exit){exit[action]();window.__interruptedExit=true;}
+    },{once:true});
+   },action);
+   await button.tap();
+   assert.equal(await page.evaluate(()=>window.__interruptedExit),true,'the tab exit animation was interrupted');
+  }
+  const nav=page.getByRole('navigation',{name:'التنقل الرئيسي'});
+  await interruptExit('cancel',nav.getByRole('button',{name:'الإشعارات',exact:true}));
+  await page.getByRole('heading',{name:'الإشعارات',exact:true}).waitFor();
+  await interruptExit('pause',nav.getByRole('button',{name:'استكشف',exact:true}));
+  await directory.waitFor();
+  await page.evaluate(()=>{
+   window.__state.membershipNotice={id:'fixture-peer-gift',source:'member',tier:'premium',kind:'grant',
+     startsAt:new Date(Date.now()-86400000).toISOString(),endsAt:new Date(Date.now()+30*86400000).toISOString()};
+   window.dispatchEvent(new Event('focus'));
+  });
+  await gift.getByText('وصلتك هدية عضوية').waitFor();
+  await gift.getByRole('button',{name:'متابعة',exact:true}).tap();
+  await page.waitForFunction(()=>window.__calls.some(c=>c.action==='ack'&&c.id==='fixture-peer-gift'));
+  await page.evaluate(()=>window.__acceptGiftAck());
+  await all.tap();
+  await directory.locator('.dr-row-profile').first().waitFor();
+  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+  console.log('PASS returning member: tour, gifted membership, Face ID, delayed/failed acknowledgement and interrupted tab navigation without reopening the app');
+ } catch(error){
+  console.error('Gift receipt fixture',errors,external,await page.locator('body').innerText().catch(()=>''));
+  throw error;
+ } finally {await page.close();}
+}
+try{await runChecks();}finally{await browser?.close();await server.close();}

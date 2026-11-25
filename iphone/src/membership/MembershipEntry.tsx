@@ -28,7 +28,6 @@ const tierChanges:Record<Tier,[string,string]> = {
 };
 
 export function MembershipChangeNotice({tier,receipt,ack}:{tier:Tier;receipt?:MembershipReceiptData|null;ack?:(id:string)=>void}) {
- const [dismissed,setDismissed]=useState<string|null>(null);
  const lastTier=useRef(tier);
  const [change,setChange]=useState<{from:Tier;to:Tier}|null>(null);
  useEffect(()=>{
@@ -37,7 +36,7 @@ export function MembershipChangeNotice({tier,receipt,ack}:{tier:Tier;receipt?:Me
      lastTier.current=tier;
    }
  },[tier,receipt]);
- if(receipt&&receipt.id!==dismissed)return <MembershipReceipt key={receipt.id} receipt={receipt} close={()=>{setDismissed(receipt.id);setChange(null);ack?.(receipt.id);}}/>;
+ if(receipt)return <MembershipReceipt key={receipt.id} receipt={receipt} close={()=>{setChange(null);ack?.(receipt.id);}}/>;
  if(!change)return null;
  const {from,to}=change;
  const [title,detail]=from==='seriousness'&&to==='premium'

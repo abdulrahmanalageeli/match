@@ -1715,7 +1715,7 @@ export function Chat({
               </div>}
             </div>;
           })}
-          {source.reportChatScreenshot&&!connection.person.isDemo&&<ChatScreenshotNotice key={connection.id} source={source} requestId={connection.id}/>}
+          {source.reportChatScreenshot&&!connection.person.isDemo&&<ChatScreenshotNotice key={'screenshot-'+connection.id} source={source} requestId={connection.id}/>}
       {conversationAllowed && !thread.accessDenied && (connection.person.isDemo && source.profileReading
         ? <DemoDeepReading key={connection.id} person={connection.person} read={source.profileReading} watch={source.watch} open={deepOpen && !privateHidden} onClose={()=>setDeepOpen(false)}/>
         : <DeepCompatibility key={connection.id} source={source.deepAnalysis} watch={source.watch} connectionId={connection.id} peerName={connection.person.alias} open={deepOpen} onNoticeChange={onDeepNotice}

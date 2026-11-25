@@ -4,7 +4,7 @@ import { Camera } from '../BrandIcons';
 import type { CommunitySource } from '../community/data';
 import { nativePrivatePhoto } from '../community/privatePhoto';
 import { captureTitle, latestChatScreenshot, watchChatScreenshots } from '../notifications/chatScreenshots';
-import { nativeSession } from '../session';
+import { nativeSession, showScreenshotGlow } from '../session';
 
 const captureTime = new Intl.DateTimeFormat('ar-SA', { hour: 'numeric', minute: '2-digit' });
 
@@ -23,13 +23,28 @@ export function ChatScreenshotNotice({ source, requestId }: { source: CommunityS
   useLayoutEffect(() => {
     if (!nativePrivatePhoto() || !source.reportChatScreenshot) return;
     const context = crypto.randomUUID();
+    let visibleSince = Date.now();
     let active = true;
     let subscription: PluginListenerHandle | undefined;
+    const visibleChat = () => active && !document.hidden && chat.current?.isConnected &&
+      !chat.current.closest('[data-private-hidden]') && !document.querySelector(
+        'html[data-capture-native-hidden], html[data-capture-hidden], dialog[open], [aria-modal="true"]:not(dialog)');
+    const resume = () => { visibleSince = Date.now(); };
+    const seen = new Set([latestChatScreenshot(source, requestId)?.id]);
+    const stopGlow = watchChatScreenshots(() => {
+      const event = latestChatScreenshot(source, requestId);
+      if (!event || seen.has(event.id)) return;
+      seen.add(event.id);
+      const at = Date.parse(event.createdAt);
+      if (!event.readAt && at >= visibleSince && Date.now() - at <= 60_000 && visibleChat()) {
+        showScreenshotGlow();
+      }
+    });
+    document.addEventListener('visibilitychange',resume);
+    window.addEventListener('wudayn:privacy-visible',resume);
     void (async () => {
       const handle = await nativeSession.addListener('chatScreenshot', event => {
-        if (!active || event.context !== context || document.hidden || !chat.current?.isConnected) return;
-        if (chat.current.closest('[data-private-hidden]') || document.querySelector(
-          'html[data-capture-native-hidden], html[data-capture-hidden], dialog[open], [aria-modal="true"]:not(dialog)')) return;
+        if (event.context !== context || !visibleChat()) return;
         void source.reportChatScreenshot!(requestId, event.eventId).catch(() => {
           if (active) setFailed(ids => ids.includes(event.eventId) ? ids : [...ids, event.eventId]);
         });
@@ -40,6 +55,9 @@ export function ChatScreenshotNotice({ source, requestId }: { source: CommunityS
     })().catch(() => {});
     return () => {
       active = false;
+      stopGlow();
+      document.removeEventListener('visibilitychange',resume);
+      window.removeEventListener('wudayn:privacy-visible',resume);
       void subscription?.remove().catch(() => {});
       void nativeSession.setScreenshotContext({ context, active: false }).catch(() => {});
     };

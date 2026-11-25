@@ -445,8 +445,9 @@ export function describeFit(first: PairProfile, second: PairProfile) {
 
 export function rankPreferences<T extends PairProfile>(first: PairProfile, others: readonly T[]) {
   return others.flatMap(person => {
-    const result = comparePreferences(first, person);
-    return result ? [{ person, ...result }] : [];
+    if (first.id === person.id || first.gender === person.gender ||
+        ![first.age, person.age].every(age => age >= 18 && age <= 110)) return [];
+    return [{ person, ...describeFit(first, person) }];
   }).sort((a, b) => Number(a.fit.provisional) - Number(b.fit.provisional) ||
     b.rankValue - a.rankValue || b.fit.covered - a.fit.covered ||
     b.sharedInterests.length - a.sharedInterests.length || a.person.id.localeCompare(b.person.id, "en"));

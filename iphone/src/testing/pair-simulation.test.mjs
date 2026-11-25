@@ -205,7 +205,7 @@ test('exclusivity and blocked profiles stop simulated activity without sending r
   assert(!h.calls.some(call=>call.action==='send'));
 });
 
-test('both eligible and ineligible profiles retain selective photos through paired discovery',async t=>{
+test('profiles with different preferences remain contactable and retain selective photos',async t=>{
   const h=harness(t);
   const viewer=demoPeople.find(p=>p.gender==='woman');
   Object.assign(h.profile,viewer.currentAssessment,{
@@ -213,12 +213,11 @@ test('both eligible and ineligible profiles retain selective photos through pair
     partnerCriteria:viewer.partnerCriteria,marriageBasics:{...viewer.marriageBasics,polygynyPreference:'not_open'},
   });
   const all=await h.source.discover({mode:'all'});
-  const openToDiscussion=['p04','p09','p14'];
   assert.equal(all.length,15);
-  assert.deepEqual(all.filter(person=>person.eligible===false).map(person=>person.id).sort(),openToDiscussion);
+  assert(all.every(person=>person.eligible));
   const strict=await h.source.discover({mode:'all',eligibleOnly:true});
-  assert.equal(strict.length,12);assert(strict.every(person=>person.eligible===true));
-  await assert.rejects(h.source.request('p04'),/غير متاح/);
+  assert.equal(strict.length,15);assert(strict.every(person=>person.eligible===true));
+  assert.ok(await h.source.request('p04'));
   h.profile.marriageBasics={...h.profile.marriageBasics,polygynyPreference:'open_to_discussion'};
   const people=await h.source.discover({mode:'all'});
   assert.equal(people.length,15);assert(people.every(person=>person.isDemo));
@@ -304,7 +303,9 @@ test('fictional discovery uses Abdulrahman’s complete assessment and honors ac
   const directory=(await h.source.discover({mode:'all'})).filter(person=>person.isDemo);
   assert.equal(directory.length,15);
   const people=(await h.source.discover({mode:'all',eligibleOnly:true})).filter(person=>person.isDemo);
-  assert.deepEqual(people.map(person=>person.id),['wp07']);
+  assert.deepEqual(people.map(person=>person.id),directory.map(person=>person.id));
+  const filtered=await h.source.discover({mode:'all',minAge:25,maxAge:25});
+  assert.deepEqual(filtered.filter(person=>person.isDemo).map(person=>person.id),['wp07']);
   assert.equal(people[0].fit.assessmentComplete,true);
   assert.deepEqual(await h.source.discover({mode:'all',search:'No matching profile'}),[]);
 });

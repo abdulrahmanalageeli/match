@@ -24,21 +24,22 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
  useEffect(()=>{
    const read=source.agreement;
    if(!read){onAllowed(true);return;}
-   let active=true,fetching=false;
+   let active=true;
+   let inFlight:number|null=null;
    let readTimeout:ReturnType<typeof setTimeout>;
    const refresh=async(initial=false)=>{
-     if(fetching||saving.current||(!initial&&document.hidden))return;
+     if(inFlight!==null||saving.current||(!initial&&document.hidden))return;
      const version=++revision.current;
-     fetching=true;
+     inFlight=version;
      const unavailable=()=>{
        if(active && version===revision.current){setLoadError(true);onAllowed(false);}
      };
      // The session lookup can stall before the RPC's network timeout starts.
      const timeout=setTimeout(()=>{
-       if(!active || version!==revision.current)return;
+       if(!active || inFlight!==version)return;
        unavailable();
-       revision.current++;
-       fetching=false;
+       if(version===revision.current)revision.current++;
+       inFlight=null;
      },15_000);
      readTimeout=timeout;
      try{
@@ -48,7 +49,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
        unavailable();
      }finally{
        clearTimeout(timeout);
-       if(version===revision.current)fetching=false;
+       if(inFlight===version)inFlight=null;
      }
    };
    // A chat opened during iOS resume can mount before its first visible event.
@@ -141,7 +142,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
  </>;
  if(allowed&&!agreement.womanSignedAt&&!agreement.deadline)return null;
  if(allowed)return <div className="cm-agreement-summary">
-  {agreement.status==='accepted' && decisions ? decisionNotice('خطوتكما التالية',decisions,'مراجعة الطلب') : <button onClick={()=>setExpanded(value=>!value)} aria-expanded={expanded} data-due-soon={dueSoon || undefined} aria-label={agreement.status==='family'?'تفاصيل التواصل مع الأهل':`تفاصيل اتفاقكما حتى ${date}`}><CalendarDays size={15}/><span>{agreement.status==='family'?'التواصل مع الأهل':agreement.deadline ? `${dueSoon?'موعدكما':'حتى'} ${shortDeadlineFormat.format(new Date(agreement.deadline))}` : 'تفاصيل الاتفاق'}</span></button>}
+  {agreement.status==='accepted' && decisions ? !expanded && decisionNotice('خطوتكما التالية',decisions,'مراجعة الطلب') : <button onClick={()=>setExpanded(value=>!value)} aria-expanded={expanded} data-due-soon={dueSoon || undefined} aria-label={agreement.status==='family'?'تفاصيل التواصل مع الأهل':`تفاصيل اتفاقكما حتى ${date}`}><CalendarDays size={15}/><span>{agreement.status==='family'?'التواصل مع الأهل':agreement.deadline ? `${dueSoon?'موعدكما':'حتى'} ${shortDeadlineFormat.format(new Date(agreement.deadline))}` : 'تفاصيل الاتفاق'}</span></button>}
   {expanded&&<AgreementDetails host={noticeSlot} close={()=>setExpanded(false)}>
     <span className="cm-agreement-mark"><CalendarDays size={25}/></span>
     <h2>{memberAr.agreementTitle}</h2>
@@ -209,7 +210,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
 
 function AgreementDetails({close,children,host}:{close:()=>void;children:ReactNode;host?:HTMLElement|null}) {
  const ref=useRef<HTMLElement>(null);
- useEffect(()=>{ref.current?.focus({preventScroll:true});ref.current?.scrollIntoView({block:'nearest'});},[]);
+ useEffect(()=>{ref.current?.focus({preventScroll:true});if(host)host.scrollTop=0;},[host]);
  const details=<section ref={ref} tabIndex={-1} className="cm-agreement-inline" dir="rtl" aria-label="تفاصيل اتفاق التعارف">
   <button className="icon-btn cm-agreement-close" aria-label="إغلاق تفاصيل الاتفاق" onClick={close}><X size={19}/></button>{children}
  </section>;

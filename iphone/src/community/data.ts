@@ -18,7 +18,7 @@ import type { Profile, ProfilePortrait, PortraitRevealPolicy } from "../types";
 import type { MarriageBasics, PartnerCriteria } from "../compatibility/marriage";
 import type { PublicAvatar } from "../compatibility/appearance";
 import { personalityQuestionsFor, partnerTraitQuestions } from "../compatibility/personality";
-import { comparePreferences, describeFit, normalizeNationality, preferencePercentage, assessmentVersion, dimensionsForVersion, interests, rankPreferences, type MatchFit } from "../compatibility/model";
+import { describeFit, normalizeNationality, preferencePercentage, assessmentVersion, dimensionsForVersion, interests, rankPreferences, type MatchFit } from "../compatibility/model";
 import { sharedBeenaStory, type SharedBeenaStory } from "../beena/model";
 import { createDemoReadiness, normalizeReadinessDraft, type ReadinessRequest } from '../readiness/model';
 import { boundedFamilyPayload, createDemoFamily, unwrapFamilyResult, type FamilyRequest } from '../family/model';
@@ -703,18 +703,10 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     const last = list.findIndex((row) => row.id === readThrough.get(id));
     return list.slice(last + 1).filter((row) => !row.senderIsMe && !row.deletedAt).length;
   }
-  function candidates(includeIneligible: boolean | 'accepted' = false) {
+  function candidates() {
     const member = { ...viewer(), relocationCities, id: "demo-viewer" };
     const people = examples.map(person => demoAssessmentFor(person, member));
-    const eligible = rankPreferences(member, people).map(({ person, ...fit }) => ({...card(person, fit), eligible:true}));
-    if (!includeIneligible) return eligible;
-    const eligibleIds = new Set(eligible.map(person => person.id));
-    const acceptedIds = includeIneligible === 'accepted'
-      ? new Set(records.filter(record => record.status === 'accepted').map(record => record.peer))
-      : undefined;
-    const others = people.filter(person => person.gender !== member.gender && !eligibleIds.has(person.id) && (!acceptedIds || acceptedIds.has(person.id)))
-      .map(person => ({...card(person, describeFit(member, person)), eligible:false}));
-    return [...eligible, ...others];
+    return rankPreferences(member, people).map(({ person, ...fit }) => ({ ...card(person, fit), eligible: true }));
   }
   function card(person: ReturnType<typeof demoAssessmentFor>, { reasons, fit }: ReturnType<typeof describeFit>): PublicPerson {
     // This function only receives the built-in fictional roster. Its profile
@@ -842,7 +834,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     }
   }
   simulation = createDemoSimulation({
-    people:()=>candidates('accepted'),records,messages,online:onlinePeople,typing:typingPeople,chatReady,
+    people:()=>candidates(),records,messages,online:onlinePeople,typing:typingPeople,chatReady,
     conversationAllowed:id=>!exclusiveId||exclusiveId===id,advanceRelationship,
     available:id=>!hiddenPeople.has(id)&&!blockedPeople.has(id)&&!records.some(r=>r.peer===id&&r.status==='closed'&&!r.allowRematch),
     exclusive:()=>Boolean(exclusiveId),
@@ -1009,7 +1001,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     },
     async discover(f) {
       if (exclusiveId) return [];
-      const options = candidates(f.mode === "all" && !f.eligibleOnly).filter(
+      const options = candidates().filter(
         (p) =>
           (!f.subjectId || p.id===f.subjectId) && !hiddenPeople.has(p.id) && !blockedPeople.has(p.id) && matchesDiscoveryFilters(p,f) &&
           !records.some((r) => r.peer === p.id && r.status === "closed" && !r.allowRematch) &&
@@ -1030,8 +1022,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         const peer = examples.find(p => p.id === r.peer);
         if (!peer || peer.gender === member.gender) return [];
         const comparable = demoAssessmentFor(peer, member);
-        const fit = r.status === "accepted" ? describeFit(member, comparable) : comparePreferences(member, comparable);
-        if (!fit) return [];
+        const fit = describeFit(member, comparable);
         return [{ id: r.id, celebrationKey:r.celebrationKey&&!celebrationsSeen.has(r.celebrationKey)?r.celebrationKey:undefined, createdAt: r.createdAt, updatedAt: r.updatedAt, status: r.status, direction: r.direction, person: card(peer, fit),
               unreadCount: r.status === "accepted" ? unread(r.id) : 0,
               lastMessage: r.status === "accepted" ? threadRows(r.id).at(-1) : null }];

@@ -185,7 +185,7 @@ export function PartnerCriteriaFields({ confirmedKeys = [], reviewing = false, f
 
   return <CriteriaFeedback.Provider value={feedback ?? null}><div className="nf-marriage-fields nf-criteria-form" data-field="partnerCriteria" tabIndex={-1}>
     {required && !reviewing && saved.size > 0 && <button type="button" className="f-link" aria-expanded={showSaved} onClick={()=>setShowSaved(!showSaved)}>{showSaved?'عرض المتبقي فقط':'مراجعة المعايير المحفوظة'}</button>}
-    <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>تفضيلاتك خاصة بك.</strong><span>«أفضل» يؤثر في الترتيب. «شرط أساسي» يستبعد غير المطابق ومن لم يذكر إجابته.</span></p></div>
+    <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>تفضيلاتك خاصة بك.</strong><span>«أفضل» يؤثر في الترتيب. «شرط أساسي» يعبّر عمّا تتمسّك به عند اختيار الشريك. القرار لك عند وصول الطلب.</span></p></div>
     {required && remaining.length > 0 && <button type="button" className="f-link" onClick={() => {
       const next = { ...value };
       for (const key of remaining) next[key] = { mode: 'any' };

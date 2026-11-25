@@ -62,7 +62,7 @@ test('public basics are opt-in, reviewed and exportable; private criteria/person
  }finally{await db.close()}
 });
 
-test('every required criterion is bilateral and unknown fails closed; no-preference never filters or inflates',async()=>{
+test('required criteria can mismatch in either direction without hiding members',async()=>{
  const db=await createDatabase();try{
   const {add,save,approve}=setup(db),a=await add('woman',{marriageBasics:basics}),b=await add('man',{marriageBasics:basics});
   const cases=[
@@ -80,8 +80,8 @@ test('every required criterion is bilateral and unknown fails closed; no-prefere
     if(key==='tribalBackground')delete other.tribeName;
     await save(b,{marriageBasics:other});await approve(b);
     const expected=value===basics[field];
-    assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,b.id])).rows[0].ok,expected,key+':'+value);
-    assert.equal((await db.query('select marriage.compatible($1,$2) ok',[b.id,a.id])).rows[0].ok,expected);
+    assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,b.id])).rows[0].ok,true,key+':'+value);
+    assert.equal((await db.query('select marriage.compatible($1,$2) ok',[b.id,a.id])).rows[0].ok,true);
     assert.equal(comparePreferences({...a.profile,id:a.id},{...b.profile,id:b.id})!==null,expected);
    }
    await save(a,{partnerCriteria:{[key]:{mode:'any'}}});
@@ -91,7 +91,7 @@ test('every required criterion is bilateral and unknown fails closed; no-prefere
   }
   await save(a,{partnerCriteria:{tribalBackground:{mode:'require',target:'same_tribe'}}});
   await save(b,{marriageBasics:{...basics,tribeName:'عائلة أخرى'}});await approve(b);
-  assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,b.id])).rows[0].ok,false);
+  assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,b.id])).rows[0].ok,true);
   await save(b,{marriageBasics:{...basics,tribeName:'  عائلة تجريبية  '}});await approve(b);
   assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,b.id])).rows[0].ok,true);
  }finally{await db.close()}
@@ -131,16 +131,16 @@ test('malformed basics, incomplete dealbreakers and fabricated personality codes
  }finally{await db.close()}
 });
 
-test('new dealbreakers close pending requests but preserve already accepted conversations',async()=>{
+test('new dealbreakers preserve pending requests and accepted conversations',async()=>{
  const db=await createDatabase();try{
   const {add,call,save}=setup(db),a=await add('woman',{marriageBasics:basics}),b=await add('man',{marriageBasics:basics}),c=await add('man',{marriageBasics:basics});
   const pending=await call(a,'public.marriage_request($1)',[b.id]),accepted=await call(a,'public.marriage_request($1)',[c.id]);
   await call(c,"public.marriage_act($1,'accept',null)",[accepted]);
   await signCommunicationAgreement(call,a,c,accepted);
   await save(a,{partnerCriteria:{height:{mode:'require',min:190}}});
-  assert.equal((await db.query('select status from marriage.member_requests where id=$1',[pending])).rows[0].status,'closed');
+  assert.equal((await db.query('select status from marriage.member_requests where id=$1',[pending])).rows[0].status,'pending');
   assert.equal((await db.query('select status from marriage.member_requests where id=$1',[accepted])).rows[0].status,'accepted');
-  for(const candidate of [b,c]) assert.equal((await db.query('select marriage.new_pair_requirements($1,$2) ok',[a.id,candidate.id])).rows[0].ok,false);
+  for(const candidate of [b,c]) assert.equal((await db.query('select marriage.new_pair_requirements($1,$2) ok',[a.id,candidate.id])).rows[0].ok,true);
   assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,c.id])).rows[0].ok,true);
   const message=await call(a,'public.marriage_message($1,$2,$3)',[accepted,'رسالة اختبار',randomUUID()]);
   assert.equal((await call(c,'public.marriage_thread_page($1)',[accepted])).at(-1).id,message);

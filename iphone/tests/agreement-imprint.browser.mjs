@@ -20,13 +20,13 @@ try {
  async function open(actor,query='agreement') {
   await page.goto('http://127.0.0.1:5297/tests/fixtures/chat-privacy-qa.html?'+query+'&actor='+actor+'&case='+Date.now());
   await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
-  await page.locator('.cm-chat-log').waitFor();
+  await page.locator('.cm-chat-stage').waitFor();
   await page.evaluate(()=>document.fonts.ready);
  }
  for(const actor of ['reham','abdulrahman']) {
   await page.setViewportSize({width:390,height:844});
   await open(actor);
-  const imprint=page.locator('.cm-chat-log .cm-agreement');
+  const imprint=page.locator('.cm-agreement-slot .cm-agreement');
   await imprint.waitFor();
   assert.match(await imprint.innerText(),/مسار التعارف/);
   assert.equal(await page.getByRole('dialog').count(),0);
@@ -35,33 +35,47 @@ try {
   await page.setViewportSize({width:320,height:667});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.screenshot({path:resolve(output,actor+'-320.png'),animations:'disabled'});
-  await imprint.getByRole('checkbox').check();
+  assert.equal(await page.locator('.cm-agreement').count(),1);
+  assert.equal(await page.locator('.cm-chat-log').isVisible(),false);
+  const checkbox=imprint.getByRole('checkbox');
+  await checkbox.tap();
+  await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+  assert(await checkbox.isChecked());
+  assert.equal(await page.locator('.cm-agreement').count(),1);
+  await imprint.locator('.cm-agreement-sign span').tap();
+  assert.equal(await checkbox.isChecked(),false);
+  await imprint.locator('.cm-agreement-sign span').tap();
+  assert(await checkbox.isChecked());
   await imprint.getByRole('button',{name:actor==='reham'?'التوقيع واقتراح المدة':'التوقيع والموافقة وبدء الحديث'}).click();
   if(actor==='reham') {
    await page.getByRole('button',{name:'مراجعة اقتراحك'}).waitFor();
    assert.equal(await imprint.count(),0);
    await page.getByRole('button',{name:'مراجعة اقتراحك'}).click();
-   await page.locator('.cm-chat-log .cm-agreement-inline').waitFor();
+   await page.locator('.cm-agreement-slot .cm-agreement-inline').waitFor();
    await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();
   } else {
    await page.getByRole('heading',{name:'كل بداية، حديث'}).waitFor();
    assert.equal(await imprint.count(),0);
    await page.getByRole('button',{name:/تفاصيل اتفاقكما حتى/}).click();
-   await page.locator('.cm-chat-log .cm-agreement-inline').waitFor();
+   await page.locator('.cm-agreement-slot .cm-agreement-inline').waitFor();
    assert.equal(await page.getByRole('dialog').count(),0);
   }
  }
  await page.setViewportSize({width:390,height:844});
  await open('abdulrahman','renew');
+ const notice=page.locator('.cm-agreement-notice');
+ const top=await notice.evaluate(node=>node.getBoundingClientRect().top);
+ await page.locator('.cm-chat-log').evaluate(log=>{log.scrollTop=log.scrollHeight;});
+ assert.equal(await notice.evaluate(node=>node.getBoundingClientRect().top),top);
  await page.getByRole('button',{name:'اختيار الخطوة التالية'}).click();
- const expired=page.locator('.cm-chat-log .cm-agreement-inline');
+ const expired=page.locator('.cm-agreement-slot .cm-agreement-inline');
  await expired.getByRole('button',{name:'مراجعة الخطوة التالية في المسار'}).waitFor();
  await expired.getByRole('button',{name:'إنهاء التعارف باحترام'}).waitFor();
  await page.screenshot({path:resolve(output,'expired-390.png'),animations:'disabled'});
  await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();
  await page.locator('[data-server-id="hello"]').waitFor();
  await open('abdulrahman','stalledAgreement');
- await page.locator('.cm-chat-log').getByRole('status',{name:'جارٍ تحميل ميثاق التعارف'}).waitFor();
+ await page.locator('.cm-agreement-slot').getByRole('status',{name:'جارٍ تحميل ميثاق التعارف'}).waitFor();
  assert.equal(await page.locator('.cm-chat-plan .cm-agreement-pending').count(),0);
  assert.doesNotMatch(await page.locator('body').innerText(),/جارٍ تحضير اتفاقكما/);
  assert.deepEqual(errors,[]);

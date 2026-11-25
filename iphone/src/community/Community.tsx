@@ -1067,8 +1067,8 @@ function Discovery({
           title={availability.exclusive ? 'مساحة أهدأ لتعارفكما' : count || query.trim() ? 'لنوسّع مساحة البحث' : 'كل بداية لها وقتها'}
           description={
             availability.exclusive ? 'أنتما في تعارف حصري، لذلك تتوقف الترشيحات الجديدة. تابعا الحديث وخطوتكما المقبلة من المحادثة.' : count > 0 || query.trim()
-              ? "لم تظهر ملفات تستوفي التصفية الحالية وشروط الطرفين. مسح التصفية يزيل قيود البحث المؤقتة فقط."
-              : availability.acceptedCount >= (connectionLimit??(premium?2:1)) ? 'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتتاح دعوة جديدة عند انتهاء ارتباط قائم.' : order==='recommended' ? 'انتهت ترشيحات هذا الأسبوع أو لم يعد بينها ملف مؤهل. يمكنك تصفّح بقية الملفات.' : 'لا تتوفر الآن ملفات جديدة تستوفي شروطك الأساسية وشروط الطرف الآخر.'
+              ? "لم تظهر ملفات بهذه التصفية. جرّب توسيع البحث."
+              : availability.acceptedCount >= (connectionLimit??(premium?2:1)) ? 'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتتاح دعوة جديدة عند انتهاء ارتباط قائم.' : order==='recommended' ? 'انتهت ترشيحات هذا الأسبوع أو لم يعد بينها ملف مؤهل. يمكنك تصفّح بقية الملفات.' : 'لا تتوفر ملفات جديدة الآن.'
           }
           action={
             <div className="cm-empty-actions">
@@ -1540,11 +1540,6 @@ export function Chat({
     if (reading.positioned && atBottom.current) scrollToLatest();
   }, [replyDraft?.id, lastReactions]);
   useLayoutEffect(() => {
-    if (conversationAllowed || thread.rows.length || !reading.positioned) return;
-    const frame=requestAnimationFrame(()=>{if(log.current)log.current.scrollTop=0;});
-    return ()=>cancelAnimationFrame(frame);
-  }, [conversationAllowed, thread.rows.length, reading.positioned, agreementSlot]);
-  useLayoutEffect(() => {
     const saved = anchor.current;
     if (saved && !thread.loadingOlder && log.current) {
       const previous = Array.from(log.current.querySelectorAll<HTMLElement>("[data-row-id]")).find((el) => el.dataset.rowId === saved.id);
@@ -1666,6 +1661,7 @@ export function Chat({
 
       <div className="cm-chat-stage">
         {!thread.accessDenied && <ThreadConnection state={thread.connectionState} retry={thread.refresh}/>}
+        <div ref={setAgreementSlot} className="cm-agreement-slot"/>
         <div
           ref={log} className="cm-chat-log" role="log" tabIndex={0} aria-label="رسائل المحادثة" aria-live="polite" aria-relevant="additions"
           onScroll={(e) => {
@@ -1684,7 +1680,6 @@ export function Chat({
             {!thread.ready && <button className="btn-text" onClick={back}>{backLabel}</button>}</div>}
           {thread.hasOlder && <button className="cm-history" disabled={thread.loadingOlder} onClick={earlier}>
             {thread.loadingOlder ? "جارٍ تحميل الرسائل…" : "تحميل رسائل أقدم"}</button>}
-          <div ref={setAgreementSlot} className="cm-agreement-slot"/>
           {conversationAllowed && thread.ready && !thread.rows.length && <div className="cm-first-message">
             <span className="cm-first-icon"><MessageCircle size={25} aria-hidden="true" /></span>
             <h2>كل بداية، حديث</h2>
@@ -1743,7 +1738,7 @@ export function Chat({
       </ChatComposer>}
       <div className="cm-chat-plan" data-ready>
         {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
-        <ConversationAgreement key={connection.id} peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
+        {!thread.accessDenied && <ConversationAgreement key={connection.id} peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
         {source.conversationPilot && <ConversationPilotFeedback key={connection.id} requestId={connection.id}
           respond={source.conversationPilot} expanded={openFeedback} showUnavailable={openFeedback} resumeChat={()=>composer.current?.focus()}/>}
         <button className="cm-end-visible" type="button" aria-label="إنهاء التعارف" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}><span>إنهاء</span></button>

@@ -95,6 +95,7 @@ import { dressStyles, type PublicAvatar } from "../compatibility/appearance";
 import type { StepProgress } from "./data";
 import { journeyStages } from '../notifications/ActivityAlerts';
 import { NativePushAction } from '../notifications/NativePushAction';
+import type { PushOpen } from '../notifications/push';
 import { NotificationFeed } from '../notifications/NotificationFeed';
 import { pushThreadMute } from '../notifications/push';
 import './chat-polish.css';
@@ -146,8 +147,9 @@ type CommunityProps = {
   onMutual: (connection: Connection) => void;
   openConversation?: string;
   openMessage?: string;
-  openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;
+  openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;openJourney?:boolean;openInterest?:string;
   openRequest?: string;
+  openUpdate?: (update:PushOpen)=>void|Promise<void>;
   onConversationOpened: () => void;
   profileSaved?: boolean;
   onBeena?: () => void;
@@ -1372,9 +1374,9 @@ function ChatComposer({ outbox, composer, canSend, conversationAllowed, typing, 
 }
 
 export function Chat({
-  source, connection, back, close, backLabel, pushOwner, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, openFeedback,
+  source, connection, back, close, backLabel, pushOwner, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, initialJourney, openFeedback,
 }: {
-  initialMessage?:string;initialRoom?:string;initialAgreement?:boolean;initialAnalysis?:boolean;openFeedback?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
+  initialMessage?:string;initialRoom?:string;initialAgreement?:boolean|number;initialAnalysis?:boolean|number;initialJourney?:boolean|number;openFeedback?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
   pushOwner?:string|null;
   onReported?: () => void;
   onEnded?: (id:string) => void;
@@ -1385,7 +1387,8 @@ export function Chat({
   const [safetyError, setSafetyError] = useState("");
   const [safetyBusy, setSafetyBusy] = useState(false);
   const [showLatest, setShowLatest] = useState(false);
-  const [guide, setGuide] = useState(false);
+  const [guide, setGuide] = useState(Boolean(initialJourney));
+  useEffect(()=>{if(initialJourney)setGuide(true);},[initialJourney]);
   const [recording, setRecording] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [muted,setMuted]=useState<boolean|null>(null);
@@ -1812,7 +1815,7 @@ function Requests({
   onMutual,
   openConversation,
   openMessage,
-  openRoom,openAgreement,openAnalysis,
+  openRoom,openAgreement,openAnalysis,openJourney,openInterest,openUpdate,
   openRequest,
   onConversationOpened,
   conversations = false,
@@ -1829,8 +1832,9 @@ function Requests({
   onMutual: (connection: Connection) => void;
   openConversation?: string;
   openMessage?: string;
-  openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;
+  openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;openJourney?:boolean;openInterest?:string;
   openRequest?: string;
+  openUpdate?: (update:PushOpen)=>void|Promise<void>;
   onConversationOpened: () => void;
   conversations?: boolean;
   matches?: boolean;
@@ -1842,7 +1846,7 @@ function Requests({
 }) {
   const {premium,upgrade}=useMembershipAccess();
   // Keep the entry while the inbox fetch resolves; its parent consumes the handoff on mount.
-  const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:boolean;analysis?:boolean}|null>(null);
+  const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:number;analysis?:number;journey?:number}|null>(null);
   const [entry] = useState(initialRequest);
   const initialRequestId = entry?.id;
   const [list, setList] = useState<Connection[]>([]);
@@ -1968,7 +1972,7 @@ function Requests({
       if (!inboxReadSucceeded.current) { onConversationOpened(); return; }
       const target = loadedRows.current.find(row => row.id === targetId && (openConversation ? row.status === "accepted" : ["pending", "accepted"].includes(row.status)));
       if (target) {
-        setMessageTarget({connection:target.id,message:openMessage,room:openRoom,agreement:openAgreement,analysis:openAnalysis});
+        setMessageTarget({connection:target.id,message:openMessage,room:openRoom,agreement:openAgreement?intent:undefined,analysis:openAnalysis?intent:undefined,journey:openJourney?intent:undefined});
         setSelected(target.id);
         setChat(Boolean(openConversation));
         setActionError("");
@@ -1979,7 +1983,7 @@ function Requests({
       onConversationOpened();
     });
     return () => { active = false; };
-  }, [openConversation, openRequest, openMessage, openRoom, openAgreement, openAnalysis, refresh, onConversationOpened]);
+  }, [openConversation, openRequest, openMessage, openRoom, openAgreement, openAnalysis, openJourney, refresh, onConversationOpened]);
   useLayoutEffect(() => {
     if (inChat) document.querySelector<HTMLElement>(".cm-chat-head h1")?.focus({ preventScroll: true });
   }, [inChat]);
@@ -2079,6 +2083,7 @@ function Requests({
         pushOwner={pushOwner}
         initialRoom={messageTarget?.connection===item.id?messageTarget.room:undefined}
         initialAnalysis={messageTarget?.connection===item.id&&messageTarget.analysis}
+        initialJourney={messageTarget?.connection===item.id&&messageTarget.journey}
         initialAgreement={messageTarget?.connection===item.id&&messageTarget.agreement}
         openFeedback={feedbackTarget===item.id}
         initialMessage={messageTarget?.connection===item.id?messageTarget.message:undefined}
@@ -2246,7 +2251,7 @@ function Requests({
     {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
     {notice && <Banner text={notice}/>}
     {pushOwner && <NativePushAction key={pushOwner} owner={pushOwner}/>}
-    <NotificationFeed source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
+    <NotificationFeed pushOwner={pushOwner} openUpdate={openUpdate} initialInterest={openInterest} onIntentOpened={onConversationOpened} source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
       onProfile={person => { setVisitPerson(person); void source.noteProfileOpen?.(person.id).catch(() => {}); }}
       onConversation={(id, openFeedback) => { if (list.some(row => row.id === id && row.status === 'accepted')) enterChat(id, null, false, openFeedback); else setNotice('هذا التعارف لم يعد متاحًا.'); }}
       onRequest={id => { listScroll.current = window.scrollY; navigation.current++; setSelected(id); setChat(false); setActionError(''); setNotice(''); window.scrollTo(0,0); }} />
@@ -2399,9 +2404,9 @@ export function Community(props: CommunityProps) {
           onMatches={() => onTab('curated')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}
           onMutual={props.onMutual} openConversation={props.openConversation??conversationToOpen}
-          openRoom={props.openRoom} openAgreement={props.openAgreement} openAnalysis={props.openAnalysis}
+          openRoom={props.openRoom} openAgreement={props.openAgreement} openAnalysis={props.openAnalysis} openJourney={props.openJourney} openInterest={props.openInterest}
           openMessage={props.openMessage}
-          openRequest={props.openRequest}
+          openRequest={props.openRequest} openUpdate={props.openUpdate}
           onConversationOpened={()=>{setConversationToOpen(undefined);props.onConversationOpened();}}
           initialRequest={tab === "inbox" ? requestToOpen : undefined} />
       )}

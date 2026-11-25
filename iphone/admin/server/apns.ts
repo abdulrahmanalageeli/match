@@ -1,8 +1,10 @@
 import { connect, constants, type ClientHttp2Session, type ClientHttp2Stream } from 'node:http2';
 import { createPrivateKey, sign, type KeyObject } from 'node:crypto';
 
-export type PushKind = 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication';
-export type PushDetails={preview:'private'|'event'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number;scope?:string;launch?:boolean;passive?:boolean;sound?:boolean;receipt?:{job:string;proof:string}};
+import { isUpdateEvent, updateEvents, type UpdateEvent } from './updateEvents.js';
+
+export type PushKind = 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication' | 'update';
+export type PushDetails={event?:UpdateEvent;target?:string; analysisPhase?:'requested'|'shared';preview:'private'|'event'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number;scope?:string;launch?:boolean;passive?:boolean;sound?:boolean;receipt?:{job:string;proof:string}};
 export type PushJob = { id: string; leaseId: string; requestId: string; kind: PushKind; token: string; environment: 'sandbox' | 'production'; expiresAt: string;details?:PushDetails };
 export type ApnsConfig = { teamId: string; keyId: string; privateKey: string; topic: string; environment: 'sandbox' | 'production' };
 export type DeliveryResult = 'sent' | 'invalid' | 'retry' | 'failed';
@@ -11,6 +13,7 @@ export type CallPushJob = {callId:string;installation:string;token:string;enviro
 export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>) {
   const copy: Record<PushKind, string> = {
     publication: 'لديك تحديث جديد من وُدَين.',
+    update: 'لديك تحديث جديد.',
     analysis: 'لديك تحديث في تحليل التوافق.',
     family: 'لديك رسالة جديدة في جسر الأهل.',
     reminder: 'لديك تذكير خاص. افتح وُدَين للاطلاع عليه.',
@@ -18,19 +21,24 @@ export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>
     mutual: 'تم القبول المتبادل. يمكنك بدء الحديث في وُدَين.',
     message: 'لديك رسالة جديدة في وُدَين.',
   };
-  if (!copy[job.kind] || !/^[0-9a-f-]{36}$/i.test(job.requestId)) throw new Error('Invalid push event');
+  const target = job.requestId || job.details?.target;
+  if (!copy[job.kind] || !target || !/^[0-9a-f-]{36}$/i.test(target)) throw new Error('Invalid push event');
   const clean=(value:string,limit:number)=>value.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g,' ').trim().slice(0,limit);
   const details=job.details;
   const receipt=job.kind==='message' && details?.receipt;
   const named=details&&['name','content'].includes(details.preview);
   const title=named&&details.sender?clean(details.sender,50):'وُدَين';
   const discreet = !details || !['event','name','content'].includes(details.preview);
-  const passive = job.kind === 'reminder' || details?.passive === true;
-  const body=job.kind==='publication' && details?.launch === true ? 'انطلق وُدَين. افتح التطبيق للاطلاع على الجديد.' : discreet ? 'لديك تحديث جديد.' : details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160):copy[job.kind];
-  return { aps: { alert: { title, body }, ...(passive ? {'interruption-level':'passive'} : {}), ...(!passive && details?.sound !== false ? {sound:'default'} : {}), 'thread-id':job.requestId,
+  const event = job.kind === 'update' && isUpdateEvent(details?.event) ? details.event : undefined;
+  const style = event ? updateEvents[event] : undefined;
+  const passive = job.kind === 'reminder' || details?.passive === true || style?.[2] === 'silent' || details?.analysisPhase === 'shared';
+  const sound = style?.[2] || (job.kind === 'message' ? 'message' : job.kind === 'analysis' ? 'account' : job.kind === 'mutual' ? 'celebration' : job.kind === 'request' || job.kind === 'family' ? 'step' : null);
+  const body=job.kind==='publication' && details?.launch === true ? 'انطلق وُدَين. افتح التطبيق للاطلاع على الجديد.' : discreet ? 'لديك تحديث جديد.' : details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160): style?.[0] ?? (details?.analysisPhase === 'shared' ? 'قراءة لونا جاهزة' : details?.analysisPhase === 'requested' ? 'لديك دعوة لمراجعة التوافق مع لونا' : copy[job.kind]);
+  return { aps: { alert: { title, body }, ...(passive ? {'interruption-level':'passive'} : {}), ...(!passive && details?.sound !== false ? {sound:!discreet && sound ? `wudayn-${sound}.wav` : 'default'} : {}), 'thread-id':target,
     ...(details?{badge:Math.max(0,Math.min(999,Math.floor(details.badge)||0))}:{}),
     ...(receipt ? {'mutable-content':1} : {}),
-    ...(!discreet && job.kind==='message'?{category:'NISFAYN_MESSAGE'}:{}) }, requestId: job.requestId, kind: job.kind,
+    ...(!discreet && job.kind==='message'?{category:'NISFAYN_MESSAGE'}:{}) }, requestId: target, kind: job.kind,
+    ...(event ? {event} : {}),
     ...(receipt ? {receipt} : {}),
     ...(details?.scope ? {scope:details.scope} : {}),
     ...(details?.roomId&&/^[0-9a-f-]{36}$/i.test(details.roomId)?{roomId:details.roomId}:{}),
@@ -72,7 +80,7 @@ export function openApns(config: ApnsConfig, makeConnection: (authority: string)
           ':method': 'POST', ':path': '/3/device/' + job.token, authorization: 'bearer ' + token,
           'apns-topic': config.topic + (call ? '.voip' : ''), 'apns-push-type': call ? 'voip' : 'alert', 'apns-priority': '10',
           'apns-expiration': call ? '0' : String(Math.floor(new Date(job.expiresAt).getTime() / 1000)),
-          ...(!call ? {'apns-id': job.id, 'apns-collapse-id': job.kind==='message' ? job.id : job.kind + ':' + job.requestId} : {}),
+          ...(!call ? {'apns-id': job.id, 'apns-collapse-id': job.kind==='message' || job.kind==='update' ? job.id : job.kind + ':' + job.requestId} : {}),
           'content-type': 'application/json',
         });
         request.setEncoding('utf8');

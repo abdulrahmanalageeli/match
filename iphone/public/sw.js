@@ -3,12 +3,12 @@ self.addEventListener('install', event => event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 
 function validEvent(value) {
-  return value && /^[0-9a-f-]{36}$/i.test(value.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis', 'publication'].includes(value.kind);
+  return value && /^[0-9a-f-]{36}$/i.test(value.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis', 'publication', 'update'].includes(value.kind);
 }
 
 function routeIds(value) {
   const scope = /^[a-f0-9]{64}$/.test(value.scope || '') ? {scope:value.scope} : {};
-  return {...scope, ...Object.fromEntries(['messageId', 'roomId'].filter(key => /^[0-9a-f-]{36}$/i.test(value[key] || '')).map(key => [key, value[key]]))};
+  return {...scope, ...(/^[a-z_]+:[a-z_]+$/.test(value.event || '') ? {event:value.event} : {}), ...Object.fromEntries(['messageId', 'roomId'].filter(key => /^[0-9a-f-]{36}$/i.test(value[key] || '')).map(key => [key, value[key]]))};
 }
 
 self.addEventListener('push', event => {
@@ -18,7 +18,7 @@ self.addEventListener('push', event => {
   const body = value.kind === 'publication' && value.launch === true ? 'انطلق وُدَين. افتح التطبيق للاطلاع على الجديد.' : 'لديك تحديث جديد.';
   event.waitUntil(self.registration.showNotification('وُدَين', {
     body, lang: 'ar', dir: 'rtl', icon: '/brand/wudayn-icon-v2.png',
-    tag: value.kind + ':' + value.requestId,
+    tag: (value.event || value.kind) + ':' + value.requestId,
     silent: value.kind === 'reminder' || value.silent === true,
     data: { requestId: value.requestId, kind: value.kind, ...routeIds(value) },
   }));

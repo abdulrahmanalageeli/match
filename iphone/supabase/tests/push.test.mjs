@@ -40,8 +40,28 @@ test('private push queue enforces opt-in, recipient, environment, consent, dedup
   await service("public.marriage_push_finish($1,$2,'sent')",[pending[0].id,pending[0].leaseId]);
   await call(b,"public.marriage_act($1,'accept')",[request]);
   await signCommunicationAgreement(call,a,b,request);
-  const mutual=await service("public.marriage_push_claim('sandbox',20)");assert.equal(mutual.length,1);assert.equal(mutual[0].token,a.id.replaceAll('-','').repeat(2));assert(mutual.every(j=>j.kind==='mutual'));
-  for(const job of mutual) await service("public.marriage_push_finish($1,$2,'sent')",[job.id,job.leaseId]);
+  const accepted=await service("public.marriage_push_claim('sandbox',20)");
+  assert.deepEqual(accepted.map(job=>job.kind).sort(),['mutual','update']);
+  assert(accepted.every(job=>job.token===a.id.replaceAll('-','').repeat(2)));
+  const signed=accepted.find(job=>job.kind==='update');
+  const signedDetail=await service('public.nisfayn_push_delivery($1,$2,false,$3)',[signed.id,signed.leaseId,signed.token]);
+  assert.equal(signedDetail.event,'agreement:signed');
+  assert.equal(signedDetail.target,request);
+  for(const job of accepted) await service("public.marriage_push_finish($1,$2,'sent')",[job.id,job.leaseId]);
+  await db.query("insert into marriage.activity_notifications(recipient_id,actor_id,kind,event_key) values($1,$2,'interest',$3)",[b.id,a.id,randomUUID()]);
+  const [interest]=await service("public.marriage_push_claim('sandbox',20)");
+  assert.equal((await service('public.nisfayn_push_delivery($1,$2,false,$3)',[interest.id,interest.leaseId,interest.token])).target,a.id);
+  await service("public.marriage_push_finish($1,$2,'sent')",[interest.id,interest.leaseId]);
+  await db.query("insert into marriage.activity_notifications(recipient_id,actor_id,kind,request_id,event_key) values($1,$2,'screenshot',$3,$4)",[b.id,a.id,request,randomUUID()]);
+  assert.deepEqual(await service("public.marriage_push_claim('sandbox',20)"),[]);
+  await call(b,'public.marriage_push_controls($1)',[{screenshot:true}]);
+  await db.query("insert into marriage.activity_notifications(recipient_id,actor_id,kind,request_id,event_key) values($1,$2,'screenshot',$3,$4)",[b.id,a.id,request,randomUUID()]);
+  const [capture]=await service("public.marriage_push_claim('sandbox',20)");
+  const captureDetail=await service('public.nisfayn_push_delivery($1,$2,false,$3)',[capture.id,capture.leaseId,capture.token]);
+  assert.equal(captureDetail.event,'screenshot:received');
+  assert.equal(captureDetail.target,request);
+  assert.equal(captureDetail.passive,true);
+  await service("public.marriage_push_finish($1,$2,'sent')",[capture.id,capture.leaseId]);
   assert.deepEqual(await call(b,'public.marriage_push_thread_mute($1,null)',[request]),{muted:false});
   assert.deepEqual(await call(b,'public.marriage_push_thread_mute($1,true)',[request]),{muted:true});
   await call(a,'public.marriage_message($1,$2,$3)',[request,'رسالة مكتومة',randomUUID()]);
@@ -85,6 +105,40 @@ test('push stops on opt-out and signout and invalid device is deleted',async()=>
   await db.query('delete from auth.sessions where id=$1',[b.sessionId]);
   assert.deepEqual(await service("public.marriage_push_claim('sandbox',20)"),[]);
   await assert.rejects(call(b,'public.marriage_push_settings()'),/تسجيل الدخول/);
+ } finally {await db.close();}
+});
+
+test('account updates route to the right record and remain available in-app with push disabled',async()=>{
+ const db=await createDatabase();
+ try {
+  const {add,call,service}=await fixture(db);
+  const member=await add('woman'),other=await add('man');
+  await call(member,'public.marriage_push_enable(true)');
+  const ticket=randomUUID(),conduct=randomUUID();
+  await db.query("insert into marriage.support_requests(id,owner_id,client_id,category,subject,body) values($1,$2,$3,'help','Help','Question for support')",[ticket,member.id,randomUUID()]);
+  await db.query("update marriage.support_requests set response='Private reply' where id=$1",[ticket]);
+  const [job]=await service("public.marriage_push_claim('sandbox',20)");
+  assert.equal(job.kind,'update');
+  assert.equal(job.requestId,null);
+  const detail=await service('public.nisfayn_push_delivery($1,$2,false,$3)',[job.id,job.leaseId,job.token]);
+  assert.equal(detail.event,'support:reply');
+  assert.equal(detail.target,ticket);
+  assert(!JSON.stringify(detail).includes('Private reply'));
+  assert.equal((await call(member,'public.marriage_support_ticket($1)',[ticket])).response,'Private reply');
+  assert.equal(await call(other,'public.marriage_support_ticket($1)',[ticket]),null);
+  await call(member,'public.marriage_push_enable(false)');
+  await db.query("insert into marriage.conduct_cases(id,member_id,kind,origin,policy,explanation) values($1,$2,'warning','staff','safety','Private reason')",[conduct,member.id]);
+  assert.deepEqual(await service("public.marriage_push_claim('sandbox',20)"),[]);
+  const rows=await call(member,'public.marriage_push_updates()');
+  assert.deepEqual(rows.map(row=>row.event).sort(),['application:approved','safety:review','support:reply']);
+  assert.equal(rows.find(row=>row.event==='safety:review').target,conduct);
+  assert(!JSON.stringify(rows).includes('Private reason'));
+  assert.deepEqual((await call(other,'public.marriage_push_updates()')).map(row=>row.event),['application:approved']);
+  const first=rows[0];
+  await call(other,'public.marriage_push_updates($1)',[first.id]);
+  assert.equal((await call(member,'public.marriage_push_updates()')).find(row=>row.id===first.id).unread,true);
+  await call(member,'public.marriage_push_updates($1)',[first.id]);
+  assert.equal((await call(member,'public.marriage_push_updates()')).find(row=>row.id===first.id).unread,false);
  } finally {await db.close();}
 });
 

@@ -58,6 +58,8 @@ import { usePushNotifications, setPushBadge, detachNotifications, syncNativePush
 import { NotificationSetup } from './notifications/NotificationSetup';
 import { simulationActivityDestination } from "./notifications/simulationDeviceAlerts";
 import { RegistrationWait } from "./release/RegistrationWait";
+import type { PushOpen } from "./notifications/push";
+import { updateEvents } from "../admin/server/updateEvents";
 import { ActivityAlerts } from "./notifications/ActivityAlerts";
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
 import { useNativeCalls } from './voice/nativeCalls';
@@ -335,6 +337,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [returnFromMembership, setReturnFromMembership] =
     useState<View>("main");
   const [requestedPlan,setRequestedPlan]=useState<MembershipPlan>();
+  const [giftNotification,setGiftNotification]=useState<{owner:string;id:string}>();
   const [giftRoute,setGiftRoute]=useState<{from:View;target?:GiftRecipient}>({from:'membership'});
   const active = tier !== 'free';
   const waitingForLaunch = !demo && live?.prelaunch?.locked === true;
@@ -352,7 +355,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   }, [badgeOwner]);
   const chatUnread = useUnreadCount(memberAccess ? source : null, updatePushBadge);
   const mutual = useMutualMatches(memberAccess && !paused ? source : null);
-  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean } | null>(null);
+  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean;journey?:boolean;interest?:boolean } | null>(null);
+  const [pushPanel,setPushPanel]=useState<{owner:string;panel:"family"|"verification"|"support"|"safety";id:string}>();
   const clearConversationIntent = useCallback(() => setConversationIntent(null), []);
   useNativeCalls(!demo && memberAccess ? token : null,tester?.session);
   const simulationAlerts = !demo && token && (!live || live.user.id !== token) ? undefined
@@ -361,8 +365,25 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     : !demo && live?.demoDeviceAlertsEnabled ? source?.demoInteractions ?? null : null;
   const currentSimulationAlerts = useRef(simulationAlerts);
   currentSimulationAlerts.current = simulationAlerts;
-  usePushNotifications(tester ? `tester:${tester.session}` : !demo ? token : null, async (id, kind,event) => {
+  const pendingNotification=useRef<{owner:string;id:string;kind:PushOpen['kind'];event?:PushOpen}|null>(null);
+  async function openNotification(id:string,kind:PushOpen['kind'],event?:PushOpen) {
+    const owner=tester?.session??token;
+    if(loading&&owner&&!event?.action){
+      pendingNotification.current={owner,id,kind,event};
+      return;
+    }
+    const navigate=(next:View)=>go(next,true);
     if(kind==='publication'){setPublicationOpen({id,owner:token});return;}
+    const destination=kind==='update'&&event?.event?updateEvents[event.event][1]:null;
+    if(destination==='application'){setApplicationChapter(undefined);navigate(event?.event==='application:approved'?'main':'application');return;}
+    if(destination==='membership'){navigate('membership');return;}
+    if(destination==='gifting'){if(token)setGiftNotification({owner:token,id});setGiftRoute({from:'membership'});navigate('gifting');return;}
+    if(destination==='family'||destination==='verification'||destination==='support'||destination==='safety'){
+      const owner=tester?.session??token;
+      if(owner)setPushPanel({owner,panel:destination,id});
+      navigate(destination==='safety'?'main':'settings');
+      return;
+    }
     if(!memberAccess)return;
     if (!source || (demo && !tester)) return;
     if (kind === 'simulation') {
@@ -370,25 +391,32 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       const destination = await simulationActivityDestination(simulationAlerts,id);
       if (currentSimulationAlerts.current !== simulationAlerts) return;
       setConversationIntent(destination ? {source,...destination} : null);
-      go(destination && !destination.requestOnly ? 'chats' : 'inbox');
+      navigate(destination && !destination.requestOnly ? 'chats' : 'inbox');
       return;
     }
     // A notification carries navigation intent only. The inbox re-fetches the
     // authenticated connection before it can open a profile or conversation.
     if (event?.action && !(await source.inbox()).some(row => row.id === id && row.status === 'accepted')) {
       setNotice('لم يعد هذا النشاط متاحًا.');
-      go('chats');
+      navigate('chats');
       return;
     }
-    setConversationIntent({ source, id, requestOnly: kind === "request", messageId:event?.messageId,roomId:event?.roomId,agreement:kind==='reminder',analysis:kind==='analysis' });
-    go(kind === "request" ? "inbox" : "chats");
+    setConversationIntent({ source, id, requestOnly: kind === "request" || destination === "request" || destination === "activity", messageId:event?.messageId,roomId:event?.roomId,agreement:kind==='reminder'||destination==='agreement',analysis:kind==='analysis'||destination==='analysis',journey:destination==='journey',interest:destination==='activity' });
+    navigate(kind === "request" || destination === "activity" || destination === "request" ? "inbox" : "chats");
     try{
       if(event?.action==='reply'&&event.text?.trim()&&event.actionId){
         await sendNotificationReply(source,id,event.text.trim().slice(0,1000),event.actionId);
       }
       if(event?.messageId&&['read','reply'].includes(event.action||''))await source.markRead(id,event.messageId);
     }catch(cause){setNotice('تعذّر إتمام إجراء الإشعار. سنعيد المحاولة عند فتح وُدَين.');throw cause;}
-  }, simulationAlerts);
+  }
+  useEffect(()=>{
+    const pending=pendingNotification.current;
+    if(!pending||loading)return;
+    pendingNotification.current=null;
+    if(pending.owner===(tester?.session??token))void openNotification(pending.id,pending.kind,pending.event);
+  });
+  usePushNotifications(tester ? `tester:${tester.session}` : !demo ? token : null,openNotification,simulationAlerts);
   const curatedPrevious = useRef<{ owner: string | null; id?: string; status?: Proposal["status"] } | null>(null);
   const [curatedMatch, setCuratedMatch] = useState<{ owner: string | null; id: string; name: string } | null>(null);
   useEffect(() => {
@@ -431,7 +459,12 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     setToken(t);
     version.current++;
   }
-  function go(next: View) {
+  function go(next: View, fromNotification=false) {
+    if (routeExit.current && fromNotification) {
+      const previous=routeExit.current;
+      routeExit.current=null;
+      previous.cancel();
+    }
     if (next === view || routeExit.current) return;
     // Capture the outgoing tab before replacing it; never visibly scroll that page.
     window.dispatchEvent(new Event('nisfayn:before-navigation'));
@@ -452,7 +485,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     const content = page?.querySelector<HTMLElement>(':scope > .screen-content, :scope > .flow-body, :scope > .cm-view') ?? page;
     const reduced = document.hidden || document.documentElement.dataset.nfMotion === 'reduced' ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!memberAccess || !routeDirection.current || !content?.animate || reduced) { commit(); return; }
+    if (fromNotification || !memberAccess || !routeDirection.current || !content?.animate || reduced) { commit(); return; }
     const x = routeDirection.current * 13;
     const duration = 145;
     const navigationOwner = tokenRef.current;
@@ -1194,6 +1227,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           const state=await callRpc<AccountState>('marriage_test_membership',{selected_tier:tier},owner);
           acceptLive(state,owner,seq);
         })}
+        pushPanel={pushPanel?.owner===(tester?.session??token)?pushPanel:undefined}
+        onPushPanelOpened={()=>setPushPanel(undefined)}
         completionEntry={completionEntry}
         onProfileChanged={() => { if (token) void run(async () => { await refresh(token); }); }}
         state={live}
@@ -1224,7 +1259,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   }
   else if(view==='gifting' && giftingAvailable && token){
     publicationScreen='membership';
-    screen=<GiftMembership key={token} owner={token} target={giftRoute.target} attention={giftAttention}
+    screen=<GiftMembership key={token} owner={token} target={giftRoute.target} attention={giftAttention} focusGift={giftNotification?.owner===token?giftNotification.id:undefined} onGiftFocused={()=>setGiftNotification(undefined)}
       back={()=>go(giftRoute.from)} settle={settleGift} refreshAccount={()=>refresh(token,true)}/>;
   }
   else if (view === "membership" && !waitingForLaunch && (active || accepted || live?.user.profileReviewPending))
@@ -1305,7 +1340,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         openAnalysis={conversationIntent?.source===source&&conversationIntent.analysis}
         openAgreement={conversationIntent?.source===source&&conversationIntent.agreement}
         openMessage={conversationIntent?.source === source ? conversationIntent.messageId : undefined}
-        openRequest={conversationIntent?.source === source && conversationIntent.requestOnly ? conversationIntent.id : undefined}
+        openUpdate={update=>openNotification(update.requestId,update.kind,update)}
+        openJourney={conversationIntent?.source===source&&conversationIntent.journey}
+        openInterest={conversationIntent?.source===source&&conversationIntent.interest ? conversationIntent.id : undefined}
+        openRequest={conversationIntent?.source === source && conversationIntent.requestOnly && !conversationIntent.interest ? conversationIntent.id : undefined}
         onConversationOpened={clearConversationIntent}
         onTab={go}
         onHome={() => go("curated")}
@@ -1402,7 +1440,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
           </button>
         </div>
       )}
-      {!demo && cloudSelected && token && !socialPending && <ConductCenter key={token} owner={token}/>}
+      {!demo && cloudSelected && token && !socialPending && <ConductCenter key={token} owner={token} openCase={pushPanel?.owner===token&&pushPanel.panel==="safety"?pushPanel.id:undefined} onCaseOpened={()=>setPushPanel(undefined)}/>}
       <PublicationCenter key={demo?'demo':token??'public'} enabled={!showArrivalGuide && !demo && !tester && !loading && cloudSelected} owner={token} screen={publicationScreen}
         openedId={publicationOpen?.owner===token?publicationOpen.id:null} onConsumed={()=>setPublicationOpen(null)} navigate={go}>
         <Suspense fallback={<RoutePlaceholder form={view === 'application' || onboardingPreview}/>}>

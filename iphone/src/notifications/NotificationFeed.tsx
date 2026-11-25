@@ -1,11 +1,14 @@
+import { Gift } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, Check, ChevronLeft, Eye, Heart, HeartHandshake, MessageCircle, Route, Send, LockKeyhole } from "../BrandIcons";
+import { Bell, Check, ChevronLeft, Eye, Heart, HeartHandshake, MessageCircle, Route, Send, LockKeyhole, ShieldCheck, Sparkles } from "../BrandIcons";
 import { PersonAvatar } from '../avatars/PersonAvatar';
 import type { ActivityNotification, CommunitySource, Connection, FeedbackNotice, PublicPerson, StepProgress } from '../community/data';
 import { buildFeed, feedTime, filterFeed, type FeedFilter, type FeedItem } from './feed';
 import { emptyFeed } from './emptyFeed';
 import { readAlertProgress } from './alertProgress';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
+import { notificationUpdates, type InAppUpdate, type PushOpen } from './push';
+import { updateEvents } from '../../admin/server/updateEvents';
 import './notification-feed.css';
 
 const viewedRequests = new WeakMap<CommunitySource, Set<string>>();
@@ -34,7 +37,9 @@ function EventIcon({ item }: { item: FeedItem }) {
   return item.kind === 'match' ? <Heart {...props}/> : <Send {...props}/>;
 }
 
-export function NotificationFeed({ source, connections, onProfile, onConversation, onRequest, onBrowse, onRetry, loading: connectionsLoading = false, error: connectionError = '' }: {
+export function NotificationFeed({ pushOwner, openUpdate, initialInterest, onIntentOpened, source, connections, onProfile, onConversation, onRequest, onBrowse, onRetry, loading: connectionsLoading = false, error: connectionError = '' }: {
+  pushOwner?:string|null; openUpdate?:(update:PushOpen)=>void|Promise<void>;
+  initialInterest?:string; onIntentOpened?:()=>void;
   source: CommunitySource; connections: Connection[]; onProfile: (person: PublicPerson) => void;
   onConversation: (id: string, openFeedback?: boolean) => void; onRequest: (id: string) => void; loading?: boolean; error?: string;
   onBrowse?: () => void; onRetry?: () => void;
@@ -43,10 +48,29 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
   const [loading, setLoading] = useState(true), [retry, setRetry] = useState(0), [filter, setFilter] = useState<FeedFilter>('all');
   const [progress, setProgress] = useState(new Map<string, StepProgress>()), [opening, setOpening] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<FeedbackNotice[]>([]);
+  const [memberUpdates,setMemberUpdates]=useState<InAppUpdate[]>([]);
+  const [expandedUpdates,setExpandedUpdates]=useState(false);
   const [seen, setSeen] = useState(() => viewedRequests.get(source) || new Set<string>());
   const connectionsRef = useRef(connections); connectionsRef.current = connections;
   const openingRef = useRef(false);
   const acceptedIds = connections.filter(c => c.status === 'accepted').map(c => c.id).sort().join(',');
+  useEffect(()=>{
+    setMemberUpdates([]);
+    setExpandedUpdates(false);
+    if(!pushOwner)return;
+    let active=true,pending=false;
+    const refresh=async()=>{
+      if(document.hidden||pending)return;
+      pending=true;
+      try {const rows=await notificationUpdates(pushOwner);if(active)setMemberUpdates(rows);}
+      catch { /* Keep the existing activity feed available during delivery rollout. */ }
+      finally {pending=false;}
+    };
+    void refresh();
+    const timer=window.setInterval(refresh,30000);
+    document.addEventListener('visibilitychange',refresh);
+    return ()=>{active=false;clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
+  },[pushOwner]);
   useEffect(() => {
     setLoading(true); setItems([]); setProgress(new Map()); setFeedback([]);
     setSeen(viewedRequests.get(source) || new Set());
@@ -78,7 +102,20 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
   }, [source, retry, acceptedIds]);
 
   const rows = useMemo(() => buildFeed(connections, items, progress, seen, feedback), [connections, items, progress, seen, feedback]);
-  const visible = filterFeed(rows, filter), unread = rows.filter(item => item.unread).length;
+  useEffect(()=>{
+    if(!initialInterest||loading)return;
+    setFilter('interests');
+    const item=rows.find(row=>row.kind==='interest'&&
+      (row.person.id===initialInterest||initialInterest==='tester-pair'));
+    if(item){
+      onProfile(item.person);
+      if(item.activityId) void source.readNotifications?.([item.activityId]).catch(()=>{});
+    }
+    onIntentOpened?.();
+  },[initialInterest,loading,rows,source,onProfile,onIntentOpened]);
+  const visible = filterFeed(rows, filter);
+  const visibleUpdates=filter==='all'?memberUpdates:filter==='unread'?memberUpdates.filter(update=>update.unread):[];
+  const unread = rows.filter(item => item.unread).length+memberUpdates.filter(item=>item.unread).length;
   const empty = emptyFeed(filter);
   async function open(item: FeedItem) {
     if (openingRef.current || !item.target) return;
@@ -96,11 +133,33 @@ export function NotificationFeed({ source, connections, onProfile, onConversatio
     finally { openingRef.current = false; setOpening(null); }
   }
   return <section className="cm-notification-feed" aria-label="الإشعارات والتحديثات">
+    {pushOwner&&openUpdate&&visibleUpdates.length>0&&
+      <div className="nf-member-updates" aria-label="مستجدات وُدَين">
+        {visibleUpdates.slice(0,expandedUpdates?25:4).map(update=>{
+          const [title,destination,cue]=updateEvents[update.event];
+          const Icon=destination==='analysis'?Sparkles:cue==='step'?Route:cue==='account'?ShieldCheck:cue==='celebration'?Gift:MessageCircle;
+          return <button className="nf-member-update" type="button" key={update.id} data-cue={cue} data-unread={update.unread} onClick={async()=>{
+            try {
+              await openUpdate({kind:'update',requestId:update.target,event:update.event});
+              setMemberUpdates(rows=>rows.map(row=>row.id===update.id?{...row,unread:false}:row));
+              void notificationUpdates(pushOwner,update.id).catch(()=>{});
+            } catch {setError('تعذّر فتح هذا التحديث. حاول مجددًا.');}
+          }}>
+            <span className="nf-member-update-icon"><Icon size={17} aria-hidden="true"/></span>
+            <span><strong>{title}</strong><small>{datedYearFormat.format(new Date(update.createdAt))}</small></span>
+            <ChevronLeft size={15} aria-hidden="true"/>
+          </button>;
+        })}
+        {visibleUpdates.length>4&&
+          <button type="button" className="btn-text" aria-expanded={expandedUpdates} onClick={()=>setExpandedUpdates(value=>!value)}>
+            {expandedUpdates?'عرض أقل':'بقية المستجدات'}
+          </button>}
+      </div>}
     {unread > 0 && <div className="nf-feed-summary" role="status"><span>الإشعارات غير المقروءة</span><b>{new Intl.NumberFormat('ar').format(unread)}</b></div>}
     <div className="nf-feed-filters" role="group" aria-label="تصفية الإشعارات">{filters.map(option => <button key={option.id} aria-pressed={filter === option.id} onClick={() => setFilter(option.id)}>{option.label}{option.id === 'unread' && unread > 0 && <span>{new Intl.NumberFormat('ar').format(unread)}</span>}</button>)}</div>
     {(error || connectionError) && <div className="nf-feed-error" role="alert"><span>{error || connectionError}</span><button onClick={() => { setRetry(n => n + 1); onRetry?.(); }}>إعادة المحاولة</button></div>}
-    {(loading || connectionsLoading) && !rows.length && <div className="nf-feed-loading" role="status"><span/><span/><span/><span className="mi-sr-only">جارٍ تحميل الإشعارات…</span></div>}
-    {!loading && !connectionsLoading && !error && !connectionError && !visible.length && <MotionReveal key={filter} className="nf-feed-empty" duration={320} distance={6}><span>{filter === 'unread' ? <Check size={24}/> : <Bell size={23}/>}</span><h2>{empty.title}</h2><p>{empty.detail}</p>
+    {(loading || connectionsLoading) && !rows.length && !visibleUpdates.length && <div className="nf-feed-loading" role="status"><span/><span/><span/><span className="mi-sr-only">جارٍ تحميل الإشعارات…</span></div>}
+    {!loading && !connectionsLoading && !error && !connectionError && !visible.length && !visibleUpdates.length && <MotionReveal key={filter} className="nf-feed-empty" duration={320} distance={6}><span>{filter === 'unread' ? <Check size={24}/> : <Bell size={23}/>}</span><h2>{empty.title}</h2><p>{empty.detail}</p>
       {filter !== 'all' && <MotionPressButton className="btn-secondary" onClick={() => setFilter('all')}>عرض كل التحديثات</MotionPressButton>}
       {filter === 'all' && onBrowse && <MotionPressButton className="btn-secondary" onClick={onBrowse}>استكشف الملفات</MotionPressButton>}
     </MotionReveal>}

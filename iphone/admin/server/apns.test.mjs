@@ -4,11 +4,24 @@ import { generateKeyPairSync, verify, randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { stripTypeScriptTypes } from 'node:module';
-const source=await readFile(new URL('./apns.ts',import.meta.url),'utf8');
+const source=(await readFile(new URL('./apns.ts',import.meta.url),'utf8')).replace("'./updateEvents.js'", JSON.stringify(new URL('./updateEvents.ts',import.meta.url).href));
 const {providerToken,pushPayload,classifyApns,openApns}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
 const pair=generateKeyPairSync('ec',{namedCurve:'prime256v1'});
 const config={teamId:'TEAM123456',keyId:'KEY1234567',privateKey:Buffer.from(pair.privateKey.export({type:'pkcs8',format:'pem'})).toString('base64'),topic:'com.blindmatch.marriage',environment:'sandbox'};
 const job={id:randomUUID(),leaseId:randomUUID(),requestId:randomUUID(),kind:'message',token:'a'.repeat(64),environment:'sandbox',expiresAt:new Date(Date.now()+60000).toISOString()};
+test('update alerts use the exact destination and honor privacy and sound settings',()=>{
+ const details={target:job.requestId,event:'agreement:proposed',preview:'event',badge:1};
+ const agreement=pushPayload({kind:'update',requestId:null,details});
+ assert.equal(agreement.requestId,job.requestId);
+ assert.equal(agreement.event,'agreement:proposed');
+ assert.equal(agreement.aps.sound,'wudayn-step.wav');
+ const privacy=pushPayload({kind:'update',requestId:null,details:{...details,preview:'private'}});
+ assert.equal(privacy.aps.alert.body,'لديك تحديث جديد.');
+ assert.equal(privacy.aps.sound,'default');
+ const screenshot=pushPayload({kind:'update',requestId:job.requestId,details:{...details,event:'screenshot:received'}});
+ assert.equal(screenshot.aps.sound,undefined);
+ assert.equal(screenshot.aps['interruption-level'],'passive');
+});
 test('APNs provider token is signed ES256 P1363 and payload contains only generic copy',()=>{
  const token=providerToken(config,1_800_000_000_000),parts=token.split('.');
  assert.deepEqual(JSON.parse(Buffer.from(parts[0],'base64url')),{alg:'ES256',kid:config.keyId});

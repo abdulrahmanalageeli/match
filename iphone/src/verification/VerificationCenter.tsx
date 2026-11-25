@@ -24,7 +24,7 @@ function RequestCard({ request, busy, onWithdraw }: { request: ManualVerificatio
   const kind = verificationKinds.find(item => item.id === request.kind);
   const canWithdraw = ['draft', 'pending', 'changes_requested', 'approved'].includes(request.status);
   return <article className={`mv-request mv-request-${request.status}`}>
-    <div className="mv-request-top"><strong>{kind?.label}</strong><span className="mv-status">{verificationStatusLabels[request.status]}</span></div>
+    <div id={`verification-${request.id}`} className="mv-request-top"><strong>{kind?.label}</strong><span className="mv-status">{verificationStatusLabels[request.status]}</span></div>
     {request.reason ? <p className="mv-review-note"><CircleAlert size={15} /><span>{request.reason}</span></p> : null}
     {request.status === 'stale' ? <p className="mv-fine-print">تغيّر البيان في ملفك بعد المراجعة، لذلك لم تعد الشارة سارية.</p> : null}
     {request.status === 'draft' ? <p className="mv-fine-print">لم يكتمل إرسال هذا الطلب. يمكنك سحبه من هنا.</p> : null}
@@ -38,7 +38,7 @@ function RequestCard({ request, busy, onWithdraw }: { request: ManualVerificatio
   </article>;
 }
 
-export function VerificationCenter({ source, onBack }: { source: ManualVerificationSource; profile: Profile; onBack: () => void }) {
+export function VerificationCenter({ source, onBack, focusRequest }: { source: ManualVerificationSource; profile: Profile; onBack: () => void; focusRequest?:string }) {
   const [state, setState] = useState<ManualVerificationState>(emptyState);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -56,6 +56,7 @@ export function VerificationCenter({ source, onBack }: { source: ManualVerificat
     return () => { generation.current++; };
   }, [source.verification]);
 
+  useEffect(()=>{ if(focusRequest) document.getElementById(`verification-${focusRequest}`)?.scrollIntoView({block:"center"}); },[focusRequest,state.requests]);
   const validClaims = currentVerificationClaims(state.claims);
   const available = !!source.verification;
 

@@ -8,15 +8,15 @@ export type SupportStatus = 'open' | 'in_review' | 'resolved';
 export type SupportTicket = { id: string; category: SupportCategory; subject: string; body: string; status: SupportStatus; response: string | null; createdAt: string; updatedAt: string; revision: number; deletionRequested?: boolean; deletionApproved?: boolean; needsVerification?:'identity'|'phone'; editStep?: string; editField?: string; exportOffered?: boolean; requestFilters?:boolean; confirmRepair?: boolean };
 export type SupportPage = { items: SupportTicket[]; nextCursor: string | null };
 export type SupportInput = { category: SupportCategory; subject: string; body: string; clientId: string };
-export interface SupportSource { ownerId?: string; shareDirectory?(ticket:string):Promise<void>; verifyCase?(ticket:string):Promise<'verified'|'authPhone'|'cancelled'>; sendAuthPhone?(phone:string):Promise<void>; confirmAuthPhone?(ticket:string,phone:string,token:string):Promise<void>; confirmRepair?(ticket:string):Promise<void>; list(before?: string): Promise<SupportPage>; create(input: SupportInput): Promise<SupportTicket>; confirmDeletion?(ticket: string, approve: boolean): Promise<void> }
+export interface SupportSource { ownerId?: string; shareDirectory?(ticket:string):Promise<void>; verifyCase?(ticket:string):Promise<'verified'|'authPhone'|'cancelled'>; sendAuthPhone?(phone:string):Promise<void>; confirmAuthPhone?(ticket:string,phone:string,token:string):Promise<void>; confirmRepair?(ticket:string):Promise<void>; list(before?: string): Promise<SupportPage>; ticket?(id:string):Promise<SupportTicket|null>; create(input: SupportInput): Promise<SupportTicket>; confirmDeletion?(ticket: string, approve: boolean): Promise<void> }
 
 export function createSupportSource(client: SupabaseClient, expectedUser: string): SupportSource {
-  async function call<T>(action: string, payload: object): Promise<T> {
+  async function rpc<T>(name:string, args:object): Promise<T> {
     const session = await client.auth.getSession();
     if (session.error || session.data.session?.user.id !== expectedUser) throw new Error('سجّل الدخول مجددًا لمتابعة طلب المساعدة.');
     const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const { data, error } = await client.rpc('marriage_support', { action, payload }).abortSignal(controller.signal);
+      const { data, error } = await client.rpc(name,args).abortSignal(controller.signal);
       if (error) {
         if (error.code === '22023' || error.code === 'P0001') throw new Error(error.message);
         throw new Error('تعذّر تأكيد الطلب. تحقق من الاتصال وحاول مجددًا؛ إعادة المحاولة لا تنشئ طلبًا مكررًا.');
@@ -26,6 +26,7 @@ export function createSupportSource(client: SupabaseClient, expectedUser: string
       return data as T;
     } finally { clearTimeout(timeout); }
   }
+  const call=<T,>(action:string,payload:object)=>rpc<T>('marriage_support',{action,payload});
   async function sessionUser(){
     const user=(await client.auth.getUser()).data.user;
     if(!user||user.id!==expectedUser)throw new Error('تغيّرت جلسة الحساب.');
@@ -51,7 +52,7 @@ export function createSupportSource(client: SupabaseClient, expectedUser: string
     },
     async sendAuthPhone(phone){await sessionUser();const {normalizeSignupPhone}=await import('../auth/SignupSms');const {error}=await client.auth.updateUser({phone:normalizeSignupPhone(phone)});if(error)throw new Error('تعذّر إرسال رمز التحقق. تحقّق من الرقم وحاول مجددًا.');},
     async confirmAuthPhone(ticket,phone,token){await sessionUser();const {normalizeSignupPhone}=await import('../auth/SignupSms');const {error}=await client.auth.verifyOtp({phone:normalizeSignupPhone(phone),token,type:'phone_change'});if(error)throw new Error('الرمز غير صالح أو انتهت مدته.');if(!(await proof(ticket)).verified)throw new Error('تحتاج خدمة الدخول تأكيدًا إضافيًا لتغيير الرقم.');},
-    confirmRepair:async id=>{await call('case_confirm',{id});}, list: before => call('list', { before }), create: input => call('create', input), async confirmDeletion(ticket, approve) {
+    confirmRepair:async id=>{await call('case_confirm',{id});}, list: before => call('list', { before }), ticket:id=>rpc('marriage_support_ticket',{ticket_id:id}), create: input => call('create', input), async confirmDeletion(ticket, approve) {
     const current = await client.auth.getSession();
     if (current.data.session?.user.id !== expectedUser) throw new Error('تغيّرت الجلسة. افتح طلبك مجددًا.');
     const result = await client.rpc('marriage_confirm_case_deletion', { ticket, approve });

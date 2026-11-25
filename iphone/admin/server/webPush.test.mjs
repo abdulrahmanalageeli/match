@@ -4,7 +4,7 @@ import { randomUUID, createECDH } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { stripTypeScriptTypes } from 'node:module';
 const dataModule = source => 'data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source)).toString('base64');
-const apns = dataModule(await readFile(new URL('./apns.ts', import.meta.url), 'utf8'));
+const apns = dataModule((await readFile(new URL('./apns.ts', import.meta.url), 'utf8')).replace("'./updateEvents.js'", JSON.stringify(new URL('./updateEvents.ts',import.meta.url).href)));
 const source = (await readFile(new URL('./webPush.ts', import.meta.url), 'utf8')).replace("'./apns.js'", JSON.stringify(apns)).replace("'web-push'", JSON.stringify(import.meta.resolve('web-push')));
 const { validWebSubscription, classifyWebPush, webPushPayload, openWebPush } = await import(dataModule(source));
 const ecdh = createECDH('prime256v1'); ecdh.generateKeys();

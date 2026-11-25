@@ -10,7 +10,7 @@ const deadlineFormat=new Intl.DateTimeFormat('ar-SA',{day:'numeric',month:'long'
 const shortDeadlineFormat=new Intl.DateTimeFormat('ar-SA',{day:'numeric',month:'long',numberingSystem:'arab',calendar:'gregory'});
 const daysFormat=new Intl.NumberFormat('ar-SA',{numberingSystem:'arab'});
 
-export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,openDetails,hasHistory,noticeSlot,peerAlias}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;openDetails?:boolean;hasHistory?:boolean;noticeSlot?:HTMLElement|null;peerAlias?:string}){
+export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,openDetails,hasHistory,noticeSlot,peerAlias}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;openDetails?:boolean|number;hasHistory?:boolean;noticeSlot?:HTMLElement|null;peerAlias?:string}){
  const [agreement,setAgreement]=useState<SeriousnessAgreement|null>(null),[days,setDays]=useState(14),[signed,setSigned]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[expanded,setExpanded]=useState(false);
  const [loadError,setLoadError]=useState(false),[retry,setRetry]=useState(0);
  const revision=useRef(0),saving=useRef(false);

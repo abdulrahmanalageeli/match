@@ -35,6 +35,8 @@ import { applePeriodText, settingsDate, useSettingsSummary } from './settingsSum
 type Props = {
   onTestMembership?: (tier:'actual'|'free'|'premium'|'seriousness')=>void;
   testerSession?: string;
+  pushPanel?: {panel:"family"|"verification"|"support"|"safety";id:string};
+  onPushPanelOpened?:()=>void;
   completionEntry?: number;
   onProfileChanged?: () => void;
   source?: CommunitySource | null;
@@ -130,7 +132,7 @@ function ConfirmPreference({ action, demo, onCancel, onConfirm }: {
 }
 
 export function Settings({ testerSession, state, demoMember, demo, paused, busy, onEdit, onMembership, onBeena,
-  onToggle, onDelete, onExit, onPrivacy, onBack, children, source, previewPhoto, onTryOnboarding, completionEntry = 0, onProfileChanged, onTestMembership }: Props) {
+  onToggle, onDelete, onExit, onPrivacy, onBack, children, source, previewPhoto, onTryOnboarding, completionEntry = 0, onProfileChanged, onTestMembership, pushPanel, onPushPanelOpened }: Props) {
   const { value, setPreference } = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
   const [confirm, setConfirm] = useState<"pause" | "exit" | null>(null);
@@ -139,6 +141,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const [showHelp,setShowHelp]=useState(false);
   const [showCompletion,setShowCompletion]=useState(false);
   useEffect(() => { if (completionEntry) setShowCompletion(true); }, [completionEntry]);
+  const [supportTicket,setSupportTicket]=useState<string>();
+  const [verificationTarget,setVerificationTarget]=useState<string>();
   const [profilePanel,setProfilePanel]=useState<'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'|null>(null);
   useCapturePrivacy(profilePanel === 'photos' ? 'profile' : null);
   const [ownClaims,setOwnClaims]=useState<ManualVerificationClaim[]>([]);
@@ -146,6 +150,18 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   useEffect(()=>{let current=true;setOwnClaims([]);setHasPreviousVerification(false);if(source?.verification)void source.verification('state').then(result=>{if(current){setOwnClaims(result.claims);setHasPreviousVerification(result.requests.length>0);}}).catch(()=>{});return()=>{current=false;};},[source,profilePanel]);
   const returnScroll=useRef(0);
   useLayoutEffect(()=>{if(profilePanel)window.scrollTo(0,0);},[profilePanel]);
+  useEffect(()=>{
+    if(!pushPanel||pushPanel.panel==='safety') return;
+    if(pushPanel.panel==='family'||pushPanel.panel==='verification') {
+      setProfilePanel(pushPanel.panel);
+      setVerificationTarget(pushPanel.id);
+    } else {
+      setProfilePanel(null);
+      setSupportTicket(pushPanel.id);
+    }
+    setShowCompletion(false);
+    onPushPanelOpened?.();
+  },[pushPanel,onPushPanelOpened]);
   function openPanel(panel:'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'){returnScroll.current=window.scrollY;setProfilePanel(panel);}
   function closePanel(){const panel=profilePanel;setProfilePanel(null);requestAnimationFrame(()=>{
     window.scrollTo(0,returnScroll.current);
@@ -186,9 +202,9 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
     onFamily={source?.family?()=>{setShowCompletion(false);openPanel('family');}:undefined}
     onReadiness={source?.readiness?()=>{setShowCompletion(false);openPanel('readiness');}:undefined}/>;
   if(profilePanel==='exclusions'&&source)return <MatchingExclusions source={source} onBack={closePanel}/>;
-  if(profilePanel==='verification'&&source&&member)return <VerificationCenter source={source} profile={member} onBack={closePanel}/>;
+  if(profilePanel==='verification'&&source&&member)return <VerificationCenter source={source} profile={member} onBack={closePanel} focusRequest={verificationTarget}/>;
   if(profilePanel==='readiness'&&source)return <ReadinessPassportPanel source={source} onBack={closePanel}/>;
-  if(profilePanel==='family'&&source)return <FamilyBridgePanel source={source} onBack={closePanel}/>;
+  if(profilePanel==='family'&&source)return <FamilyBridgePanel source={source} onBack={closePanel} focusLink={verificationTarget}/>;
   if(profilePanel==='preview'&&member){
     const preview = state?.user.profileReviewPending ? summary.data?.approvedPreview : publicProfile(member,owner??'self',previewPhoto);
     return <main className="app-screen st-profile-view" dir="rtl">{preview ?
@@ -259,7 +275,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
         </details>
         <PushSettings owner={owner ?? null} demo={demo} testerSession={testerSession} folded />
         <NativePrivacy owner={testerSession ? 'tester:'+testerSession : !demo ? owner??null : null} folded />
-        <details className="st-section st-fold st-hub"><summary><span><strong>المساعدة والدعم</strong><small>الدليل والتواصل مع الفريق</small></span></summary><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="الميزات والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div><SupportContact/></details>
+        <details className="st-section st-fold st-hub"><summary><span><strong>المساعدة والدعم</strong><small>الدليل والتواصل مع الفريق</small></span></summary><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="الميزات والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div><SupportContact openTicket={supportTicket} onTicketClosed={()=>setSupportTicket(undefined)}/></details>
         <details className="st-section st-fold st-hub st-access"><summary><span><strong>الحساب</strong><small>المعرّف، تسجيل الخروج وحذف الحساب</small></span></summary>
           <div className="st-group">
             {state?.user.id&&<button type="button" className="st-row st-member-id-row" onClick={()=>void copyMemberId()}><span className="st-icon"><Copy size={18}/></span><span className="st-row-copy"><strong>معرّف العضو</strong><small dir="ltr">{state.user.id}</small></span><span aria-live="polite">{memberIdCopied?'تم النسخ':'نسخ'}</span></button>}

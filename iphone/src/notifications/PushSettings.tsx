@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { Gift } from "lucide-react";
+import { useEffect, useRef, useState } from 'react';
 import { NativePushAction } from './NativePushAction';
 import { NewsPreference } from '../publishing/NewsPreference';
-import { Bell, Settings2 } from "../BrandIcons";
+import { Bell, MessageCircle, Route, Settings2, ShieldCheck } from "../BrandIcons";
 import { disablePush, enablePush, getPushPreference, nativePush, openPushSettings, pushConfigured, pushStatus, pushSupported, pushPrivacy, type PushPreview, pushControls, defaultPushControls, type PushControls } from './push';
 import { needsHomeScreen } from './webPush';
 import { feedback } from '../feedback/haptics';
@@ -14,6 +15,13 @@ export function PushSettings({ owner, demo, testerSession, folded=false }: { own
   const [error, setError] = useState('');
   const [preview,setPreview]=useState<PushPreview|null>(null);
   const [controls,setControls] = useState<PushControls | null>(null);
+  const soundPreview=useRef<HTMLAudioElement|null>(null);
+  useEffect(()=>()=>soundPreview.current?.pause(),[]);
+  function playPreview(cue:string) {
+    soundPreview.current?.pause();
+    soundPreview.current=new Audio(`/brand/wudayn-${cue}.wav`);
+    void soundPreview.current.play().catch(()=>setError('تعذّر تشغيل معاينة الصوت.'));
+  }
   const available = Boolean(owner && (!demo || (testerSession && nativePush)) && pushSupported() && pushConfigured);
   useEffect(() => {
     let active = true;
@@ -54,7 +62,8 @@ export function PushSettings({ owner, demo, testerSession, folded=false }: { own
   }
   const switches = [
     ['connections','طلبات التوافق والقبول'], ['message','رسائل المحادثات'], ['family','رسائل جسر الأهل'],
-    ['reminder','تذكير بالموعد المتفق عليه'], ['analysis','دعوات التحليل وجاهزية التقرير'],
+    ['reminder','تذكير بالموعد المتفق عليه'], ['agreement','ميثاق ومسار التعارف'],
+    ['account','الحساب والأمان والدعم'], ['membership','العضوية والهدايا'], ['interest','اهتمام بملفك'], ['screenshot','لقطات الشاشة'], ['analysis','دعوات التحليل وجاهزية التقرير'],
     ['sound','صوت التنبيهات'], ['quiet','ساعات الهدوء'],
   ] as const;
   const contents = <>
@@ -78,11 +87,11 @@ export function PushSettings({ owner, demo, testerSession, folded=false }: { own
         <select aria-label="معاينة الإشعارات" value={preview??''} disabled={busy} onChange={async event=>{
           const next=event.target.value as PushPreview;if(!owner)return;setBusy(true);setError('');
           try{setPreview((await pushPrivacy(owner,next)).preview);}catch{setError('لم يُحفظ إعداد المعاينة. حاول مجددًا.');}finally{setBusy(false);}
-        }}><option value="" disabled>اختر المعاينة</option><option value="private">إشعار خاص</option><option value="name">الاسم فقط</option><option value="content">الاسم والرسالة</option></select>
+        }}><option value="" disabled>اختر المعاينة</option><option value="private">إشعار خاص</option><option value="event">نوع الإشعار</option><option value="name">الاسم فقط</option><option value="content">الاسم والرسالة</option></select>
       </label>
       {preview&&<div className="st-lock-preview" role="status" aria-label="مثال لإشعار على شاشة القفل">
         <small><Bell size={14} aria-hidden="true"/> وُدَين · مثال توضيحي</small>
-        <strong>{preview==='private'?'إشعار جديد': 'رسالة من نورة'}</strong>
+        <strong>{preview==='private'?'إشعار جديد':preview==='event'?'لديك رسالة جديدة': 'رسالة من نورة'}</strong>
         {preview==='content'&&<span>يسعدني أن نتعرّف أكثر.</span>}
       </div>}</>}
       {available && enabled && controls && <div className="st-push-controls" role="group" aria-labelledby="st-push-groups-title">
@@ -93,6 +102,16 @@ export function PushSettings({ owner, demo, testerSession, folded=false }: { own
           <span className="st-row-copy"><strong>{label}</strong></span>
           <span className="st-switch-track" aria-hidden="true"><i /></span>
         </button>)}
+        <details className="st-sound-preview"><summary>معاينة أصوات وُدَين</summary>
+          {([
+            ['message','الرسائل والمكالمات',MessageCircle],
+            ['step','ميثاق ومسار التعارف',Route],
+            ['account','الحساب والدعم',ShieldCheck],
+            ['celebration','القبول والهدايا',Gift],
+          ] as const).map(([cue,label,Icon])=><button key={cue} type="button" className="st-row st-sound-sample" data-cue={cue} onClick={()=>playPreview(cue)}>
+            <span className="st-icon"><Icon size={16} aria-hidden="true"/></span><span>{label}</span><small>استمع</small>
+          </button>)}
+        </details>
         {controls.quiet && <>{(['start','end'] as const).map(key=><label key={key} className="st-row">
           <span className="st-row-copy">{key==='start'?'بداية الهدوء':'نهاية الهدوء'}</span>
           <select disabled={busy} aria-label={key==='start'?'بداية الهدوء':'نهاية الهدوء'} value={controls[key]}

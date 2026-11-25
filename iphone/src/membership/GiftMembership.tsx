@@ -24,13 +24,13 @@ function giftError(cause:unknown, fallback:string) {
   return fallback;
 }
 
-export function GiftMembership({owner,target,back,attention,settle,refreshAccount}:{
-  owner:string;target?:GiftRecipient;back:()=>void;attention:number;
+export function GiftMembership({owner,target,back,attention,settle,refreshAccount,focusGift,onGiftFocused}:{
+  owner:string;target?:GiftRecipient;back:()=>void;attention:number;focusGift?:string;onGiftFocused?:()=>void;
   settle:(jws:string)=>Promise<void>;refreshAccount:()=>Promise<unknown>;
 }) {
   const ios = isIOSBilling();
   const [tier,setTier] = useState<MembershipPlan>('premium');
-  const [tab,setTab] = useState<'create'|'gifts'>(!target && attention ? 'gifts' : 'create');
+  const [tab,setTab] = useState<'create'|'gifts'>((focusGift || !target && attention) ? 'gifts' : 'create');
   const [method,setMethod] = useState<'phone'|'member'>(target?'member':'phone');
   const [value,setValue] = useState('');
   const [prices,setPrices] = useState<Record<string,GiftPrice|undefined>>({});
@@ -74,6 +74,12 @@ export function GiftMembership({owner,target,back,attention,settle,refreshAccoun
     }).catch(()=>{if(active)setListStatus('error');});
     return ()=>{active=false;document.removeEventListener('visibilitychange',reload);window.removeEventListener('wudayn:gift-settled',reload);};
   },[owner,revision,attention]);
+  useEffect(()=>{
+    if(!focusGift||listStatus!=='ready') return;
+    if(tab!=='gifts'){setTab('gifts');return;}
+    document.getElementById(`gift-${focusGift}`)?.scrollIntoView({block:'center'});
+    onGiftFocused?.();
+  },[focusGift,listStatus,tab,onGiftFocused]);
   async function run(action:()=>Promise<void>) {
    if(lock.current) return;
     lock.current=true;setBusy(true);setError('');setNotice('');
@@ -185,7 +191,7 @@ export function GiftMembership({owner,target,back,attention,settle,refreshAccoun
       {listStatus==='error'&&<p role="alert">تعذّر تحميل الهدايا. حدّث القائمة للمحاولة مجددًا.</p>}
       {listStatus==='ready'&&!inbox.length&&!outbox.length&&<div className="wd-gift-empty"><Gift size={28}/><h2>لا توجد هدايا بعد</h2><button className="wd-gift-text" onClick={()=>changeTab('create')}>اختيار هدية</button></div>}
       {inbox.length>0&&<h2>دعوات وصلتني</h2>}
-      {inbox.map(row=><article key={row.id} className="wd-gift-record"><img src={seals[row.tier]} alt=""/><div><h3>{plans[row.tier]}</h3><p>دعوة من <bdi>{row.senderName}</bdi> · ٣٠ يومًا</p><small>بقبولك يظهر اسمك في وُدَين للمُهدي ليُكمل الشراء.</small><div className="wd-gift-row-actions"><button disabled={busy} onClick={()=>respond(row,true)}>قبول الدعوة</button><button disabled={busy} onClick={()=>respond(row,false)}>اعتذار</button></div></div></article>)}
+      {inbox.map(row=><article key={row.id} id={`gift-${row.id}`} className="wd-gift-record"><img src={seals[row.tier]} alt=""/><div><h3>{plans[row.tier]}</h3><p>دعوة من <bdi>{row.senderName}</bdi> · ٣٠ يومًا</p><small>بقبولك يظهر اسمك في وُدَين للمُهدي ليُكمل الشراء.</small><div className="wd-gift-row-actions"><button disabled={busy} onClick={()=>respond(row,true)}>قبول الدعوة</button><button disabled={busy} onClick={()=>respond(row,false)}>اعتذار</button></div></div></article>)}
       {outbox.length>0&&<h2>هدايا أرسلتها</h2>}
       {outbox.map(row=>{
         const quote=quoteFor(row);

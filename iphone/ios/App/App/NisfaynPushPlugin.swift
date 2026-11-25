@@ -53,11 +53,12 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
         let request = response.notification.request
         let localSimulation = request.identifier == Self.simulationRequest && request.trigger is UNTimeIntervalNotificationTrigger
         if let id = info["requestId"] as? String, UUID(uuidString: id) != nil,
-           let kind = info["kind"] as? String, (localSimulation ? kind == "simulation" : ["request", "mutual", "message", "reminder", "family", "analysis", "publication"].contains(kind)) {
+           let kind = info["kind"] as? String, (localSimulation ? kind == "simulation" : ["request", "mutual", "message", "reminder", "family", "analysis", "publication", "update"].contains(kind)) {
             DispatchQueue.main.async {
                 guard let scope = info["scope"] as? String, scope == self.scope else { completionHandler(); return }
                 var payload = ["scope":scope,"requestId":id,"kind":kind,"actionId":UUID().uuidString.lowercased()]
                 if let messageId = info["messageId"] as? String,UUID(uuidString:messageId) != nil { payload["messageId"] = messageId }
+                if kind == "update", let event = info["event"] as? String, event.range(of: "^[a-z_]+:[a-z_]+$", options: .regularExpression) != nil { payload["event"] = event }
                 if let roomId = info["roomId"] as? String,UUID(uuidString:roomId) != nil { payload["roomId"] = roomId }
                 if response.actionIdentifier == "NISFAYN_READ" { payload["action"] = "read" }
                 if response.actionIdentifier == "NISFAYN_REPLY",let reply = response as? UNTextInputNotificationResponse {

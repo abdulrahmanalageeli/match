@@ -14,7 +14,15 @@ const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(ow
   : callRpc<T>('marriage_push_' + action, payload, owner);
 import { disableWebPush, enableWebPush, registerWebPushDevice, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
-export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication' | 'simulation';scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
+import { isUpdateEvent, type UpdateEvent } from '../../admin/server/updateEvents';
+
+export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication' | 'simulation' | 'update';event?:UpdateEvent;scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
+export type InAppUpdate = {id:string;event:UpdateEvent;target:string;createdAt:string;unread:boolean};
+
+export async function notificationUpdates(owner:string,readId?:string):Promise<InAppUpdate[]> {
+  const rows=await pushRpc<InAppUpdate[]>(owner,'updates',{read_id:readId??null});
+  return rows.filter(row=>isUpdateEvent(row.event)&&/^[0-9a-f-]{36}$/i.test(row.target));
+}
 type Device = { token: string; installationId: string; environment: 'sandbox' | 'production' };
 type Permission = { buildNumber?:string; permission: 'granted' | 'prompt' | 'denied'; installationId: string };
 interface NativePush {
@@ -65,7 +73,7 @@ export async function setPushBadge(count:number,owner:string|null) {
 }
 
 export const defaultPushControls = {
-  message:true, connections:true, family:true, reminder:true, analysis:false, sound:true,
+  message:true, connections:true, family:true, reminder:true, analysis:false, agreement:true, account:true, membership:true, interest:true, screenshot:false, sound:true,
   quiet:false, start:22, end:7, zone:'Asia/Riyadh',
 };
 export type PushControls = typeof defaultPushControls;
@@ -217,7 +225,7 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
         if (notification.actionId) { await native.acknowledgeOpen({actionId:notification.actionId}); acknowledged=true; }
         return;
       }
-      if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family','analysis','publication'].includes(notification.kind)) {
+      if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family','analysis','publication','update'].includes(notification.kind) && (notification.kind !== 'update' || isUpdateEvent(notification.event))) {
         if (scope !== notification.scope || isTester(owner) !== (notification.requestId === testerRequestId)) {
           if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}return;
         }

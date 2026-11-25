@@ -1,6 +1,7 @@
 import { publicationBuild } from '../publishing/appBuild';
 import { callRpc, cloudSessionId } from '../cloud';
 import { notificationScope } from './scope';
+import { isUpdateEvent } from '../../admin/server/updateEvents';
 import type { PushOpen } from './push';
 
 const installationKey = 'nisfayn.web-push.installation';
@@ -91,16 +92,16 @@ export async function detachWebPush() {
   ]);
 }
 
-function routeIds(value: {messageId?:unknown;roomId?:unknown}) {
-  return Object.fromEntries(['messageId', 'roomId'].flatMap(key => {
+function routeIds(value: {messageId?:unknown;roomId?:unknown;event?:unknown}) {
+  return { ...(isUpdateEvent(value.event) ? {event:value.event} : {}), ...Object.fromEntries(['messageId', 'roomId'].flatMap(key => {
     const id = value[key as keyof typeof value];
     return typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id) ? [[key,id]] : [];
-  }));
+  })) };
 }
 
 function validOpen(value: unknown): value is PushOpen {
   const event = value as PushOpen | undefined;
-  return Boolean(event && /^[0-9a-f-]{36}$/i.test(event.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis', 'publication'].includes(event.kind));
+  return Boolean(event && /^[0-9a-f-]{36}$/i.test(event.requestId) && ['request', 'mutual', 'message', 'reminder', 'family', 'analysis', 'publication', 'update'].includes(event.kind) && (event.kind !== 'update' || isUpdateEvent(event.event)));
 }
 
 // A click can arrive while Auth is restoring the session or at the sign-in
@@ -125,9 +126,9 @@ export function monitorWebPush(owner: string, onOpen: (value: PushOpen) => void)
     try {
       if (localStorage.getItem(ownerKey) && localStorage.getItem(ownerKey) !== owner) await detachWebPush();
       const url = new URL(location.href);
-      const pending = { scope:url.searchParams.get('scope'), requestId: url.searchParams.get('pushRequest'), kind: url.searchParams.get('pushKind'), ...routeIds({messageId:url.searchParams.get('messageId'),roomId:url.searchParams.get('roomId')}) };
+      const pending = { scope:url.searchParams.get('scope'), requestId: url.searchParams.get('pushRequest'), kind: url.searchParams.get('pushKind'), ...routeIds({messageId:url.searchParams.get('messageId'),roomId:url.searchParams.get('roomId'),event:url.searchParams.get('event')}) };
       if (validOpen(pending)) {
-        url.searchParams.delete('scope'); url.searchParams.delete('pushRequest'); url.searchParams.delete('pushKind'); url.searchParams.delete('messageId'); url.searchParams.delete('roomId');
+        url.searchParams.delete('scope'); url.searchParams.delete('pushRequest'); url.searchParams.delete('pushKind'); url.searchParams.delete('messageId'); url.searchParams.delete('roomId'); url.searchParams.delete('event');
         history.replaceState(history.state, '', url);
         await open(pending);
       } else {

@@ -72,3 +72,12 @@ html[data-nf-motion="reduced"] :is(.nf-feed-filters button, .cm-notification-row
 .phone-app .nf-feed-meta { font-weight: 400; font-variant-numeric: tabular-nums; }
 .phone-app .nf-feed-copy > small { font-weight: 400; }
 .phone-app .nf-feed-error button { min-height: 44px; font-size: 14px; font-weight: 500; text-underline-offset: 4px; }
+.nf-member-updates { margin-block-end: .75rem; }
+.nf-member-update { display: grid; grid-template-columns: 2rem minmax(0,1fr) 1rem; align-items: center; gap: .65rem; width: 100%; min-height: 51px; padding: .4rem 0; text-align: start; border: 0; border-block-end: 1px solid #e7e1e3; background: transparent; color: inherit; }
+.nf-member-update strong,.nf-member-update small { display: block; }
+.nf-member-update strong { font-size: .86rem; font-weight: 500; }
+.nf-member-update small { margin-block-start: .12rem; color: #69616a; font-size: .72rem; }
+.nf-member-update[data-unread="true"] strong { font-weight: 700; }
+.nf-member-update-icon { display: grid; place-items: center; color: #681b36; }
+.nf-member-update[data-cue="account"] .nf-member-update-icon { color: #35635b; }
+.nf-member-update[data-cue="celebration"] .nf-member-update-icon { color: #825a41; }

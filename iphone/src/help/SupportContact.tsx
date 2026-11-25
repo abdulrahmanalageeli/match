@@ -21,7 +21,7 @@ function SupportTicketsLoading() {
   return <div className="nf-support-loading" role="status"><span>جارٍ تحميل طلباتك…</span><div aria-hidden="true" className="nf-support-skeleton"><i/><i/><i/><i/></div></div>;
 }
 
-function SupportDialog({ source, subject: initialSubject, context, close }: { source: SupportSource; subject: string; context?: string; close: () => void }) {
+function SupportDialog({ source, subject: initialSubject, context, close, focusTicket }: { source: SupportSource; subject: string; context?: string; close: () => void; focusTicket?:string }) {
   const reviewSection=useContext(ReviewSection);
   const [exportTicket,setExportTicket]=useState(''),[phoneTicket,setPhoneTicket]=useState(''),[phone,setPhone]=useState(''),[otp,setOtp]=useState(''),[smsSent,setSmsSent]=useState(false);
   async function verifyCase(id:string) {
@@ -38,6 +38,7 @@ function SupportDialog({ source, subject: initialSubject, context, close }: { so
   const dialog = useRef<HTMLDialogElement>(null), heading = useId(), generation = useRef(0);
   const [category, setCategory] = useState<SupportCategory>(saved?.category || 'help'), [subject, setSubject] = useState(saved?.subject ?? initialSubject), [body, setBody] = useState(saved?.body ?? (context ? context + '\n\n' : ''));
   const [items, setItems] = useState<SupportTicket[]>([]), [cursor, setCursor] = useState<string | null>(null), [loading, setLoading] = useState(true), [sending, setSending] = useState(false), [error, setError] = useState(''), [receipt, setReceipt] = useState('');
+  useEffect(()=>{ if(focusTicket) document.getElementById(`support-${focusTicket}`)?.scrollIntoView({block:"center"}); },[focusTicket,items]);
   const attempt = useRef<SupportInput | null>(saved || null);
   useEffect(() => {
     const entries = drafts.get(source) || new Map<string, SupportInput>();
@@ -48,11 +49,18 @@ function SupportDialog({ source, subject: initialSubject, context, close }: { so
   async function load(before?: string) {
     const ticket = generation.current;
     setLoading(true); setError('');
-    try { const page = await source.list(before); if (ticket === generation.current) { setItems(old => before ? [...old, ...page.items] : page.items); setCursor(page.nextCursor); } }
+    try {
+      const [page,focused]=await Promise.all([source.list(before),!before&&focusTicket?source.ticket?.(focusTicket).catch(()=>null):null]);
+      if(ticket===generation.current){
+        const next=focused?[focused,...page.items.filter(item=>item.id!==focused.id)]:page.items;
+        setItems(old=>before?[...old,...next.filter(item=>!old.some(previous=>previous.id===item.id))]:next);
+        setCursor(page.nextCursor);
+      }
+    }
     catch (e) { if (ticket === generation.current) setError(e instanceof Error ? e.message : 'تعذّر تحميل الطلبات.'); }
     finally { if (ticket === generation.current) setLoading(false); }
   }
-  useEffect(() => { generation.current++; const el = dialog.current; el?.showModal(); void load(); return () => { generation.current++; el?.close(); }; }, [source]);
+  useEffect(() => { generation.current++; const el = dialog.current; el?.showModal(); void load(); return () => { generation.current++; el?.close(); }; }, [source,focusTicket]);
   async function shareDirectory(ticket:string) {
     if(!source.shareDirectory||sending)return;
     setSending(true);setError('');
@@ -103,7 +111,7 @@ function SupportDialog({ source, subject: initialSubject, context, close }: { so
     {error && <p className="nf-support-feedback nf-support-error" role="alert">{error}</p>}{receipt && <p className="nf-support-feedback nf-support-receipt" role="status">{receipt}</p>}
     <section className="nf-support-requests" aria-label="طلبات المساعدة"><header><h3>طلباتي</h3><button type="button" disabled={loading || sending} onClick={() => void load()}>تحديث</button></header>
       {loading && (items.length ? <p className="nf-support-refresh" role="status">جارٍ تحديث طلباتك…</p> : <SupportTicketsLoading/>)}{!loading && !items.length && !error && <div className="nf-support-empty"><p>ما عندك طلبات مساعدة سابقة.</p></div>}
-      {items.map(item => <article className="nf-support-ticket" key={item.id}><strong>{item.subject}</strong><p className="nf-support-state" data-status={item.status}>{statuses[item.status]}</p><small>رقم الطلب: <bdi>{item.id}</bdi><br/>{new Date(item.createdAt).toLocaleDateString('ar-SA')}</small><details><summary>تفاصيل الطلب</summary><p>{item.body}</p></details>{item.response && <div className="nf-support-response"><strong>رد فريق وُدَين</strong><p>{item.response}</p><small>{new Date(item.updatedAt).toLocaleString('ar-SA')}</small></div>}{item.status!=='resolved'&&item.needsVerification&&source.verifyCase&&<div className="nf-support-response">{phoneTicket===item.id&&<label>{smsSent?'رمز تأكيد الرقم الجديد':'رقم الجوال الجديد'}<input dir="ltr" inputMode={smsSent?'numeric':'tel'} value={smsSent?otp:phone} onChange={e=>smsSent?setOtp(e.target.value):setPhone(e.target.value)}/></label>}<button type="button" disabled={sending} onClick={()=>void verifyCase(item.id)}>{phoneTicket===item.id?(smsSent?'تأكيد الرقم':'إرسال رمز التحقق'):'التحقق من ملكية الحساب'}</button></div>}
+      {items.map(item => <article className="nf-support-ticket" id={`support-${item.id}`} key={item.id}><strong>{item.subject}</strong><p className="nf-support-state" data-status={item.status}>{statuses[item.status]}</p><small>رقم الطلب: <bdi>{item.id}</bdi><br/>{new Date(item.createdAt).toLocaleDateString('ar-SA')}</small><details><summary>تفاصيل الطلب</summary><p>{item.body}</p></details>{item.response && <div className="nf-support-response"><strong>رد فريق وُدَين</strong><p>{item.response}</p><small>{new Date(item.updatedAt).toLocaleString('ar-SA')}</small></div>}{item.status!=='resolved'&&item.needsVerification&&source.verifyCase&&<div className="nf-support-response">{phoneTicket===item.id&&<label>{smsSent?'رمز تأكيد الرقم الجديد':'رقم الجوال الجديد'}<input dir="ltr" inputMode={smsSent?'numeric':'tel'} value={smsSent?otp:phone} onChange={e=>smsSent?setOtp(e.target.value):setPhone(e.target.value)}/></label>}<button type="button" disabled={sending} onClick={()=>void verifyCase(item.id)}>{phoneTicket===item.id?(smsSent?'تأكيد الرقم':'إرسال رمز التحقق'):'التحقق من ملكية الحساب'}</button></div>}
       {item.status!=='resolved'&&item.editStep&&reviewSection&&<button type="button" onClick={()=>{const chapter=chapters.find(c=>c.key===item.editStep)?.key;if(chapter){close();reviewSection(chapter,item.editField??'');}}}>مراجعة {item.editField}</button>}
       {item.status!=='resolved'&&item.exportOffered&&source.ownerId&&<button type="button" onClick={()=>setExportTicket(item.id)}>فتح نسخة بياناتي الخاصة</button>}
       {item.status!=='resolved'&&item.requestFilters&&source.shareDirectory&&<button disabled={sending} type="button" onClick={()=>void shareDirectory(item.id)}>مشاركة عدد نتائج اكتشافي فقط</button>}
@@ -115,7 +123,7 @@ function SupportDialog({ source, subject: initialSubject, context, close }: { so
   </dialog>;
 }
 
-export function SupportContact({ subject = 'مساعدة في وُدَين', context }: { subject?: string; context?: string }) {
+export function SupportContact({ subject = 'مساعدة في وُدَين', context, openTicket, onTicketClosed }: { subject?: string; context?: string; openTicket?:string; onTicketClosed?:()=>void }) {
   const source = useContext(Context), [openedSource, setOpenedSource] = useState<SupportSource | null>(null), [copied, setCopied] = useState(false);
   useEffect(() => { setOpenedSource(null); }, [source]);
   const body = [context, 'أحتاج مساعدة بخصوص:'].filter(Boolean).join('\n\n');
@@ -126,6 +134,6 @@ export function SupportContact({ subject = 'مساعدة في وُدَين', con
     <small>لا ترسل كلمة مرور أو رمز دخول أو صورة هوية.</small>
     {!source && <small>سجّل الدخول لمتابعة طلباتك.</small>}
     <bdi>{contact}</bdi><button type="button" onClick={() => { void navigator.clipboard?.writeText(contact).then(() => setCopied(true), () => setCopied(false)); }}>{copied ? 'تم نسخ البريد' : 'نسخ عنوان البريد'}</button>
-    {source && openedSource === source && <SupportDialog source={source} subject={subject} context={context} close={() => setOpenedSource(null)}/>}
+    {source && (openedSource === source || openTicket) && <SupportDialog source={source} subject={subject} context={context} focusTicket={openTicket} close={() => { setOpenedSource(null); onTicketClosed?.(); }}/>}
   </aside>;
 }

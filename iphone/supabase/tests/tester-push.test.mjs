@@ -19,6 +19,20 @@ test('tester APNs routes privately, deduplicates, and revokes stale notification
    await rpc('push_enable',actor,{enabled:true});
   }
   await db.exec(`update nisfayn_test.room set data=data||'{"matched":true,"messages":[],"read":{}}'::jsonb`);
+  const proposalId=randomUUID();
+  const agreement=(data)=>db.query("update nisfayn_test.room set data=jsonb_set(data,'{seriousness}',$1) where id",[data]);
+  await agreement({status:'proposed',proposalId,womanSignedAt:new Date().toISOString()});
+  const [proposal]=await claim();
+  assert.equal(proposal.kind,'update');
+  assert.equal(proposal.token,'d'.repeat(64));
+  const proposalDetail=await asService(db, async()=>(await db.query('select public.nisfayn_push_delivery($1,$2,true,$3) detail',[proposal.id,proposal.leaseId,proposal.token])).rows[0].detail);
+  assert.equal(proposalDetail.event,'agreement:proposed');
+  await agreement({status:'none'});
+  assert.equal(await valid(proposal),false);
+  assert.deepEqual(await claim(),[]);
+  const alerts=async actor=>asService(db,async()=>(await db.query("select public.nisfayn_test_push_updates('push_updates',$1,'{}') value",[sessions[actor]])).rows[0].value);
+  assert.equal((await alerts('abdulrahman'))[0].event,'agreement:proposed');
+  assert.deepEqual(await alerts('reham'),[]);
   const send=async(sender)=>{
    const message={id:randomUUID(),sender,body:'Private text must never enter APNs',createdAt:new Date().toISOString()};
    await db.query("update nisfayn_test.room set data=jsonb_set(data,'{messages}',(data->'messages')||jsonb_build_array($1::jsonb))",[JSON.stringify(message)]);

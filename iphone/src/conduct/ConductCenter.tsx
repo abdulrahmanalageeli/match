@@ -5,7 +5,7 @@ import { callRpc } from '../cloud';
 import { conductDate, conductKinds, noticeStatus, policyNames, type ConductNotice } from './model';
 import './conduct.css';
 
-export function ConductCenter({ owner }: { owner: string }) {
+export function ConductCenter({ owner, openCase, onCaseOpened }: { owner: string; openCase?:string; onCaseOpened?:()=>void }) {
   const [items, setItems] = useState<ConductNotice[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [appealing, setAppealing] = useState(false);
@@ -17,6 +17,7 @@ export function ConductCenter({ owner }: { owner: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const active = useRef(true);
   const sequence = useRef(0);
+  useEffect(()=>{ if(openCase) { setSelected(openCase); onCaseOpened?.(); } },[openCase,onCaseOpened]);
   const current = items.find(item => item.id === selected);
   const fetchItems = useCallback(async () => {
     const ticket = ++sequence.current;

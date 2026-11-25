@@ -538,3 +538,8 @@ html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) 
   84% { opacity: .055; }
   94% { transform: translateX(45%); opacity: 0; }
 }
+.st-sound-preview > summary { padding: .7rem .2rem; cursor: pointer; color: var(--wine, #54152a); }
+.st-sound-sample { width: 100%; min-block-size: 44px; text-align: start; }
+.st-sound-sample > small { margin-inline-start: auto; }
+.st-sound-sample[data-cue="account"] .st-icon { color: #4c6360; }
+.st-sound-sample[data-cue="celebration"] .st-icon { color: #76583f; }

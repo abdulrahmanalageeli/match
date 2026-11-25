@@ -1748,7 +1748,6 @@ export function Chat({
         <button type="button" className="btn-text" disabled={deleting} onClick={() => setDeleteTarget(null)}>الاحتفاظ بالرسالة</button>
       </Sheet>}
       {toolsOpen && <Sheet title="خيارات المحادثة" onClose={() => setToolsOpen(false)}>
-        <p className="cm-tools-intro">خصوصيتك وخيارات التواصل، في مكان واحد.</p>
         <div className="cm-chat-tools">
           {canMute&&<button disabled={muting||muted===null} onClick={()=>void toggleThreadMute()}>{muted?<Volume2 size={20}/>:<VolumeX size={20}/>}<span><strong>{muted?'إلغاء كتم المحادثة':'كتم إشعارات المحادثة'}</strong><small>{muted?'ستصلك الرسائل الجديدة على جهازك.':'تبقى الرسائل داخل وُدَين من دون تنبيه على الجهاز.'}</small></span><ChevronLeft size={16}/></button>}
           {source.searchMessages && <button disabled={!canDraft} onClick={() => { setToolsOpen(false); setLibraryOpen(true); }}><Search size={20}/><span><strong>البحث والوسائط</strong><small>رسائلكما، الصور، والتسجيلات الصوتية</small></span><ChevronLeft size={16}/></button>}

@@ -37,7 +37,7 @@
 .cm-chat-tools > button:last-child { border-bottom: 0; }
 .cm-chat-tools > button > span { flex: 1; display: grid; gap: 4px; }
 .cm-chat-tools strong { font-size: 14px; font-weight: 600; }
-.cm-chat-tools small, .cm-tools-intro { color: var(--muted); font-size: 12px; }
+.cm-chat-tools small { color: var(--muted); font-size: 12px; }
 .cm-agreement-dialog { text-align: center; }
 .cm-agreement-dialog .cm-agreement-close { margin-inline-start: auto; display: flex; }
 .cm-agreement-dialog h2 { color: var(--ink); font-size: 1.4rem; margin: 18px 0 8px; }

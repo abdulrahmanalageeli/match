@@ -56,9 +56,9 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
     finally{if(ticket===sequence.current){lock.current=false;setBusy(false);}}
   }
   return <section className="luna-search" aria-label="البحث مع لونا">
-    <button className="luna-search-entry" type="button" aria-label="ابحث مع لونا بالذكاء الاصطناعي" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>
-      <span className="luna-search-orb"><img src="/brand/wudayn-emblem-v2.png" width="22" height="22" alt=""/><Sparkles className="luna-search-orb-ai" size={10} aria-hidden="true"/></span>
-      <span className="luna-search-title"><strong>ابحث مع لونا</strong><span className="luna-search-ai" aria-hidden="true">AI</span><img className="luna-search-info-mark" src="/brand/wudayn-guide-info-cursive.png" width="13" height="13" alt=""/></span>
+    <button className="luna-search-entry" data-locked={tier!=='seriousness'||undefined} type="button" aria-label="ابحث مع لونا" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>
+      <span className="luna-search-orb"><img src="/brand/wudayn-emblem-v2.png" width="22" height="22" alt=""/><span className="luna-search-orb-ai" aria-hidden="true"><Sparkles size={10}/></span></span>
+      <span className="luna-search-title"><strong>ابحث مع لونا</strong><small>اكتبها بطريقتك</small></span>
       <span className="luna-search-access" data-unlocked={tier==='seriousness'||undefined}>
         {tier==='seriousness'?<Search size={17}/>:<><LockKeyhole size={14}/><small>وسام الجدية</small></>}
       </span>

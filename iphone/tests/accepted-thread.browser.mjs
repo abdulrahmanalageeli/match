@@ -63,7 +63,8 @@ try {
  await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
  await page.locator('.cm-agreement-slot').getByRole('heading',{name:'انتهت مدة ميثاق التعارف'}).waitFor();
  await page.getByRole('button',{name:'اختيار الخطوة التالية'}).click();
- await page.getByRole('dialog').getByRole('heading',{name:'انتهت مدة ميثاق التعارف'}).waitFor();
+ await page.locator('.cm-chat-log .cm-agreement-inline').getByRole('heading',{name:'انتهت مدة ميثاق التعارف'}).waitFor();
+ assert.equal(await page.getByRole('dialog').count(),0,'agreement expands inside the chat');
  await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();
  await page.locator('[data-server-id="hello"]').waitFor();
  await input.fill('مسودة محفوظة أثناء التجديد');

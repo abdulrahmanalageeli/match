@@ -6,7 +6,7 @@ import { NotificationFeed } from '../../src/notifications/NotificationFeed';
 import type { ActivityNotification } from '../../src/community/data';
 import { Chat } from '../../src/community/Community';
 import { CapturePrivacyHost } from '../../src/privacy/CapturePrivacy';
-import { demoCommunity, type CommunitySource, type Message, type Connection } from '../../src/community/data';
+import { demoCommunity, type CommunitySource, type Message, type Connection, type SeriousnessAgreement } from '../../src/community/data';
 import { testProfile } from '../../src/testing/pair';
 import '../../src/design.css';import '../../src/flows.css';import '../../src/screens.css';import '../../src/motion.css';
 import '../../src/mobile/keyboard.css';import '../../src/community/arrivalDiscovery.css';import '../../src/community/arrivalChat.css';import '../../src/arrivalSurfaces.css';import '../../src/typography.css';
@@ -33,6 +33,14 @@ window.addEventListener('storage',event=>{if(event.key===key)listeners.forEach(f
 const asMessage = (row:Row):Message => {const {sender,media:_,...message}=row;return {...message,senderIsMe:sender===actor};};
 const imageUrl = async (path:string) => URL.createObjectURL(await (await fetch(path)).blob());
 const base = demoCommunity(()=>testProfile(actor),false);
+let agreement: SeriousnessAgreement = {
+ status: params.has('renew')?'expired':params.has('agreement')?actor==='reham'?'none':'proposed':'accepted',
+ actor,days:14,mineName:actor==='reham'?'نورة':'عبدالله',peerName:actor==='reham'?'عبدالله':'نورة',
+ proposalId:'local-proposal',
+ womanSignedAt:params.has('agreement')&&actor==='reham'?undefined:time(10),
+ manSignedAt:params.has('agreement')?undefined:time(9),
+ deadline:params.has('agreement')?undefined:new Date(Date.now()+14*86400000).toISOString(),
+};
 let failNextSend = params.has('interrupt');
 const source:CommunitySource = {...base,
  ...(params.has('interrupt') ? {
@@ -48,8 +56,13 @@ const source:CommunitySource = {...base,
  requestCallPermission:async()=>{await new Promise(resolve=>setTimeout(resolve,600));permission={status:'pending',direction:'outgoing'};return permission;},
  setTyping:async()=>{},typingState:async()=>false,
  reactToMessage:async(_room,id,emoji)=>{const rows=read(),row=rows.find(item=>item.id===id);if(!row||row.deletedAt)throw Error('غير متاحة');row.reactions=emoji?[{emoji,count:1,mine:true}]:[];write(rows);return row.reactions;},
- progress:async()=>({stage:0,mine:false,peer:false}),agreement:async()=>({status:params.has('renew')?'expired':'accepted',actor,days:14,womanSignedAt:time(10),manSignedAt:time(9),deadline:new Date(Date.now()+14*86400000).toISOString()}),
- thread:async()=>read().map(asMessage),
+ progress:async()=>({stage:0,mine:false,peer:false}),agreement:async()=>({...agreement}),
+ agree:async(_id,action,payload)=>{
+  if(action==='propose')agreement={...agreement,status:'proposed',days:payload.days,womanSignedAt:new Date().toISOString()};
+  if(action==='accept')agreement={...agreement,status:'accepted',manSignedAt:new Date().toISOString(),deadline:new Date(Date.now()+agreement.days!*86400000).toISOString()};
+  return {...agreement};
+ },
+ thread:async()=>params.has('agreement')?[]:read().map(asMessage),
  markRead:async()=>{},unreadCount:async()=>0,
  send:async(_room,body,clientId,replyToId)=>{if(failNextSend){failNextSend=false;throw Error('تعذّر إرسال الرسالة.');}await new Promise(resolve=>setTimeout(resolve,800));const id=crypto.randomUUID(),rows=read(),original=rows.find(row=>row.id===replyToId);rows.push({id,clientId,sender:actor,body,createdAt:new Date().toISOString(),...(original?{reply:{id:original.id,body:original.deletedAt?'تم حذف هذه الرسالة':original.body,senderIsMe:original.sender===actor}}:{})});write(rows);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.deliveredAt=new Date().toISOString();write(rows);}},1400);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.readAt=new Date().toISOString();write(rows);}},2800);return id;},
  async mediaUrl(_room,id){const row=read().find(item=>item.attachment?.id===id);if(!row?.media||row.deletedAt||row.attachment?.viewOnce)throw Error('الصورة غير متاحة.');return imageUrl(row.media);},

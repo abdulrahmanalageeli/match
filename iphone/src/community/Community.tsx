@@ -1537,6 +1537,11 @@ export function Chat({
     if (reading.positioned && atBottom.current) scrollToLatest();
   }, [replyDraft?.id, lastReactions]);
   useLayoutEffect(() => {
+    if (conversationAllowed || thread.rows.length || !reading.positioned) return;
+    const frame=requestAnimationFrame(()=>{if(log.current)log.current.scrollTop=0;});
+    return ()=>cancelAnimationFrame(frame);
+  }, [conversationAllowed, thread.rows.length, reading.positioned, agreementSlot]);
+  useLayoutEffect(() => {
     const saved = anchor.current;
     if (saved && !thread.loadingOlder && log.current) {
       const previous = Array.from(log.current.querySelectorAll<HTMLElement>("[data-row-id]")).find((el) => el.dataset.rowId === saved.id);
@@ -1656,7 +1661,7 @@ export function Chat({
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
       </header>
 
-      {(conversationAllowed || thread.rows.length > 0 || thread.error) && <div className="cm-chat-stage">
+      <div className="cm-chat-stage">
         {!thread.accessDenied && <ThreadConnection state={thread.connectionState} retry={thread.refresh}/>}
         <div
           ref={log} className="cm-chat-log" role="log" tabIndex={0} aria-label="رسائل المحادثة" aria-live="polite" aria-relevant="additions"
@@ -1676,7 +1681,8 @@ export function Chat({
             {!thread.ready && <button className="btn-text" onClick={back}>{backLabel}</button>}</div>}
           {thread.hasOlder && <button className="cm-history" disabled={thread.loadingOlder} onClick={earlier}>
             {thread.loadingOlder ? "جارٍ تحميل الرسائل…" : "تحميل رسائل أقدم"}</button>}
-          {thread.ready && !thread.rows.length && <div className="cm-first-message">
+          <div ref={setAgreementSlot} className="cm-agreement-slot"/>
+          {conversationAllowed && thread.ready && !thread.rows.length && <div className="cm-first-message">
             <span className="cm-first-icon"><MessageCircle size={25} aria-hidden="true" /></span>
             <h2>كل بداية، حديث</h2>
             <p>مساحة لك ولـ{connection.person.alias}. ابدأ بتحية، أو بسؤال يفتح باب المعرفة.</p>
@@ -1727,13 +1733,12 @@ export function Chat({
         : null}
         </div>
         {showLatest && <MotionPressButton className="cm-jump" onClick={scrollToLatest}><ArrowDown size={15} />{connection.unreadCount ? `${ar.format(connection.unreadCount)} رسالة جديدة` : 'أحدث الرسائل'}</MotionPressButton>}
-      </div>}
-      <div ref={setAgreementSlot} className="cm-agreement-slot"/>
+      </div>
       {canDraft && <ChatComposer outbox={thread.outbox} composer={composer} canSend={canSend} conversationAllowed={conversationAllowed}
         typing={typing} onSubmit={submit} name={connection.person.alias}>
         <ChatMediaComposer source={source} requestId={connection.id} disabled={!canSend || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} sent={() => { atBottom.current = true; thread.refresh(); }}/>
       </ChatComposer>}
-      <div className="cm-chat-plan" data-ready={conversationAllowed || thread.rows.length > 0 || undefined}>
+      <div className="cm-chat-plan" data-ready>
         {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
         <ConversationAgreement key={connection.id} peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>
         {source.conversationPilot && <ConversationPilotFeedback key={connection.id} requestId={connection.id}

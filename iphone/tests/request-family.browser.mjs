@@ -36,18 +36,21 @@ try {
   assert(await sign.isDisabled());
   await page.getByRole('checkbox').check();await sign.click();
   await page.getByRole('heading',{name:'أرسلتِ ميثاق التعارف'}).waitFor();
-  await page.getByRole('status').filter({hasText:'بانتظار توقيع'}).waitFor();
+  await page.getByRole('button',{name:'مراجعة اقتراحك'}).click();
+  await page.getByRole('status').filter({hasText:'بانتظار توقيع عبدالله لبدء المحادثة'}).waitFor();
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-  await page.screenshot({path:resolve(output,`agreement-${width}.png`),fullPage:true});
+  await page.evaluate(()=>document.fonts.ready);
+  await page.screenshot({path:resolve(output,`agreement-${width}.png`),fullPage:true,animations:'disabled'});
   await go('agreement-qa.html?man&unsent');
   await page.getByRole('heading',{name:'بانتظار ميثاق التعارف'}).waitFor();
   assert.equal(await page.getByRole('checkbox').count(),0);
   await go('agreement-qa.html?man');
-  await page.getByRole('heading',{name:'أرسلت شريك تجريبي ميثاق التعارف'}).waitFor();
+  await page.getByRole('heading',{name:'أرسلت نورة ميثاق التعارف'}).waitFor();
   await page.getByRole('checkbox').check();
   await page.getByRole('button',{name:'التوقيع والموافقة وبدء الحديث'}).click();
   await page.getByText('المحادثة متاحة',{exact:true}).waitFor();
   await go('agreement-qa.html?expired');
+  await page.getByText('خيارات التمديد والتواصل العائلي',{exact:true}).click();
   await page.getByRole('button',{name:'اقتراح أسبوع إضافي'}).click();
   await page.getByText('اقتراح التمديد بانتظار الطرف الآخر.',{exact:true}).waitFor();
   await page.getByRole('button',{name:'إنهاء التعارف باحترام'}).click();
@@ -66,7 +69,7 @@ try {
   await page.waitForTimeout(500);
   await page.screenshot({path:resolve(output,`family-chat-${width}.png`)});
  }
- await go('agreement-qa.html');await page.locator('.cm-agreement').waitFor();
+ await go('agreement-qa.html?unsent');await page.locator('.cm-agreement').waitFor();
  for(const mode of ['os','app']) {
   await page.emulateMedia({reducedMotion:mode==='os'?'reduce':'no-preference'});
   if(mode==='app')await page.evaluate(()=>document.documentElement.dataset.nfMotion='reduced');

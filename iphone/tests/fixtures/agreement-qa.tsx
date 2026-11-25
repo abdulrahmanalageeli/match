@@ -4,11 +4,22 @@ import { ConversationAgreement } from '../../src/community/ConversationAgreement
 import { demoCommunity, demoProfile, type SeriousnessAgreement } from '../../src/community/data';
 import '../../src/design.css';
 import '../../src/screens.css';
+import '../../src/flows.css';
 import '../../src/community/community.css';
 import '../../src/motion.css';
 // Synthetic local state only. No member session or backend writes.
 const params = new URLSearchParams(location.search);
-let agreement = { status: params.has('expired') ? 'expired' : params.has('unsent') ? 'none' : 'proposed', actor: params.has('man') ? 'abdulrahman' : 'reham', proposalId: 'proposal-1', days: 30, mineName: 'عضو تجريبي', peerName: 'شريك تجريبي', womanSignedAt: params.has('unsent') ? undefined : new Date().toISOString(), deadline: params.has('expired') ? new Date(Date.now()-86400000).toISOString() : undefined } as SeriousnessAgreement;
+const man = params.has('man');
+let agreement: SeriousnessAgreement = {
+  status: params.has('expired') ? 'expired' : params.has('unsent') ? 'none' : 'proposed',
+  actor: man ? 'abdulrahman' : 'reham',
+  proposalId: 'proposal-1',
+  days: 30,
+  mineName: man ? 'عبدالله' : 'نورة',
+  peerName: man ? 'نورة' : 'عبدالله',
+  womanSignedAt: params.has('unsent') ? undefined : new Date().toISOString(),
+  deadline: params.has('expired') ? new Date(Date.now()-86400000).toISOString() : undefined,
+};
 if(params.has('countdown')){
  agreement.status='accepted';
  agreement.deadline=new Date(Date.now()+4000).toISOString();
@@ -32,7 +43,8 @@ const source = { ...demoCommunity(() => demoProfile), agreement: async () => {
 } };
 function Fixture() {
   const [allowed, setAllowed] = useState(false), [ending, setEnding] = useState(false);
-  return <main className="app-screen" dir="rtl"><ConversationAgreement source={source} requestId="synthetic" onAllowed={setAllowed} onEnd={()=>setEnding(true)}/><output>{ending?'فتح تأكيد إنهاء التعارف':allowed?'المحادثة متاحة':'المحادثة بانتظار الاتفاق'}</output>
+  return <main className="app-screen" dir="rtl"><ConversationAgreement source={source} requestId="synthetic" onAllowed={setAllowed} onEnd={()=>setEnding(true)}/>
+    {(ending||allowed)&&<output>{ending?'فتح تأكيد إنهاء التعارف':'المحادثة متاحة'}</output>}
     {params.has('stalled')&&<button onClick={()=>delayedRead?.({...agreement,status:'accepted'})}>Resolve previous read</button>}
   </main>;
 }

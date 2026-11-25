@@ -111,7 +111,7 @@ test('an empty Luna recommendation can search all eligible profiles with the sam
   await settle();
   const tree = m.render();
   assert.ok(textOf(tree).includes('ضمن جميع الملفات المؤهلة'));
-  assert.ok(textOf(tree).includes('تجريبي'));
+  assert.ok(!textOf(tree).includes('تجريبي'));
   assert.equal(expand(tree),undefined);
   source.notify();
   await settle();

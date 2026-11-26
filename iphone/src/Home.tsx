@@ -195,18 +195,19 @@ export function MemberTabs({
     const box = element.getBoundingClientRect();
     const distance = origin.center - (box.left + box.width / 2);
     if (Math.abs(distance) < 1) return;
-    const icon = element.parentElement?.querySelector('.mi-tab-icon');
-    const timing = { duration: 350, easing: 'cubic-bezier(.22,.7,.22,1)' };
+    const icon = element.parentElement?.querySelector('svg');
+    const timing = { duration: 390, easing: 'ease-in-out' };
     const animations = [
       element.animate([
         { transform: `translateX(${distance}px)` },
-        { transform: `translateX(${distance * .36}px) scale(1.32,.48)`, offset: .45 },
+        { transform: `translateX(${distance * .96}px) scale(1,.13)`, offset: .23 },
+        { transform: `translateX(${distance * .04}px) scale(1.16,.13)`, offset: .63 },
         { transform: 'none' },
       ], timing),
       icon?.animate([
-        { transform: 'scale(.93)' },
-        { transform: 'translateY(-2px) scale(1.04)', offset: .6 },
-        { transform: 'none' },
+        { color: 'var(--accent)' },
+        { color: 'var(--accent)', offset: .68 },
+        { color: 'var(--accent-ink)' },
       ], timing),
     ];
     return () => animations.forEach(animation => animation?.cancel());
@@ -225,16 +226,14 @@ export function MemberTabs({
         const count = id === "chats" ? chatUnread : id === "home" ? requestUnread ?? relationships.incoming : 0;
         const unread = count > 0;
         const label = <>
-          <span className="mi-tab-icon"><Icon aria-hidden="true" />{unread &&
+          <span className="mi-tab-icon">
+            {active === id && <span ref={marker} className="mi-tab-marker" aria-hidden="true"/>}
+            <Icon aria-hidden="true" />{unread &&
             <b className="mi-tab-count" aria-hidden="true">{count > 99 ? "٩٩+" : arabicNumber.format(count)}</b>}</span>
           <span>{text}</span>{unread && <span className="mi-sr-only">{arabicNumber.format(count)} {id === "home" ? "طلبات تعارف بانتظار ردك" : "غير مقروءة"}</span>}
         </>;
         return active === id
-          ? <span className="mi-tab mi-tab-active" key={id} data-tab={id} aria-current="page">
-              <span ref={marker} className="mi-tab-marker" aria-hidden="true">
-                <svg viewBox="0 0 36 8"><path d="M1 1c7 0 10 3.6 17 3.6S28 1 35 1c-7 1-10 6-17 6S8 2 1 1Z"/></svg>
-              </span>{label}
-            </span>
+          ? <span className="mi-tab mi-tab-active" key={id} data-tab={id} aria-current="page">{label}</span>
           : <button className="mi-tab" key={id} data-tab={id} type="button" onClick={() => {
               const box = marker.current?.getBoundingClientRect();
               tabGlide = box && !reduced ? {

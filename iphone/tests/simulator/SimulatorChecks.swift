@@ -92,7 +92,7 @@ final class SimulatorChecks: XCTestCase {
             (() => {
               const bar = document.querySelector('.mi-tabbar');
               const active = bar.querySelector('[aria-current=page]');
-              const bottom = parseFloat(getComputedStyle(bar, '::before').height);
+              const bottom = parseFloat(getComputedStyle(bar).paddingBottom);
               const top = parseFloat(getComputedStyle(document.body, '::before').height);
               return top > 0 && bottom > 0 && innerWidth === document.documentElement.scrollWidth
                 && Math.abs(bar.getBoundingClientRect().bottom - innerHeight) < 2

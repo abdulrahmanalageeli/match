@@ -23,14 +23,11 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat-head { padding-block-s
 .phone-app main.nf-intake.nf-intake--new::before { content: none; }
 .phone-app .mi-tabbar {
   border-top: 1px solid var(--line);
-  background: var(--chrome);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: var(--surface);
   box-shadow: none;
 }
 .phone-app .mi-tab { color: var(--muted); transition: color 180ms ease, scale 120ms ease; }
 .phone-app .mi-tab-active { color: var(--accent); }
-.phone-app .mi-tab-marker { background: var(--accent); }
 .phone-app .mi-tab { font-size: .8125rem; min-height: 54px; gap: 5px; }
 .phone-app .mi-tab svg { width: 22px; height: 22px; stroke-width: 1.65; }
 .phone-app .mi-tab-active svg { stroke-width: 2; }
@@ -78,7 +75,6 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .mi-tab svg { width: 20px; height: 20px; stroke-width: 1.45; }
 .phone-app .mi-tab-active { color: var(--accent); }
 .phone-app .mi-tab-active svg { stroke-width: 1.8; }
-.phone-app .mi-tab-marker { width: 16px; height: 2px; }
 
 /* Shared Nisfayn surface language: white, softly separated, quietly outlined. */
 .phone-app { --nf-card-shadow: 0 1px 5px #30242b04; --nf-card-radius: var(--radius-card); }

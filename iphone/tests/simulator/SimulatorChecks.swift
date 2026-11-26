@@ -103,7 +103,25 @@ final class SimulatorChecks: XCTestCase {
         try await waitFor(geometry, in: web)
         try await waitFor("document.querySelector('.df-recommendation').getBoundingClientRect().left >= 12 && document.querySelector('.luna-search-entry').getBoundingClientRect().height >= 44", in: web)
 
-        _ = try await web.evaluateJavaScript("document.querySelector('.mi-tab[data-tab=settings]').click(); true")
+        _ = try await web.evaluateJavaScript("""
+            (() => {
+              window.footerTravel = [];
+              const sample = () => {
+                const tab = document.querySelector('.mi-tab-active[data-tab=settings]');
+                if (tab) {
+                  const marker = tab.querySelector('.mi-tab-marker').getBoundingClientRect();
+                  const box = tab.getBoundingClientRect();
+                  window.footerTravel.push(marker.left + marker.width / 2 - box.left - box.width / 2);
+                }
+                if (performance.now() - start < 2500) requestAnimationFrame(sample);
+              };
+              const start = performance.now();
+              document.querySelector('button.mi-tab[data-tab=settings]').click();
+              requestAnimationFrame(sample);
+              return true;
+            })()
+            """)
+        try await waitFor("window.footerTravel.some(x => x > 8) && Math.abs(window.footerTravel.at(-1)) < 1", in: web)
         try await waitFor("document.querySelector('.mi-tab-active[data-tab=settings]')", in: web)
         try await waitFor(geometry, in: web)
     }

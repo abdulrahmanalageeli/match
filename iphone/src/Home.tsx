@@ -168,7 +168,7 @@ type TabsProps = {
 };
 
 // Each screen owns its tab bar. Hand off only the visible marker position on a tab tap.
-let tabGlide: { from: string; target: string; left: number; started: number } | null = null;
+let tabGlide: { target: string; center: number; started: number } | null = null;
 
 export function MemberTabs({
   active,
@@ -192,28 +192,21 @@ export function MemberTabs({
     const element = marker.current;
     if (!origin || origin.target !== active || !element?.animate || reduced ||
         document.hidden || performance.now() - origin.started > 3000) return;
-    const distance = origin.left - element.getBoundingClientRect().left;
+    const box = element.getBoundingClientRect();
+    const distance = origin.center - (box.left + box.width / 2);
     if (Math.abs(distance) < 1) return;
-    const bar = element.closest('nav');
-    const previousIcon = bar?.querySelector(`[data-tab="${origin.from}"] .mi-tab-icon > svg`);
-    const currentIcon = element.parentElement?.querySelector('.mi-tab-icon > svg');
-    const timing = { duration: 430, easing: 'cubic-bezier(.18,.78,.2,1)' };
+    const icon = element.parentElement?.querySelector('.mi-tab-icon');
+    const timing = { duration: 350, easing: 'cubic-bezier(.22,.7,.22,1)' };
     const animations = [
       element.animate([
-        { transform: `translate3d(${distance}px,0,0) scaleX(.68)`, opacity: .48, boxShadow: '0 0 0 rgba(92,19,45,0)' },
-        { transform: `translate3d(${distance * .57}px,0,0) scaleX(2.25)`, opacity: .92, boxShadow: '0 0 13px rgba(92,19,45,.32)', offset: .36 },
-        { transform: `translate3d(${distance * .09}px,0,0) scaleX(1.35)`, opacity: 1, boxShadow: '0 0 8px rgba(92,19,45,.18)', offset: .78 },
-        { transform: 'translate3d(0,0,0) scaleX(1)', opacity: 1, boxShadow: '0 0 0 rgba(92,19,45,0)' },
-      ], timing),
-      previousIcon?.animate([
-        { color: 'var(--accent)', transform: 'translateY(-2px) scale(1.06)' },
-        { color: 'var(--muted)', transform: 'translateY(1px) scale(.92)', offset: .45 },
+        { transform: `translateX(${distance}px)` },
+        { transform: `translateX(${distance * .36}px) scale(1.32,.48)`, offset: .45 },
         { transform: 'none' },
       ], timing),
-      currentIcon?.animate([
-        { opacity: .32, transform: 'translateY(4px) scale(.68)', filter: 'drop-shadow(0 0 0 transparent)' },
-        { opacity: 1, transform: 'translateY(-2px) scale(1.1)', filter: 'drop-shadow(0 3px 5px rgba(92,19,45,.22))', offset: .65 },
-        { transform: 'none', filter: 'drop-shadow(0 0 0 transparent)' },
+      icon?.animate([
+        { transform: 'scale(.93)' },
+        { transform: 'translateY(-2px) scale(1.04)', offset: .6 },
+        { transform: 'none' },
       ], timing),
     ];
     return () => animations.forEach(animation => animation?.cancel());
@@ -238,12 +231,14 @@ export function MemberTabs({
         </>;
         return active === id
           ? <span className="mi-tab mi-tab-active" key={id} data-tab={id} aria-current="page">
-              <span ref={marker} className="mi-tab-marker" aria-hidden="true" />{label}
+              <span ref={marker} className="mi-tab-marker" aria-hidden="true">
+                <svg viewBox="0 0 36 8"><path d="M1 1c7 0 10 3.6 17 3.6S28 1 35 1c-7 1-10 6-17 6S8 2 1 1Z"/></svg>
+              </span>{label}
             </span>
           : <button className="mi-tab" key={id} data-tab={id} type="button" onClick={() => {
-              const element = marker.current;
-              tabGlide = element && !reduced ? {
-                from: active, target: id, left: element.getBoundingClientRect().left, started: performance.now(),
+              const box = marker.current?.getBoundingClientRect();
+              tabGlide = box && !reduced ? {
+                target: id, center: box.left + box.width / 2, started: performance.now(),
               } : null;
               open?.();
             }}>{label}</button>;

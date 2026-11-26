@@ -6,16 +6,12 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { describeFit } from '../src/compatibility/model.ts';
 import { compatibilitySnapshot, compareCompatibility } from '../src/compatibility/changes.ts';
-import { readAlertProgress } from '../src/notifications/alertProgress.ts';
 import { pairAssessmentFixture } from '../src/testing/pairAssessmentFixture.ts';
 
 const code = ts.transpileModule(await readFile(new URL('../src/notifications/ActivityAlerts.tsx', import.meta.url), 'utf8'),
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 const settle = () => new Promise(resolve => setImmediate(resolve));
-const noop = () => {};
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
-const nodes = node => Array.isArray(node) ? node.flatMap(nodes) : node && typeof node === 'object' ? [node, ...nodes(node.props?.children)] : [];
-const named = (tree, name) => nodes(tree).find(node => node.type?.name === name);
 const base = { city: 'الرياض', age: 29, preferredMinAge: 22, preferredMaxAge: 40 };
 const first = { ...base, id: 'abdulrahman', gender: 'man', ...pairAssessmentFixture.abdulrahman };
 const second = { ...base, id: 'reham', gender: 'woman', ...pairAssessmentFixture.reham };
@@ -29,117 +25,69 @@ function sourceWith(current = original) {
     watch: fn => { watchers.add(fn); return () => watchers.delete(fn); }, notify: () => { for (const fn of watchers) fn(); } };
 }
 
-// Run the real alert lifecycle and its async source without a DOM or animation renderer.
-function mount(source, clock = Date) {
-  const hooks = [], effects = [], modules = new Map(), observers = new Set(), events = new Map(), timers = new Map();
-  let cursor = 0, changedState = false, props = { source, onOpen: noop, onNotifications: noop }, sounds = 0, timerId = 0;
-  const env = { voice: { occupied: false }, dialog: false, mutate: () => { for (const fn of observers) fn(); } };
-  const effect = (fn, deps) => { const at = cursor++, old = hooks[at]; if (!old || deps.some((value, i) => value !== old.deps[i])) { old?.cleanup?.(); const item = hooks[at] = { deps }; effects.push(() => { item.cleanup = fn(); }); } };
-  const react = {
-    useEffect: effect, useRef: value => { const at = cursor++; return hooks[at] ??= { current: value }; },
-    useState: value => { const at = cursor++; if (!(at in hooks)) hooks[at] = typeof value === 'function' ? value() : value;
-      return [hooks[at], next => { const result = typeof next === 'function' ? next(hooks[at]) : next; if (result !== hooks[at]) { hooks[at] = result; changedState = true; } }]; },
+// Run the notification data hook without mounting any presentation.
+function mount(source) {
+  const hooks=[], effects=[];
+  let cursor=0, timer=0;
+  const react={
+    useEffect(fn,deps) {
+      const i=cursor++, old=hooks[i];
+      if(!old || deps.some((value,j)=>value!==old.deps[j])) {
+        old?.cleanup?.();
+        const item=hooks[i]={deps};
+        effects.push(()=>{item.cleanup=fn();});
+      }
+    },
+    useState(initial) {
+      const i=cursor++;
+      if(!(i in hooks))hooks[i]=initial;
+      return [hooks[i],next=>{hooks[i]=typeof next==='function'?next(hooks[i]):next;}];
+    },
   };
-  const doc = { hidden: false, body: {}, activeElement: null, querySelector: selector => selector === 'dialog[open]' && env.dialog ? {} : null,
-    addEventListener: (name, fn) => { if (!events.has(name)) events.set(name, new Set()); events.get(name).add(fn); }, removeEventListener: (name, fn) => events.get(name)?.delete(fn) };
-  const exports = {}, require = name => {
-    if (name === '../member-copy.ts') return { default: memberAr };
-    if (name === 'react') return react;
-    if (name === 'react/jsx-runtime') return { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) };
-    if (name === '../compatibility/changes') return { compatibilitySnapshot, compareCompatibility };
-    if (name === './alertProgress') return { readAlertProgress };
-    if (name === '../voice/VoiceCalls') return { useVoiceCalls: () => env.voice };
-    if (name === '../community/matchSound') return { playActivitySound: () => sounds++ };
-    if (name === '../community/milestones') return { confirmedMilestone: () => null };
-    if (!modules.has(name)) modules.set(name, new Proxy({}, { get: (cache, key) => cache[key] ??= Object.defineProperty(() => null, 'name', { value: key }) }));
-    return modules.get(name);
+  const exports={};
+  const require=name=>{
+    if(name==='react')return react;
+    if(name==='../member-copy.ts')return {default:memberAr};
+    if(name==='../compatibility/changes')return {compatibilitySnapshot,compareCompatibility};
+    return {};
   };
-  class Observer { constructor(fn) { this.fn = fn; } observe() { observers.add(this.fn); } disconnect() { observers.delete(this.fn); } }
-  const setTimer = fn => { timers.set(++timerId, fn); return timerId; };
-  vm.runInNewContext(code, { exports, require, Date: clock, MutationObserver: Observer, document: doc,
-    window: { setTimeout: setTimer, setInterval: setTimer, clearInterval: id => timers.delete(id) }, clearTimeout: id => timers.delete(id) });
-  return { env, doc,
-    render(update) { props = { ...props, ...update }; let tree, passes = 0; do { changedState = false; cursor = 0; tree = exports.ActivityAlerts(props); for (const fn of effects.splice(0)) fn(); if (++passes > 20) throw Error('unstable render'); } while (changedState); return tree; },
-    soundCount: () => sounds, close: () => { for (const hook of hooks) hook?.cleanup?.(); },
+  vm.runInNewContext(code,{exports,require,document:{hidden:false,addEventListener(){},removeEventListener(){}},
+    window:{setTimeout:()=>++timer,clearTimeout(){},setInterval:()=>++timer,clearInterval(){}}});
+  return {
+    render(next=source){cursor=0;const result=exports.useMemberActivity(next);effects.splice(0).forEach(effect=>effect());return result;},
+    close(){hooks.forEach(hook=>hook?.cleanup?.());},
   };
 }
 
-test('a batched progress change delivers a journey alert and withdrawal clears it', async () => {
-  let time = 10000;
-  class Clock extends Date { static now() { return time; } }
-  const source = sourceWith(), reads = [], opened = [];
-  let progress = {stage: 0, mine: false, peer: false};
-  source.alertProgress = async ids => { reads.push([...ids]); return progress ? {pair: progress} : {}; };
-  const view = mount(source, Clock);
-  const alert = () => nodes(view.render()).find(node => node.props?.className === 'nf-activity-item');
-  view.render({onOpen: id => opened.push(id)}); await settle();
-  assert.equal(alert(), undefined);
-  progress = {...progress, consentPeer: true};
-  time += 2500; source.notify(); await settle();
-  assert.match(nodes(alert()).find(node => node.type === 'strong').props.children, /اقتراح خطوة جديدة/);
-  alert().props.onClick();
-  assert.deepEqual(opened, ['pair']);
-  time += 2500; source.notify(); await settle();
-  assert.equal(alert(), undefined, 'the same invitation is never repeated');
-  progress = {stage: 1, mine: false, peer: false, exclusive: true, rewindPeer: true};
-  time += 2500; source.notify(); await settle();
-  assert.ok(alert());
-  progress = null;
-  time += 2500; source.notify(); await settle();
-  assert.equal(alert(), undefined, 'a revoked relationship loses its alert on the next batch');
-  assert.deepEqual(reads, Array.from({length: 5}, () => ['pair']));
+test('new compatibility changes appear in the feed and stay read after a refresh',async()=>{
+  const source=sourceWith(),view=mount(source);view.render();await settle();
+  assert.equal(view.render().changes.length,0);
+  source.connections=[connection(changed)];source.notify();await settle();
+  const [entry]=view.render().changes;
+  assert.equal(entry.name,'رهام');
+  assert.equal(entry.change.scoreChanges[0].before,original.percentage);
+  assert.equal(entry.change.scoreChanges[0].after,changed.percentage);
+  assert.equal(entry.unread,true);
+  view.render().read(entry.id,entry.change.key);
+  source.notify();await settle();
+  assert.equal(view.render().changes[0].unread,false);
+  assert.equal(view.render().changes[0].at,entry.at);
   view.close();
 });
 
-test('first load stays quiet; a changed assessment shows one silent notice and dismissal is not replayed', async () => {
-  const source = sourceWith(), m = mount(source); m.render(); await settle();
-  assert.equal(named(m.render(), 'CompatibilityNotice'), undefined);
-  source.connections = [connection(changed)]; source.notify(); await settle();
-  let notice = named(m.render(), 'CompatibilityNotice'); assert(notice);
-  assert.equal(notice.props.name, 'رهام'); assert.equal(notice.props.change.scoreChanges[0].before, 60); assert.equal(notice.props.change.scoreChanges[0].after, 55);
-  assert.equal(m.soundCount(), 0, 'Compatibility changes never play the activity sound');
-  source.notify(); await settle(); assert.equal(named(m.render(), 'CompatibilityNotice').key, notice.key);
-  notice.props.onDismiss(); m.render(); source.notify(); await settle();
-  assert.equal(named(m.render(), 'CompatibilityNotice'), undefined); m.close();
-});
-
-test('changes wait behind a dialog or call, coalesce to the newest result and cancel if reverted', async () => {
-  const source = sourceWith(), m = mount(source); m.render(); await settle(); m.render();
-  m.env.dialog = true; source.connections = [connection(changed)]; source.notify(); await settle();
-  assert.equal(named(m.render(), 'CompatibilityNotice'), undefined);
-  source.connections = [connection(changedAgain)]; source.notify(); await settle(); m.render();
-  m.env.dialog = false; m.env.mutate();
-  let notice = named(m.render(), 'CompatibilityNotice'); assert(notice);
-  assert.equal(notice.props.change.scoreChanges[0].before, original.percentage);
-  assert.equal(notice.props.change.scoreChanges[0].after, changedAgain.percentage);
-  m.env.voice.occupied = true; assert.equal(named(m.render(), 'CompatibilityNotice'), undefined);
-  m.env.voice.occupied = false; notice = named(m.render(), 'CompatibilityNotice'); assert(notice);
-  source.connections = [connection(original)]; source.notify(); await settle();
-  assert.equal(named(m.render(), 'CompatibilityNotice'), undefined); m.close();
-});
-
-test('queued changes survive overlapping reads and the opened explanation always receives the latest fit', async () => {
-  const source = sourceWith(), m = mount(source); m.render(); await settle(); m.render();
-  const pending = deferred(); let calls = 0;
-  source.inbox = async () => ++calls === 1 ? pending.promise : [connection(changedAgain)];
-  source.notify(); source.notify(); pending.resolve([connection(changed)]); await settle();
-  const notice = named(m.render(), 'CompatibilityNotice'); assert.equal(calls, 2); assert(notice);
-  assert.equal(notice.props.change.scoreChanges[0].after, changedAgain.percentage);
-  notice.props.onOpen(); const sheet = named(m.render(), 'CompatibilityChangeSheet'); assert(sheet);
-  assert.equal(sheet.props.fit.percentage, changedAgain.percentage);
-  m.env.voice.occupied = true; assert.equal(named(m.render(), 'CompatibilityChangeSheet'), undefined, 'A call dismisses the sheet without discarding the update');
-  m.env.voice.occupied = false; assert(named(m.render(), 'CompatibilityNotice')); m.close();
-});
-
-test('unavailable or withdrawn fits clear open details; restored authorized data can notify without leaking stale results', async () => {
-  const source = sourceWith(), m = mount(source); m.render(); await settle(); m.render();
-  source.connections = [connection(changed)]; source.notify(); await settle();
-  named(m.render(), 'CompatibilityNotice').props.onOpen(); assert(named(m.render(), 'CompatibilityChangeSheet'));
-  source.connections = [connection(undefined)]; source.notify(); await settle();
-  assert.equal(named(m.render(), 'CompatibilityChangeSheet'), undefined); assert.equal(named(m.render(), 'CompatibilityNotice'), undefined);
-  source.connections = [connection(changedAgain)]; source.notify(); await settle(); assert(named(m.render(), 'CompatibilityNotice'));
-  source.connections = []; source.notify(); await settle(); assert.equal(named(m.render(), 'CompatibilityNotice'), undefined);
-  source.connections = [connection(changedAgain)]; source.notify(); await settle(); assert.equal(named(m.render(), 'CompatibilityNotice'), undefined, 'A new accepted connection establishes a fresh baseline');
-  source.connections = [connection(original)]; source.notify(); await settle(); assert(named(m.render(), 'CompatibilityNotice'));
-  const nextSource = sourceWith(original); m.render({ source: nextSource }); await settle(); assert.equal(named(m.render(), 'CompatibilityNotice'), undefined); m.close();
+test('overlapping refreshes coalesce; a rollback and closed relationship remove the feed row',async()=>{
+  const source=sourceWith(),view=mount(source);view.render();await settle();
+  const pending=deferred();let calls=0;
+  source.connections=[connection(changedAgain)];
+  source.inbox=async()=>++calls===1?pending.promise:source.connections;
+  source.notify();source.notify();pending.resolve([connection(changed)]);await settle();
+  assert.equal(calls,2);
+  assert.equal(view.render().changes[0].fit.percentage,changedAgain.percentage);
+  source.connections=[connection(original)];source.notify();await settle();
+  assert.equal(view.render().changes.length,0);
+  source.connections=[connection(changed)];source.notify();await settle();
+  assert.equal(view.render().changes.length,1);
+  source.connections=[];source.notify();await settle();
+  assert.equal(view.render().changes.length,0);
+  view.close();
 });

@@ -1,10 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronLeft, Orbit, X } from "../BrandIcons";
+import { ArrowLeft, ChevronDown, Orbit, X } from "../BrandIcons";
 import type { CompatibilityChange } from '../compatibility/changes';
 import type { MatchFit } from '../compatibility/model';
 import { FitDetails } from '../compatibility/FitDetails';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
-import { useDevicePreferences, useSystemReducedMotion } from '../settings/preferences';
 import './compatibility-notice.css';
 
 const arabic = new Intl.NumberFormat('ar-SA', { numberingSystem: 'arab' });
@@ -17,53 +16,6 @@ function ScoreChange({ score }: { score: CompatibilityChange['scoreChanges'][num
       <span>{display(score.before)}</span><ArrowLeft size={13}/><strong>{display(score.after)}</strong>
     </span>
   </span>;
-}
-
-/** One quiet notice; the shared activity host decides when it is safe to show. */
-export function CompatibilityNotice({ name, change, onOpen, onDismiss }: {
-  name: string; change: CompatibilityChange; onOpen: () => void; onDismiss: () => void;
-}) {
-  const title = useId();
-  const [leaving, setLeaving] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [hidden, setHidden] = useState(document.hidden);
-  const { value } = useDevicePreferences();
-  const systemReduced = useSystemReducedMotion();
-  const reduced = value.reducedMotion || systemReduced;
-  const dismiss = useRef(onDismiss); dismiss.current = onDismiss;
-  useEffect(() => {
-    const visibility = () => setHidden(document.hidden);
-    document.addEventListener('visibilitychange', visibility);
-    return () => document.removeEventListener('visibilitychange', visibility);
-  }, []);
-  useEffect(() => {
-    if (leaving || hovered || focused || hidden) return;
-    const timer = window.setTimeout(() => setLeaving(true), 9000);
-    return () => window.clearTimeout(timer);
-  }, [leaving, hovered, focused, hidden, change.key]);
-  useEffect(() => {
-    if (!leaving) return;
-    const timer = window.setTimeout(() => dismiss.current(), reduced ? 0 : 180);
-    return () => window.clearTimeout(timer);
-  }, [leaving, reduced]);
-  return <div className="nf-activity-toast nf-compatibility-notice" role="status" aria-live="polite" aria-atomic="true"
-    aria-labelledby={title} data-leaving={leaving || undefined} data-compatibility-change=""
-    onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-    onFocusCapture={() => setFocused(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
-    <MotionReveal className="nf-compatibility-notice-card" distance={-8} duration={320}>
-      <MotionPressButton className="nf-compatibility-notice-open" onClick={onOpen} disabled={leaving} aria-label={`ما الذي تغيّر في توافقك مع ${name}؟`}>
-        <span className="nf-compatibility-notice-mark" aria-hidden="true"><Orbit size={20} strokeWidth={1.4}/></span>
-        <span className="nf-compatibility-notice-copy">
-          <strong id={title}>تحدّث توافقك مع {name}</strong>
-          {change.scoreChanges[0] ? <ScoreChange score={change.scoreChanges[0]}/> : <span className="nf-compatibility-notice-reading">ملامح جديدة في قراءة توافقكما</span>}
-          <small>{change.summary}</small>
-        </span>
-        <ChevronLeft className="nf-compatibility-notice-chevron" size={16} aria-hidden="true"/>
-      </MotionPressButton>
-      <button className="nf-compatibility-notice-dismiss" type="button" aria-label="إخفاء تحديث التوافق" disabled={leaving} onClick={() => setLeaving(true)}><X size={17} aria-hidden="true"/></button>
-    </MotionReveal>
-  </div>;
 }
 
 export function CompatibilityChangeSheet({ name, change, fit, onClose }: {

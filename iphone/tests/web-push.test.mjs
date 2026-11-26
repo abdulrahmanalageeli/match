@@ -17,7 +17,7 @@ function browser({ permission = 'default', account = 'member-a', previousOwner, 
   localStorage: { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) },
   sessionStorage: { getItem: key => pending.get(key) ?? null, setItem: (key, value) => pending.set(key, value), removeItem: key => pending.delete(key) },
   location: { href: 'https://example.test/' }, history: { state: null, replaceState() {} },
-  require: name => { if(name==='../publishing/appBuild')return {publicationBuild:()=>26};if(name==='./scope')return {notificationScope:async owner=>owner+'-scope'};assert.equal(name, '../cloud'); return { cloudSessionId: async () => { calls.push('session'); return account; }, callRpc: async (name, payload, owner) => { calls.push([name, payload, owner]); return { enabled: payload.enabled ?? true }; } }; },
+  require: name => { if(name==='../publishing/appBuild')return {publicationBuild:()=>26};if(name==='../../admin/server/updateEvents')return {isUpdateEvent:value=>value==='agreement:proposed'};if(name==='./scope')return {notificationScope:async owner=>owner+'-scope'};assert.equal(name, '../cloud'); return { cloudSessionId: async () => { calls.push('session'); return account; }, callRpc: async (name, payload, owner) => { calls.push([name, payload, owner]); return { enabled: payload.enabled ?? true }; } }; },
  };
  const source = readFileSync(new URL('../src/notifications/webPush.ts', import.meta.url), 'utf8')
   .replace('import.meta.env.VITE_MARRIAGE_WEB_PUSH_PUBLIC_KEY', JSON.stringify('B'.repeat(87)))

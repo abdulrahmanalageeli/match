@@ -49,12 +49,14 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
     } else {
       if (c.unreadCount) {
         rows.push({ id: `message:${c.id}`, kind: 'message', person: c.person,
-          at: c.lastMessage && !c.lastMessage.senderIsMe ? c.lastMessage.createdAt : undefined,
+          at: c.latestUnreadAt ?? (c.lastMessage && !c.lastMessage.senderIsMe ? c.lastMessage.createdAt : undefined),
           title: `رسائل من ${c.person.alias}`, detail: `${new Intl.NumberFormat('ar').format(c.unreadCount)} غير مقروءة · متابعة الحديث`,
           unread: true, target: 'conversation', requestId: c.id });
-      } else if (!c.lastMessage && !p?.exclusive && !exclusive.has(c.id)) {
-        rows.push({ id: `match:${c.id}`, kind: 'match', person: c.person, at: date,
-          title: `تم قبول طلب التعارف مع ${c.person.alias}`, detail: 'راجعا شروط التعارف ومدته قبل أول رسالة', unread: false,
+      }
+      if ((c.celebrationKey || !c.unreadCount && !c.lastMessage) && !p?.exclusive && !exclusive.has(c.id)) {
+        const id=`match:${c.id}`;
+        rows.push({ id, kind: 'match', person: c.person, at: date,
+          title: `تم قبول طلب التعارف مع ${c.person.alias}`, detail: 'مراجعة ميثاق التعارف', unread: Boolean(c.celebrationKey && !seen.has(id)),
           target: 'conversation', requestId: c.id });
       }
       const commitment = p && !p.exclusive && p.consentPeer && !p.consentMine;

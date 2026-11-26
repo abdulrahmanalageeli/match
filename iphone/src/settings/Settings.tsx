@@ -35,7 +35,7 @@ import { applePeriodText, settingsDate, useSettingsSummary } from './settingsSum
 type Props = {
   onTestMembership?: (tier:'actual'|'free'|'premium'|'seriousness')=>void;
   testerSession?: string;
-  pushPanel?: {panel:"family"|"verification"|"support"|"safety";id:string};
+  pushPanel?: {panel:"family"|"family_room"|"history"|"verification"|"support"|"safety";id:string};
   onPushPanelOpened?:()=>void;
   completionEntry?: number;
   onProfileChanged?: () => void;
@@ -145,7 +145,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const supportSection=useRef<HTMLDetailsElement>(null);
   useLayoutEffect(()=>{ if(supportTicket && supportSection.current) supportSection.current.open=true; },[supportTicket]);
   const [verificationTarget,setVerificationTarget]=useState<string>();
-  const [profilePanel,setProfilePanel]=useState<'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'|null>(null);
+  const [familyRoomTarget,setFamilyRoomTarget]=useState<string>();
+  const [profilePanel,setProfilePanel]=useState<'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'|'history'|null>(null);
   useCapturePrivacy(profilePanel === 'photos' ? 'profile' : null);
   const [ownClaims,setOwnClaims]=useState<ManualVerificationClaim[]>([]);
   const [hasPreviousVerification,setHasPreviousVerification]=useState(false);
@@ -154,7 +155,12 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   useLayoutEffect(()=>{if(profilePanel)window.scrollTo(0,0);},[profilePanel]);
   useEffect(()=>{
     if(!pushPanel||pushPanel.panel==='safety') return;
-    if(pushPanel.panel==='family'||pushPanel.panel==='verification') {
+    if(pushPanel.panel==='family_room') {
+      setProfilePanel('family');setVerificationTarget(undefined);setFamilyRoomTarget(pushPanel.id);
+    } else if(pushPanel.panel==='history') {
+      setProfilePanel('history');setVerificationTarget(pushPanel.id);
+    } else if(pushPanel.panel==='family'||pushPanel.panel==='verification') {
+      setFamilyRoomTarget(undefined);
       setProfilePanel(pushPanel.panel);
       setVerificationTarget(pushPanel.id);
     } else {
@@ -164,7 +170,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
     setShowCompletion(false);
     onPushPanelOpened?.();
   },[pushPanel,onPushPanelOpened]);
-  function openPanel(panel:'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'){returnScroll.current=window.scrollY;setProfilePanel(panel);}
+  function openPanel(panel:'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'){returnScroll.current=window.scrollY;setVerificationTarget(undefined);setFamilyRoomTarget(undefined);setProfilePanel(panel);}
   function closePanel(){const panel=profilePanel;setProfilePanel(null);requestAnimationFrame(()=>{
     window.scrollTo(0,returnScroll.current);
     const button=document.querySelector<HTMLButtonElement>(panel==='preview'?'button[aria-label="عرض ملفي كما يراه الآخرون"]':panel==='readiness'?'.st-readiness-entry button':panel==='family'?'.st-family-entry button':panel==='exclusions'?'.st-exclusions-entry button':panel==='verification'?'.st-verification-entry button':'.st-member-photos');
@@ -206,7 +212,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   if(profilePanel==='exclusions'&&source)return <MatchingExclusions source={source} onBack={closePanel}/>;
   if(profilePanel==='verification'&&source&&member)return <VerificationCenter source={source} profile={member} onBack={closePanel} focusRequest={verificationTarget}/>;
   if(profilePanel==='readiness'&&source)return <ReadinessPassportPanel source={source} onBack={closePanel}/>;
-  if(profilePanel==='family'&&source)return <FamilyBridgePanel source={source} onBack={closePanel} focusLink={verificationTarget}/>;
+  if(profilePanel==='family'&&source)return <FamilyBridgePanel source={source} onBack={closePanel} focusLink={verificationTarget} initialRoom={familyRoomTarget}/>;
+  if(profilePanel==='history'&&source)return <section className="screen-content"><button type="button" className="btn-text" onClick={closePanel}>العودة إلى الإعدادات</button><RequestHistory source={source} targetId={verificationTarget}/></section>;
   if(profilePanel==='preview'&&member){
     const preview = state?.user.profileReviewPending ? summary.data?.approvedPreview : publicProfile(member,owner??'self',previewPhoto);
     return <main className="app-screen st-profile-view" dir="rtl">{preview ?

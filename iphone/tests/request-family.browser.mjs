@@ -71,6 +71,12 @@ try {
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.waitForTimeout(500);
   await page.screenshot({path:resolve(output,`family-chat-${width}.png`)});
+  await page.getByRole('button',{name:'العودة لمساحات الأسرة'}).click();
+  await page.locator('.fb-screen').evaluate(el=>el.scrollTo(0,el.scrollHeight));
+  const exitBridge=page.getByRole('button',{name:'العودة للمحادثة'});
+  assert(await exitBridge.evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}));
+  await exitBridge.click();
+  await page.getByText('تمت العودة من جسر الأهل',{exact:true}).waitFor();
  }
  await go('agreement-qa.html?unsent');await page.locator('.cm-agreement').waitFor();
  for(const mode of ['os','app']) {

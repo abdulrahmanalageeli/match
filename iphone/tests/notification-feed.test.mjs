@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildFeed, filterFeed } from '../src/notifications/feed.ts';
+import { buildFeed, filterFeed, isRecentNotification } from '../src/notifications/feed.ts';
 const person = { id: 'person', alias: 'عضو', age: 30, city: 'الرياض', occupation: '', bio: '', interests: [], reasons: [] };
 const request = { id: 'request', status: 'pending', direction: 'incoming', person, createdAt: '2026-11-05T14:00:00Z' };
 const visit = { id: 'visit', kind: 'profile_visit', person, createdAt: '2026-11-06T14:00:00Z' };
@@ -79,4 +79,13 @@ test('a screenshot is a private activity notice that opens its own accepted chat
   assert.equal(alert.unread,true);
   assert.equal(buildFeed([], [notice], new Map(), new Set())[0].target,null);
   assert.equal(buildFeed([], [{...notice, readAt:notice.createdAt}], new Map(), new Set())[0].unread,false);
+});
+
+test('feed entries expire after seven days, including unread and undated entries', () => {
+  const now = Date.parse('2026-11-12T14:00:00Z');
+  assert.equal(isRecentNotification(request.createdAt, now), false);
+  assert.equal(isRecentNotification(visit.createdAt, now), true);
+  assert.equal(isRecentNotification(undefined, now), false);
+  const chat = {...request,status:'accepted',updatedAt:visit.createdAt,lastMessage:{body:'مرحبا',senderIsMe:true,createdAt:visit.createdAt}};
+  assert.deepEqual(buildFeed([chat], [], new Map(), new Set()), []);
 });

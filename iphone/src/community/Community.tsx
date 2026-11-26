@@ -324,10 +324,10 @@ function FilterSheet({
     <Sheet title="تصفية الملفات" onClose={close} className="dr-filter-sheet">
       <form className="cm-filter dr-filter-form" onSubmit={submit}>
         <div className="dr-filter-body">
-          <p>تطبّق الفلاتر على الملفات التي ذكرت المعلومة المطلوبة.</p>
-          <label>ترتيب النتائج<select value={extra.sort??''} onChange={e=>setExtra(current=>({...current,sort:(e.target.value||undefined) as Filters['sort']}))}>
-            <option value="">الترتيب الافتراضي</option><option value="compatibility">حسب التوافق</option><option value="youngest">الأصغر سنًا</option><option value="oldest">الأكبر سنًا</option>
-          </select></label>
+          <h3 className="dr-filter-heading"><SlidersHorizontal size={15} aria-hidden="true"/>نطاق البحث</h3>
+          <SheetChoiceSelect label="ترتيب النتائج" value={extra.sort ?? ''} placeholder="الترتيب الافتراضي" allowClear searchable={false}
+            options={[{value:'compatibility',label:'حسب التوافق'},{value:'youngest',label:'الأصغر سنًا'},{value:'oldest',label:'الأكبر سنًا'}]}
+            onChange={value => setExtra(current => ({...current,sort:(value || undefined) as Filters['sort']}))}/>
           <SheetChoiceSelect label="المدينة" value={extra.city ?? ""} options={cityOptions} placeholder="كل المدن" allowClear onChange={city => setExtra(current => ({ ...current, city: city || undefined }))} />
           <fieldset className="dr-filter-age" aria-label="العمر">
             <div className="dr-filter-age-row">
@@ -345,6 +345,7 @@ function FilterSheet({
             </div>
           </fieldset>
           <SheetChoiceSelect label="اهتمام مشترك" value={interest} options={interests.map(item => ({ value: item.id, label: item.label }))} placeholder="كل الاهتمامات" allowClear onChange={setInterest} />
+          <h3 className="dr-filter-heading"><Search size={15} aria-hidden="true"/>ظهور الملفات</h3>
           {allProfiles && <label className="dr-filter-availability">
             <span>المؤهلون للتعارف فقط</span>
             <input type="checkbox" role="switch" checked={!!extra.eligibleOnly} onChange={event => setExtra(current => ({ ...current, eligibleOnly: event.target.checked }))} />
@@ -355,6 +356,7 @@ function FilterSheet({
             <input type="checkbox" role="switch" checked={!!extra.availableOnly} onChange={event => setExtra(current => ({ ...current, availableOnly: event.target.checked }))} />
             <span className="dr-filter-switch" aria-hidden="true" />
           </label>
+          <h3 className="dr-filter-heading"><SlidersHorizontal size={15} aria-hidden="true"/>تفضيلات أدق</h3>
           <details className="dr-filter-section dr-filter-group">
             <summary><span>خيارات إضافية</span><ChevronLeft size={17} aria-hidden="true" /></summary>
             <div className="dr-filter-fields">
@@ -436,7 +438,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
     </div>
     <div className="df-portrait-identity">
       <div className="df-member-heading">
-        <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span className="df-member-age">{ar.format(person.age)} عامًا</span>}{person.exclusive && <small className="cm-exclusive-badge">تعارف حصري</small>}</div>
+        <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span className="df-member-age">{ar.format(person.age)} عامًا</span>}{person.exclusive && <ExclusiveBadge/>}</div>
         <MemberBadge tier={person.membershipTier} active={person.premium} labeled/>
       </div>
       <div className="df-identity-meta">{person.city && <span><MapPin size={13} />{person.city}</span>}
@@ -1018,6 +1020,7 @@ function Discovery({
       {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
       <NextStep source={source}
         onRequest={id=>onInbox({id,featured:false})} onConversation={onConversation} onStateChange={setAvailability}/>
+      {availability.exclusive ? <Panel icon={<LockKeyhole/>} title="أنتما في تعارف حصري" description="توقّف ظهوركما في الاكتشاف، وأُغلقت طلبات التعارف والمحادثات الأخرى."/> : <>
       <div className="df-feed-controls">
         <div className="df-feed-tabs" role="group" aria-label="ترتيب الملفات">
           <button type="button" aria-pressed={order === "recommended"} onClick={() => setOrder("recommended")}><Sparkles size={16}/> ترشيحات لك</button>
@@ -1077,17 +1080,17 @@ function Discovery({
       {!error && !loading && !list.length && (
         <Panel
           icon={<Compass />}
-          title={availability.exclusive ? 'مساحة أهدأ لتعارفكما' : count || query.trim() ? 'لنوسّع مساحة البحث' : 'كل بداية لها وقتها'}
+          title={count || query.trim() ? 'لنوسّع مساحة البحث' : 'كل بداية لها وقتها'}
           description={
-            availability.exclusive ? 'أنتما في تعارف حصري، لذلك تتوقف الترشيحات الجديدة. تابعا الحديث وخطوتكما المقبلة من المحادثة.' : count > 0 || query.trim()
+            count > 0 || query.trim()
               ? "لم تظهر ملفات بهذه التصفية. جرّب توسيع البحث."
               : availability.acceptedCount >= (connectionLimit??(premium?2:1)) ? 'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتتاح دعوة جديدة عند انتهاء ارتباط قائم.' : order==='recommended' ? 'انتهت ترشيحات هذا الأسبوع أو لم يعد بينها ملف مؤهل. يمكنك تصفّح بقية الملفات.' : 'لا تتوفر ملفات جديدة الآن.'
           }
           action={
             <div className="cm-empty-actions">
               {(count > 0 || Boolean(query.trim())) && <button className="btn-secondary" onClick={() => { setQuery(''); setFilters(emptyFilters); }}>مسح البحث والتصفية</button>}
-              {!availability.exclusive && availability.loaded && availability.acceptedCount >= (connectionLimit??(premium?2:1)) && availability.acceptedCount < 3 && <button className="btn-secondary" onClick={()=>upgrade(availability.acceptedCount===2?'seriousness':'premium')}>عرض عضوية تتيح تعارفًا إضافيًا</button>}
-              {!availability.exclusive && order === 'recommended' && <button className="btn-secondary" onClick={()=>setOrder('all')}>استكشف جميع الملفات</button>}
+              {availability.loaded && availability.acceptedCount >= (connectionLimit??(premium?2:1)) && availability.acceptedCount < 3 && <button className="btn-secondary" onClick={()=>upgrade(availability.acceptedCount===2?'seriousness':'premium')}>عرض عضوية تتيح تعارفًا إضافيًا</button>}
+              {order === 'recommended' && <button className="btn-secondary" onClick={()=>setOrder('all')}>استكشف جميع الملفات</button>}
               <button className="btn-text" onClick={onAccount}>مراجعة ملفي وتفضيلاتي</button>
               <SupportContact subject="المساعدة في الترشيحات"/>
             </div>
@@ -1113,9 +1116,10 @@ function Discovery({
         </footer>}
       <div className="df-discovery-help"><HelpButton topic="discovery" label="كيف أبدأ؟ وما معنى التوافق؟"/></div>
       </DirectoryPullContent>
+      </>}
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
-      {premium&&!fitPerson?.compatibilityLocked&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
-      {filterOpen && (
+      {!availability.exclusive&&premium&&!fitPerson?.compatibilityLocked&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
+      {!availability.exclusive && filterOpen && (
         <FilterSheet source={source} onSaved={()=>{setPreferenceRevision(n=>n+1);void refresh(false);}}
           filters={filters} allProfiles={order==='all'}
           close={() => setFilterOpen(false)}
@@ -1195,9 +1199,15 @@ function SafetySheet({
   );
 }
 
-function JourneySummary({ source, id, name, open }: { source: CommunitySource; id: string; name: string; open: () => void }) {
+function ExclusiveBadge() {
+  return <span className="cm-exclusive-badge"><LockKeyhole size={10} strokeWidth={1.7} aria-hidden="true"/>تعارف حصري</span>;
+}
+
+function useChatJourney(source: CommunitySource, id: string, enabled: boolean) {
   const [progress, setProgress] = useState<StepProgress | null>(null);
   useEffect(() => {
+    setProgress(null);
+    if (!enabled || !source.progress) return;
     let active = true, fetching = false, dirty = false;
     async function refresh() {
       if (!source.progress || document.hidden) return;
@@ -1210,8 +1220,11 @@ function JourneySummary({ source, id, name, open }: { source: CommunitySource; i
     void refresh(); const stop = source.watch(() => void refresh());
     document.addEventListener('visibilitychange', refresh);
     return () => { active = false; stop(); document.removeEventListener('visibilitychange', refresh); };
-  }, [source, id]);
-  if (!source.progress) return null;
+  }, [source, id, enabled]);
+  return [progress, setProgress] as const;
+}
+
+function JourneySummary({ progress, name, open }: { progress: StepProgress | null; name: string; open: () => void }) {
   const next = journeyNext(progress, name);
   return <MotionPressButton className="cm-journey-summary nf-next-step" data-pending={next.yours || undefined} onClick={open} aria-haspopup="dialog" aria-label={`مسار التعارف: ${next.title}. ${next.waiting}. متفق عليه: ${next.agreed}`} title={next.title}>
     <Compass size={18} aria-hidden="true"/><span>مسار التعارف</span>
@@ -1224,9 +1237,9 @@ function RematchChoice({checked,change,disabled}:{checked:boolean;change:(value:
   return <label className="cm-rematch-choice"><input type="checkbox" checked={checked} onChange={event=>change(event.target.checked)} disabled={disabled}/><span><strong>السماح بالتعارف مجددًا</strong><small>{checked?'يمكن لأي منكما إرسال طلب جديد؛ لن يبدأ التعارف إلا بعد قبول الطرف الآخر.':'لن تتمكّنا من إرسال طلب تعارف جديد لبعضكما.'}</small></span></label>;
 }
 
-function ConversationGuide({ source, connection, close, closed, choose, hasDraft, openInsights, openFamily, onCompletion }: {
+function ConversationGuide({ source, connection, close, closed, choose, hasDraft, openInsights, openFamily, onCompletion, onProgress }: {
   source: CommunitySource; connection: Connection; close: () => void; closed: () => void;
-  choose: (text: string) => void; hasDraft: boolean; openInsights: () => void; openFamily?: () => void; onCompletion?: () => void;
+  onProgress: (value: StepProgress) => void; choose: (text: string) => void; hasDraft: boolean; openInsights: () => void; openFamily?: () => void; onCompletion?: () => void;
 }) {
   const [progress, setProgress] = useState<StepProgress | null>(null);
   const [otherConnections, setOtherConnections] = useState<Connection[] | null>(null);
@@ -1263,7 +1276,7 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
       if (end) { await source.act(connection.id, "cancel", undefined, allowRematch); feedback('success'); closed(); }
       else if (progress && source.nextStep) {
         const next=await source.nextStep(connection.id, !progress.exclusive ? 1 : progress.stage + 1, !(progress.exclusive ? progress.mine : progress.consentMine), exclusiveConsent);
-        setProgress(next);
+        setProgress(next);onProgress(next);
         setSavedStep(next.stage>progress.stage||!progress.exclusive&&next.exclusive ? {title:'اتفقتما على المرحلة الجديدة',detail:journeyStages[next.stage]+' · حُفظ اختياركما معًا.'} : (next.exclusive ? next.mine : next.consentMine) ? {title:'وصل اقتراحك',detail:'بانتظار موافقة الطرف الآخر. تبقى المرحلة الحالية كما هي.',quiet:true} : {title:'سُحب الاقتراح',detail:'يمكنك اقتراح الخطوة مجددًا عندما تكون مستعدًا.',quiet:true});
         setExclusiveConsent(false);
         setRetry(n => n + 1);
@@ -1276,13 +1289,13 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
     setBusy(true);setError('');
     try {
       const next=await source.journeyChoice(connection.id,topic,action,topic==='exclusive'?progress.exclusiveId:progress.stepId,stage);
-      setProgress(next);setReviewCommitment(false);setExclusiveConsent(false);
+      setProgress(next);onProgress(next);setReviewCommitment(false);setExclusiveConsent(false);
       setSavedStep({title:action==='clear'?'سُحب الاتفاق أو الطلب':action==='accept'?'سُجّلت موافقتكما':'أُرسل اقتراحك',detail:action==='propose'?'بانتظار موافقة الطرف الآخر.':'حُدّث مسار التعارف.',quiet:true});
     } catch(e){setError(messageFor(e));}finally{setBusy(false);setRetry(n=>n+1);}
   }
   async function rewind(agree: boolean) {
     if(busy||!progress||!source.rewindStep)return;setBusy(true);setError("");
-    try{const next=await source.rewindStep(connection.id,progress.stage,agree);setProgress(next);setSavedStep({title:next.stage<progress.stage?'اتفقتما على العودة خطوة':agree?'أُرسل اقتراح العودة':'بقيتما في المرحلة الحالية',detail:next.stage<progress.stage?'المحادثة والمدة المتفق عليها محفوظتان.':agree?'لا تتغيّر المرحلة أو الحصرية قبل موافقة الطرف الآخر.':'يمكنكما مراجعة المسار لاحقًا.',quiet:true});setRewindConfirm(false);setRetry(n=>n+1);}catch(e){setError(messageFor(e));}finally{setBusy(false);}
+    try{const next=await source.rewindStep(connection.id,progress.stage,agree);setProgress(next);onProgress(next);setSavedStep({title:next.stage<progress.stage?'اتفقتما على العودة خطوة':agree?'أُرسل اقتراح العودة':'بقيتما في المرحلة الحالية',detail:next.stage<progress.stage?'المحادثة والمدة المتفق عليها محفوظتان.':agree?'لا تتغيّر المرحلة أو الحصرية قبل موافقة الطرف الآخر.':'يمكنكما مراجعة المسار لاحقًا.',quiet:true});setRewindConfirm(false);setRetry(n=>n+1);}catch(e){setError(messageFor(e));}finally{setBusy(false);}
   }
   const stages = journeyStages;
   const commitmentOpen = reviewCommitment || Boolean(progress?.consentMine || progress?.consentPeer);
@@ -1439,6 +1452,8 @@ export function Chat({
   const [replyNotice, setReplyNotice] = useState('');
   const [agreementSlot, setAgreementSlot] = useState<HTMLDivElement | null>(null);
   const [conversationAllowed, setConversationAllowed] = useState(!source.agreement);
+  const [journey, setJourney] = useChatJourney(source, connection.id, conversationAllowed && !thread.accessDenied);
+  const exclusive = journey?.exclusive ?? connection.person.exclusive;
   const canDraft = thread.ready && !thread.accessDenied;
   const canSend = canDraft && conversationAllowed && thread.connectionState === 'online';
   const screen = useRef<HTMLElement>(null);
@@ -1555,7 +1570,7 @@ export function Chat({
   }, [lastId, profileOpen, conversationAllowed]);
   useLayoutEffect(() => {
     if (reading.positioned && atBottom.current) scrollToLatest();
-  }, [replyDraft?.id, lastReactions]);
+  }, [replyDraft?.id, lastReactions, reading.firstUnreadId]);
   useLayoutEffect(() => {
     const saved = anchor.current;
     if (saved && !thread.loadingOlder && log.current) {
@@ -1667,16 +1682,21 @@ export function Chat({
       {privateHidden && <div className="cm-chat-privacy-cover" aria-label="المحادثة مخفية أثناء مغادرة التطبيق"><LockKeyhole size={32}/><span>خصوصيتكما أولًا</span></div>}
       <header className="cm-chat-head">
         <h1 className="mi-sr-only" tabIndex={-1}>محادثة مع {connection.person.alias}</h1>
-        <button className="icon-btn cm-chat-back" onClick={() => { reading.remember(); typing.stop(); back(); }} aria-label={backLabel}><ArrowRight size={15} /></button>
+        <button className="icon-btn cm-chat-back" onClick={() => { typing.stop(); back(); }} aria-label={backLabel}><ArrowRight size={15} /></button>
         <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
           <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
-          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {connection.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : 'الملف الشخصي'}</small></span>
+          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {exclusive && <ExclusiveBadge/>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : 'الملف الشخصي'}</small></span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !canSend || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
       </header>
 
       <div className="cm-chat-stage">
+        {conversationAllowed && !thread.accessDenied && (exclusive || journey?.exclusiveId) && <button type="button" className="cm-chat-exclusive-status" aria-haspopup="dialog" onClick={() => setGuide(true)}>
+          {exclusive ? <CheckCheck size={15} aria-hidden="true"/> : <Clock3 size={14} aria-hidden="true"/>}
+          <span>{exclusive ? 'اتفقتما على التعارف الحصري' : journey?.consentMine ? 'طلب الحصرية بانتظار الموافقة' : 'لديك طلب تعارف حصري'}</span>
+          <ChevronLeft size={13} aria-hidden="true"/>
+        </button>}
         {!thread.accessDenied && <ThreadConnection state={thread.connectionState} retry={thread.refresh}/>}
         <div ref={setAgreementSlot} className="cm-agreement-slot"/>
         <div
@@ -1685,8 +1705,8 @@ export function Chat({
             const el = e.currentTarget;
             atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
             if (atBottom.current) setShowLatest(false);
-            reading.remember();
           }}
+          onLoadCapture={()=>{if(atBottom.current && reading.positioned && log.current) log.current.scrollTop=log.current.scrollHeight;}}
         >
           {thread.loading && !thread.ready && !thread.error && <CommunitySkeleton variant="messages" label="جارٍ تحميل المحادثة…"/>}
           {thread.ready && !reading.positioned && <p className="cm-reading-restore" role="status">جارٍ الوصول إلى موضع القراءة…</p>}
@@ -1758,7 +1778,7 @@ export function Chat({
         <ChatMediaComposer source={source} requestId={connection.id} disabled={!canSend || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} sent={() => { atBottom.current = true; thread.refresh(); }}/>
       </ChatComposer>}
       <div className="cm-chat-plan" data-ready>
-        {conversationAllowed && <JourneySummary source={source} id={connection.id} name={connection.person.alias} open={() => setGuide(true)}/>}
+        {conversationAllowed && source.progress && <JourneySummary progress={journey} name={connection.person.alias} open={() => setGuide(true)}/>}
         {agreementSlot && !thread.accessDenied && <ConversationAgreement peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
         <button className="cm-end-visible" type="button" aria-label="إنهاء التعارف" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}><span>إنهاء</span></button>
       </div>
@@ -1806,7 +1826,7 @@ export function Chat({
       {chatHelp&&<HelpCenter initialTopic="chat" close={()=>setChatHelp(false)}/>}
       {safety && <SafetySheet evidence={!!evidence} contextRows={evidenceContext} action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
         close={() => { if (!safetyBusy) { setSafety(null); setEvidence(null); setSafetyError(""); } }}/>}
-      {guide && <ConversationGuide source={source} connection={connection} hasDraft={thread.hasDraft || Boolean(replyDraft) || !canSend || recording} onCompletion={onCompletion}
+      {guide && <ConversationGuide source={source} connection={connection} onProgress={setJourney} hasDraft={thread.hasDraft || Boolean(replyDraft) || !canSend || recording} onCompletion={onCompletion}
         openInsights={() => { setGuide(false); setInsightsOpen(true); }}
         openFamily={source.family?()=>{setGuide(false);openFamily();}:undefined}
         close={() => setGuide(false)} closed={() => { thread.outbox.clear(); onEnded?.(connection.id); close(); }}
@@ -1880,6 +1900,12 @@ function Requests({
   const [error, setError] = useState("");
   const [recoverable, setRecoverable] = useState(false);
   const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(''), 6500);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const [busy, setBusy] = useState(false);
   const [allowRematch, setAllowRematch] = useState(false);
   const [confirm, setConfirm] = useState<
@@ -2264,7 +2290,6 @@ function Requests({
     {exitFeedback}
     {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
     {notice && <Banner text={notice}/>}
-    {pushOwner && <NativePushAction key={pushOwner} owner={pushOwner}/>}
     <NotificationFeed pushOwner={pushOwner} openUpdate={openUpdate} initialInterest={openInterest} onIntentOpened={onConversationOpened} source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
       onProfile={person => { setVisitPerson(person); void source.noteProfileOpen?.(person.id).catch(() => {}); }}
       onConversation={(id, openFeedback) => { if (list.some(row => row.id === id && row.status === 'accepted')) enterChat(id, null, false, openFeedback); else setNotice('هذا التعارف لم يعد متاحًا.'); }}
@@ -2360,7 +2385,7 @@ function Requests({
           >
             <PersonAvatar person={row.person} source={source} className="cm-avatar" />
             <div className="cm-request-copy">
-              <strong>{row.person.alias} <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.exclusive && <span className="cm-exclusive-badge">تعارف حصري</span>}</strong>
+              <strong>{row.person.alias} <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.exclusive && <ExclusiveBadge/>}</strong>
               <span className="cm-inbox-preview">
                 {row.status === "accepted"
                   ? row.lastMessage ? (row.lastMessage.senderIsMe ? "أنت: " : "") + row.lastMessage.body : "ابدأ المحادثة"

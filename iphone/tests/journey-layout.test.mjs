@@ -34,7 +34,7 @@ function mount(initialProgress = {}) {
     return modules.get(name);
   } });
   return {
-    calls, render() { let tree, passes = 0; do { dirty = false; cursor = 0; tree = exports.ConversationGuide({ source, connection: { id: 'match' }, close() {}, closed() {}, choose() {}, hasDraft: false, openInsights() {}, openFamily() {}, onCompletion() {} }); for (const fn of effects.splice(0)) fn(); if (++passes > 20) throw Error('unstable render'); } while (dirty); return tree; },
+    calls, updates: [], render() { let tree, passes = 0; do { dirty = false; cursor = 0; tree = exports.ConversationGuide({ source, connection: { id: 'match' }, onProgress: next => this.updates.push(next), close() {}, closed() {}, choose() {}, hasDraft: false, openInsights() {}, openFamily() {}, onCompletion() {} }); for (const fn of effects.splice(0)) fn(); if (++passes > 20) throw Error('unstable render'); } while (dirty); return tree; },
     close() { for (const hook of hooks) hook?.cleanup?.(); },
   };
 }
@@ -52,7 +52,8 @@ test('exclusivity is reviewed intentionally and cannot be approved before its ex
   nodes(tree).find(node => node.type === 'input' && node.props.type === 'checkbox').props.onChange({ target: { checked: true } });
   tree = m.render(); assert.equal(button(tree, 'اقتراح التعارف الحصري').props.disabled, false);
   button(tree, 'اقتراح التعارف الحصري').props.onClick(); await settle();
-  assert.deepEqual(m.calls[0], ['next', 'match', 1, true, true]); m.close();
+  assert.deepEqual(m.calls[0], ['next', 'match', 1, true, true]);
+  assert.equal(m.updates.at(-1).consentMine,true); m.close();
 });
 
 test('an incoming commitment request is visible immediately but still requires explicit consent', async () => {

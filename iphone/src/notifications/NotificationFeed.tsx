@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, Check, ChevronLeft, Eye, Heart, HeartHandshake, MessageCircle, Route, Send, LockKeyhole, ShieldCheck, Sparkles } from "../BrandIcons";
 import { PersonAvatar } from '../avatars/PersonAvatar';
 import type { ActivityNotification, CommunitySource, Connection, FeedbackNotice, PublicPerson, StepProgress } from '../community/data';
-import { buildFeed, feedTime, filterFeed, type FeedFilter, type FeedItem } from './feed';
+import { buildFeed, feedTime, filterFeed, isRecentNotification, type FeedFilter, type FeedItem } from './feed';
 import { emptyFeed } from './emptyFeed';
 import { readAlertProgress } from './alertProgress';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
@@ -101,21 +101,30 @@ export function NotificationFeed({ pushOwner, openUpdate, initialInterest, onInt
     return () => { active = false; stop(); window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('online', refresh); };
   }, [source, retry, acceptedIds]);
 
-  const rows = useMemo(() => buildFeed(connections, items, progress, seen, feedback), [connections, items, progress, seen, feedback]);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const tick = () => { if (!document.hidden) setNow(Date.now()); };
+    const timer = window.setInterval(tick, 60000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', tick); };
+  }, []);
+  const events = useMemo(() => buildFeed(connections, items, progress, seen, feedback), [connections, items, progress, seen, feedback]);
+  const rows = events.filter(item => isRecentNotification(item.at, now));
+  const recentUpdates = memberUpdates.filter(update => isRecentNotification(update.createdAt, now));
   useEffect(()=>{
     if(!initialInterest||loading)return;
     setFilter('interests');
-    const item=rows.find(row=>row.kind==='interest'&&
+    const item=events.find(row=>row.kind==='interest'&&
       (row.person.id===initialInterest||initialInterest==='tester-pair'));
     if(item){
       onProfile(item.person);
       if(item.activityId) void source.readNotifications?.([item.activityId]).catch(()=>{});
     }
     onIntentOpened?.();
-  },[initialInterest,loading,rows,source,onProfile,onIntentOpened]);
+  },[initialInterest,loading,events,source,onProfile,onIntentOpened]);
   const visible = filterFeed(rows, filter);
-  const visibleUpdates=filter==='all'?memberUpdates:filter==='unread'?memberUpdates.filter(update=>update.unread):[];
-  const unread = rows.filter(item => item.unread).length+memberUpdates.filter(item=>item.unread).length;
+  const visibleUpdates=filter==='all'?recentUpdates:filter==='unread'?recentUpdates.filter(update=>update.unread):[];
+  const unread = rows.filter(item => item.unread).length+recentUpdates.filter(item=>item.unread).length;
   const empty = emptyFeed(filter);
   async function open(item: FeedItem) {
     if (openingRef.current || !item.target) return;

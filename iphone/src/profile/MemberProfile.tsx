@@ -1,3 +1,4 @@
+import {BrandWait} from '../feedback/RoutePlaceholder';
 import { DemoDeepReading } from '../community/DemoDeepReading';
 import { mahrRanges } from '../compatibility/marriage';
 import {MemberBadge} from '../membership/MemberBadge';
@@ -122,7 +123,9 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   },[check,source,person.id,attempt]);
   if(access !== 'allowed') return <article className="mp-profile screen-content" dir="rtl">
     <button className="mp-back" type="button" onClick={back}><ArrowRight size={18}/>{backText}</button>
-    <p role={access === 'error' ? 'alert' : 'status'}>{access === 'error' ? 'تعذّر التحقق من إتاحة الملف. تحقّق من اتصالك وحاول مجددًا.' : access === 'denied' ? 'الملف غير متاح.' : 'جارٍ فتح الملف…'}</p>
+    {access === 'error' ? <p role="alert">تعذّر التحقق من إتاحة الملف. تحقّق من اتصالك وحاول مجددًا.</p>
+      : access === 'denied' ? <p role="status">الملف غير متاح.</p>
+      : <BrandWait label="جارٍ فتح الملف…"/>}
     {access === 'error' && <button className="btn-secondary" onClick={()=>{setVisible(null);setAttempt(value=>value+1);}}>إعادة المحاولة</button>}
   </article>;
   const b=person.marriageBasics;

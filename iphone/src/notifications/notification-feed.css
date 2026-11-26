@@ -2,7 +2,18 @@
 .cm-exclusive-warning p, .cm-exclusive-warning label { font-size: 14px; line-height: 1.9; }
 .cm-exclusive-warning label { display: flex; align-items: start; gap: 9px; }
 .cm-exclusive-warning input { margin-top: 7px; accent-color: var(--accent-fill); flex-shrink: 0; }
-.cm-exclusive-badge { display: inline-flex; align-items: center; padding: 3px 7px; border: 1px solid var(--gold); border-radius: 8px; color: var(--accent-fill); background: var(--paper); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.cm-exclusive-badge {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: middle;
+  padding: 2px 7px; border-radius: 99px; background: color-mix(in srgb, var(--accent-fill) 7%, transparent);
+  color: var(--accent-fill); font-size: 10px; font-weight: 600; line-height: 1.55; white-space: nowrap;
+}
+.cm-chat-exclusive-status {
+  display: flex; align-items: center; justify-content: center; gap: 6px; flex: none;
+  min-height: 36px; padding: 3px 12px; border: 0; border-bottom: 1px solid var(--line);
+  color: var(--accent-fill); background: transparent; font: inherit; font-size: 12px;
+}
+.cm-chat-exclusive-status:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: -3px; }
+
 .nf-phone-alert-action { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; margin-block-end: 8px; padding: 0; border: 0; background: transparent; color: var(--accent-fill); font: inherit; font-size: 14px; }
 .cm-notification-feed { padding-bottom: 20px; }
 .nf-feed-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -3px 0 20px; color: var(--muted); font-size: 14px; line-height: 1.65; }

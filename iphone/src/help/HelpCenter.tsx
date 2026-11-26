@@ -21,8 +21,7 @@ export function HelpCenter({initialTopic='all',close}:{initialTopic?:HelpTopic;c
  const results=searchGuide(topic,query);
  return <dialog ref={dialog} className="nf-help" dir="rtl" aria-label={tour?'جولة في وُدَين':undefined} aria-labelledby={tour?undefined:titleId} onCancel={e=>{e.preventDefault();close();}}>
   {tour?<FeatureOverview replay close={finishTour}/>:<>
-  <header><span className="nf-help-mark"><BookOpen size={24}/></span><button className="icon-btn" onClick={close} aria-label="إغلاق الدليل"><X size={20}/></button></header>
-  <h2 ref={heading} tabIndex={-1} id={titleId}>دليلك في وُدَين</h2>{intro && <p className="nf-help-intro">{intro}</p>}
+  <header className="nf-guide-heading"><BookOpen size={22} aria-hidden="true"/><h2 ref={heading} tabIndex={-1} id={titleId}>دليلك في وُدَين</h2><button className="icon-btn" onClick={close} aria-label="إغلاق الدليل"><X size={19}/></button></header>{intro && <p className="nf-help-intro">{intro}</p>}
   <button ref={tourButton} type="button" className="wd-guide-replay" onClick={()=>setTour(true)}>
     <img src="/brand/guide/discovery-screen.png" alt="" width="52" height="76"/>
     <span>جولة في وُدَين<small>بالصور من داخل التطبيق</small></span><ChevronLeft size={16} aria-hidden="true"/>

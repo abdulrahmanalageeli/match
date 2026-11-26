@@ -92,9 +92,13 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   finally{polling=false;}
  }
  const visible=()=>{if(!document.hidden)void poll();};
- let retired=false;
- async function retireFictional(s:State){if(!s.exclusive){retired=false;return;}if(retired)return;retired=true;for(const c of await local.inbox())await local.act(c.id,c.status==='pending'&&c.direction==='incoming'?'decline':'cancel');}
- async function available(id?:string){const s=await state();await retireFictional(s);if(s.exclusive&&id!=='tester-pair')throw Error('أنت في تعارف حصري. أنهِ التعارف الحالي قبل بدء تواصل آخر.');return s;}
+ function retireFictional(s:State){if(s.exclusive)local.retireOtherConnections();}
+ async function available(id?:string){
+  const s=await state();retireFictional(s);
+  const active=s.exclusive?'tester-pair':local.exclusiveConnection();
+  if(active && id!==active)throw Error('أنت في تعارف حصري. أنهِ التعارف الحالي قبل بدء تواصل آخر.');
+  return s;
+ }
  async function state(force=false):Promise<State>{
   if(pending?.version===revision)return pending.promise;
   if(!force&&cached&&Date.now()-at<700){syncOwnProfile(cached);return cached;}
@@ -166,7 +170,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   async setPortraitPolicy(photo,policy){const saved=await mutate('portrait_policy',{id:photo.id,revealPolicy:policy,expectedRevision:profileRevision});profileRevision=saved.profileRevision;const portrait=saved.profiles[account.actor]?.portrait;if(!portrait)throw Error('الصورة غير متاحة.');return portrait;},
   async removePortrait(){const saved=await mutate('portrait_remove',{expectedRevision:profileRevision});profileRevision=saved.profileRevision;},
   async heartbeat(){await mutate('heartbeat');},
-  async setInterest(id,interested){if(id!==peer)return local.setInterest!(id,interested);await mutate(interested?'interest':'uninterest',{person:id});},
+  async setInterest(id,interested){if(interested)await available();if(id!==peer)return local.setInterest!(id,interested);await mutate(interested?'interest':'uninterest',{person:id});},
   async dismissPerson(id){if(id!==peer)return local.dismissPerson!(id);await mutate('dismiss_person',{person:id});},
   async reportPerson(id,reason){if(id!==peer)return local.reportPerson!(id,reason);await mutate('report_person',{person:id,reason});},
   gallery: subject=>subject && ![peer,account.actor].includes(subject as Actor) ? Promise.resolve([]) : testRequest('gallery_list',account.session,{subject}),
@@ -186,7 +190,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   watch(listener){listeners.add(listener);if(timer===undefined){timer=window.setInterval(()=>void poll(),850);document.addEventListener('visibilitychange',visible);window.addEventListener('online',visible);window.addEventListener('focus',visible);void poll();}
    const stopLocal=local.watch(listener);return()=>{stopLocal();listeners.delete(listener);if(!listeners.size){clearInterval(timer);timer=undefined;document.removeEventListener('visibilitychange',visible);window.removeEventListener('online',visible);window.removeEventListener('focus',visible);}};},
   async discover(filters){
-   const s=await state();if(s.exclusive)return [];
+   const s=await state();retireFictional(s);if(s.exclusive||local.exclusiveConnection())return [];
    const full=(await local.inbox()).filter(c=>c.status==='accepted').length+Number(s.matched)>=2;
    const partner=person(s);
    // Peer survey answers are private, so an active work filter cannot be verified.
@@ -201,8 +205,8 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
    const page=people.slice(offset,offset+24);
    return page;
   },
-  async inbox(){const s=await state();await retireFictional(s);const fictional=(await local.inbox()).filter(c=>c.id!=='demo-mutual'&&c.id!=='demo-incoming');return [...(s.matched||s.rematchRequestedBy?[{id:'tester-pair',celebrationKey:s.matched&&s.matchCelebration!==s.celebrationSeen?.[account.actor]?s.matchCelebration:undefined,createdAt:s.matchedAt,updatedAt:s.matchedAt,status:s.matched?'accepted' as const:'pending' as const,direction:s.rematchRequestedBy===account.actor?'outgoing' as const:'incoming' as const,person:{...person(s),exclusive:s.exclusive},lastMessage:messages(s).at(-1)||null,unreadCount:unread(s)}]:[]),...fictional];},
-  async thread(id,before){if(id!=='tester-pair'){await available(id);return local.thread(id,before);}const s=await state();if(!s.matched)throw Object.assign(Error('التعارف مغلق.'),{status:403});const list=messages(s),end=before?list.findIndex(m=>m.id===before):list.length;return list.slice(Math.max(0,end-50),end);},
+  async inbox(){const s=await state();retireFictional(s);const fictional=(await local.inbox()).filter(c=>c.id!=='demo-mutual'&&c.id!=='demo-incoming');if(local.exclusiveConnection())return fictional.filter(row=>row.id===local.exclusiveConnection());return [...(s.matched||s.rematchRequestedBy?[{id:'tester-pair',celebrationKey:s.matched&&s.matchCelebration!==s.celebrationSeen?.[account.actor]?s.matchCelebration:undefined,createdAt:s.matchedAt,updatedAt:s.matchedAt,status:s.matched?'accepted' as const:'pending' as const,direction:s.rematchRequestedBy===account.actor?'outgoing' as const:'incoming' as const,person:{...person(s),exclusive:s.exclusive},lastMessage:messages(s).at(-1)||null,unreadCount:unread(s)}]:[]),...fictional];},
+  async thread(id,before){if(id!=='tester-pair'){await available(id);return local.thread(id,before);}const s=await available(id);if(!s.matched)throw Object.assign(Error('التعارف مغلق.'),{status:403});const list=messages(s),end=before?list.findIndex(m=>m.id===before):list.length;return list.slice(Math.max(0,end-50),end);},
   async messageChanges(id,messageIds){if(id!=='tester-pair'){await available(id);return local.messageChanges!(id,messageIds);}const s=await state();if(!s.matched)throw Object.assign(Error('التعارف مغلق.'),{status:403});const ids=new Set(messageIds);return messages(s).filter(m=>ids.has(m.id));},
   async searchMessages(id,query,beforeId,kind){if(id!=='tester-pair'){await available(id);return local.searchMessages!(id,query,beforeId,kind);}const s=await state(true);requirePairHistory(s);return searchMessageRows(messages(s),query,beforeId,kind);},
   async readState(id){if(id!=='tester-pair'){await available(id);return local.readState!(id);}const s=await state(true);requirePairHistory(s);const rows=s.messages.filter(m=>!m.deletedAt&&m.sender!==account.actor&&(!s.read[account.actor]||m.createdAt>s.read[account.actor]!));return {firstUnreadId:rows[0]?.id??null,unreadCount:rows.length};},
@@ -210,7 +214,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   async typingState(id){if(id!=='tester-pair'){await available(id);return local.typingState!(id);}return testRequest<boolean>('typing_state',account.session);},
   async deleteMessage(id,messageId){if(id!=='tester-pair'){await available(id);return local.deleteMessage!(id,messageId);}revision++;const saved=await testRequest<State|{ok:true}>('message_delete',account.session,{id:messageId});revision++;cached='messages' in saved?saved:null;at=cached?Date.now():0;listeners.forEach(f=>f());},
   async reactToMessage(id,messageId,reaction){if(id!=='tester-pair'){await available(id);return local.reactToMessage!(id,messageId,reaction);}const saved=await mutate('message_react',{id:messageId,reaction});return messages(saved).find(message=>message.id===messageId)?.reactions??[];},
-  async send(id,body,clientId,replyToId){if(id!=='tester-pair'){await available(id);return local.send(id,body,clientId,replyToId);}await mutate('send',{body,clientId,replyToId});return clientId;},
+  async send(id,body,clientId,replyToId){if(id!=='tester-pair'){await available(id);return local.send(id,body,clientId,replyToId);}await available(id);await mutate('send',{body,clientId,replyToId});return clientId;},
   async sendMedia(id,file,kind,clientId,duration,viewOnce=false){
    if(id!=='tester-pair'){await available(id);return local.sendMedia!(id,file,kind,clientId,duration,viewOnce);}
    if(!file.size||file.size>8*1024*1024)throw Error('الحد الأقصى للملف ٨ ميغابايت.');
@@ -230,8 +234,8 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   async agreement(id){if(id!=='tester-pair'){await available(id);return local.agreement?local.agreement(id):{status:'accepted',actor:account.actor};}const s=await state();return {status:'none',...s.seriousness,actor:account.actor};},
   async agree(id,action,payload={}){if(id!=='tester-pair'){await available(id);if(!local.agree)throw Error('شروط التعارف غير متاحة حاليًا.');return local.agree(id,action,payload);}const s=await mutate(action.startsWith('family_')?'agreement_family':'agreement_'+action,{...payload,decision:action});return {status:'none',...s.seriousness,actor:account.actor};},
   async markRead(id,through){if(id!=='tester-pair')return local.markRead(id,through);await mutate('read',{id:through});},
-  async unreadCount(){const s=await state();await retireFictional(s);return unread(s)+await local.unreadCount();},
-  async act(id,action,reason,allowRematch=false){if(id!=='tester-pair'){if(action==='accept')await available(id);return local.act(id,action,reason,allowRematch);}if(action==='accept'){if((await local.inbox()).filter(c=>c.status==='accepted').length>=2)throw Error('الحد الأقصى تعارفان متزامنان.');await mutate('rematch_accept');return;}if(action==='decline'){await mutate('rematch_decline');return;}if(['block','report','cancel'].includes(action))await mutate('close',action==='report'?{report:true,reason}:action==='block'?{block:true}:{allowRematch});},
+  async unreadCount(){const s=await state();retireFictional(s);return (local.exclusiveConnection()?0:unread(s))+await local.unreadCount();},
+  async act(id,action,reason,allowRematch=false){if(id!=='tester-pair'){if(action==='accept')await available(id);return local.act(id,action,reason,allowRematch);}if(action==='accept'){await available(id);if((await local.inbox()).filter(c=>c.status==='accepted').length>=2)throw Error('الحد الأقصى تعارفان متزامنان.');await mutate('rematch_accept');return;}if(action==='decline'){await mutate('rematch_decline');return;}if(['block','report','cancel'].includes(action))await mutate('close',action==='report'?{report:true,reason}:action==='block'?{block:true}:{allowRematch});},
   async acknowledgeMatch(key){const s=await state();if(key===s.matchCelebration)await mutate('match_seen',{key});else await local.acknowledgeMatch?.(key);},
   async progress(id){return id==='tester-pair'?progress(await state()):local.progress!(id);},
   async journeyChoice(id,topic,action,expectedId,stage){return id==='tester-pair'?progress(await mutate('step',{topic,decision:action,expectedId,stage})):local.journeyChoice!(id,topic,action,expectedId,stage);},

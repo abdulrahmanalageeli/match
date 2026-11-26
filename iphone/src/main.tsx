@@ -53,5 +53,5 @@ if (familyInvite) { entryUrl.hash = ''; window.history.replaceState(null, '', en
 const releaseResumeHint = recoveryLink ? 'بعد التحديث، افتح رابط استعادة الحساب مرة أخرى.'
   : familyInvite ? 'بعد التحديث، افتح رابط دعوة الأهل مرة أخرى.' : undefined
 createRoot(document.getElementById('root')!).render(<AppBoundary><ReleaseGate resumeHint={releaseResumeHint}>{recoveryLink ? <App recoveryLink={recoveryLink}/> : signupReturn ? <App signupReturn={signupReturn}/> : familyEntry
-  ? <Suspense fallback={<main className="flow-frame" dir="rtl"><p role="status">جارٍ فتح جسر الأهل…</p></main>}><GuardianPortal inviteToken={familyInvite} onExit={() => window.location.assign(window.location.pathname)} /></Suspense>
+  ? <Suspense fallback={<main className="flow-frame" dir="rtl"><a href={entryUrl.pathname}>العودة إلى وُدَين</a><p role="status">جارٍ فتح جسر الأهل…</p></main>}><GuardianPortal inviteToken={familyInvite} onExit={() => window.location.assign(window.location.pathname)} /></Suspense>
   : <App openLogin={testerEntry}/>}<ConnectionNotice/><CapturePrivacyHost/></ReleaseGate></AppBoundary>)

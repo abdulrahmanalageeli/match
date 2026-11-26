@@ -35,7 +35,7 @@ test('a paid tester can read all fictional directory scores with optional profil
   delete viewer.marriageBasics.childrenCount;
   const original=structuredClone(viewer);
   const realCard={id:'peer',alias:'رهام',fit:{covered:7,total:16,assessmentComplete:false,percentage:null}};
-  const real={discover:async()=>[realCard]};
+  const real={discover:async()=>[realCard],inbox:async()=>[]};
   const directory=(owner)=>withTestingDiscovery(real,()=>viewer,owner,()=>'seriousness').discover({mode:'all'});
   const cards=await directory('authorized-fixture-owner');
   assert.equal(cards[0],realCard);
@@ -198,7 +198,13 @@ test('exclusivity and blocked profiles stop simulated activity without sending r
   const h=harness(t,{actor:'abdulrahman'});await h.source.inbox();
   for(const id of h.source.simulation.snapshot().participants)await h.source.reportPerson(id,'ملف توضيحي للاختبار');
   await h.source.simulation.step();assert.equal(h.source.simulation.snapshot().eventCount,0);
-  h.source.simulation.reset();h.remote.exclusive=true;await h.source.heartbeat();
+  h.source.simulation.reset();
+  const outsider=(await h.source.discover({mode:'all'})).find(card=>card.isDemo);
+  const previous=await acceptFictional(h.source,outsider.id);
+  h.remote.exclusive=true;await h.source.heartbeat();
+  assert.deepEqual((await h.source.inbox()).map(row=>row.id),['tester-pair']);
+  await assert.rejects(h.source.thread(previous),/حصري/);
+  await assert.rejects(h.source.setInterest(outsider.id,true),/حصري/);
   await h.source.simulation.step();assert.equal(h.source.simulation.snapshot().eventCount,0);
   assert.deepEqual(await h.source.discover({mode:'all'}),[]);
   await assert.rejects(h.source.request('p01'),/حصري/);

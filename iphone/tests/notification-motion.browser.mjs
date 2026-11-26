@@ -18,7 +18,7 @@ import '/src/community/community.css';
 import '/src/motion.css';
 import '/src/typography.css';
 const person={id:'fixture',alias:'عضو توضيحي',age:30,city:'الرياض',occupation:'',bio:'',interests:[],reasons:[]};
-const events=Array.from({length:12},(_,i)=>({id:'visit-'+i,kind:'profile_visit',person,createdAt:'2026-11-13T12:00:00Z'}));
+const events=Array.from({length:13},(_,i)=>({id:'visit-'+i,kind:'profile_visit',person,createdAt:new Date(Date.now()-(i===12?8*86400000:i*60000)).toISOString()}));
 window.qa={opened:0,reads:0,hold:false};
 const source={watch:()=>()=>{},notifications:()=>window.qa.hold?new Promise(resolve=>{window.qa.release=()=>resolve(events)}):Promise.resolve(events),progress:()=>Promise.resolve(undefined),readNotifications:()=>{window.qa.reads++;return new Promise((resolve,reject)=>{window.qa.reject=reject})}};
 function Fixture(){const [connections,setConnections]=useState([]);window.qa.refresh=()=>{window.qa.hold=true;setConnections([{id:'accepted',status:'accepted',direction:'incoming',person}])};return <main className="phone-app"><MotionPressButton id="press-test">متابعة</MotionPressButton><NotificationFeed source={source} connections={connections} onProfile={()=>{window.qa.opened++}} onConversation={()=>{}} onRequest={()=>{}}/></main>}

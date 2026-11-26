@@ -70,3 +70,12 @@ test('an unrecognized description never turns into an unrestricted directory lis
     fetcher:async url=>{assert.match(url,/reserve$/);return {ok:true,json:async()=>({})};}});
   await assert.rejects(search({query:'طلب غير واضح'},{authorization:'Bearer test'}),/ما قدرت أحدد/);
 });
+
+test('the compact search response exposes only profile identifiers and public portrait choices',async()=>{
+  const row={id:'p',alias:'ريم',publicAvatar:null,portrait:null,bio:'public biography',internalNotes:'private sentinel'};
+  const search=createLunaSearch({env:{},fetcher:async url=>({ok:true,json:async()=>url.endsWith('reserve')?{}:[row]})});
+  const response=await search({query:'بنت مصرية'},{authorization:'Bearer test',accept:'application/vnd.wudayn.search-cards+json'});
+  assert.deepEqual(response.people,[{id:'p',alias:'ريم',publicAvatar:null,portrait:null}]);
+  assert.equal(response.summary,undefined);
+  assert.equal(response.criteria,undefined);
+});

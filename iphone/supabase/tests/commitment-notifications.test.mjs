@@ -14,6 +14,9 @@ test('exclusive consent closes competing connections, blocks stale requests, pre
  }
  try{
   const a=await add('man'),b=await add('woman'),c=await add('woman'),d=await add('man');
+  const observers=[[await add('woman'),a],[await add('man'),b]];
+  const directoryOf=observer=>call(observer,'public.marriage_browse($1)',[{mode:'all',includeIneligible:true}]);
+  for(const [observer,subject] of observers)assert((await directoryOf(observer)).some(row=>row.id===subject.id));
   await call(a,'public.marriage_discover()');await call(b,'public.marriage_discover()');
   const ab=await call(a,'public.marriage_request($1)',[b.id]),ac=await call(a,'public.marriage_request($1)',[c.id]),bd=await call(b,'public.marriage_request($1)',[d.id]);
   await call(b,"public.marriage_act($1,'accept')",[ab]);await call(c,"public.marriage_act($1,'accept')",[ac]);
@@ -49,7 +52,13 @@ test('exclusive consent closes competing connections, blocks stale requests, pre
   assert.equal(Number((await db.query('select count(*) n from marriage.thread_messages where request_id=$1',[ac])).rows[0].n),1);
   await assert.rejects(call(a,'public.marriage_request($1)',[c.id]),/متاح/);
   await assert.rejects(db.query("update marriage.member_requests set status='accepted' where id=$1",[ac]),/حصري/);
-  assert.equal((await call(a,'public.marriage_inbox()'))[0].person.exclusive,true);
+  for(const member of [a,b]){
+    for(const mode of ['all','recommended'])assert.deepEqual(await call(member,'public.marriage_browse($1)',[{mode,includeIneligible:true}]),[]);
+    const inbox=await call(member,'public.marriage_inbox()');
+    assert.deepEqual(inbox.map(row=>row.id),[ab]);
+    assert.equal(inbox[0].person.exclusive,true);
+  }
+  for(const [observer,subject] of observers)assert(!(await directoryOf(observer)).some(row=>row.id===subject.id));
   assert((await call(b,'public.marriage_notifications()')).some(n=>n.kind==='exclusive'));
   await call(a,"public.marriage_act($1,'cancel')",[ab]);
   assert.equal(Number((await db.query('select count(*) n from marriage.exclusive_members')).rows[0].n),0);

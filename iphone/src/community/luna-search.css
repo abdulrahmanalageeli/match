@@ -140,23 +140,14 @@
   color: var(--accent-fill);
 }
 .luna-search-conversation {
-  margin-top: 7px;
-  padding: 11px 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--accent-fill) 11%, var(--line));
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--surface) 96%, transparent);
-  box-shadow: 0 8px 24px #4a12200b;
-}
-.luna-search-greeting {
-  margin: 8px 0 20px;
-  font-size: 20px;
-  font-weight: 600;
+  margin-block: 8px 0;
+  padding: 4px 4px 10px;
 }
 .luna-search-conversation form {
-  padding: 13px 14px;
+  padding: 10px 12px 9px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
+  border-radius: 12px;
+  background: transparent;
 }
 .luna-search-conversation label {
   display: block;
@@ -168,7 +159,7 @@
   box-sizing: border-box;
   width: 100%;
   min-height: 3.6em;
-  resize: vertical;
+  resize: none;
   border: 0;
   outline: 0;
   background: transparent;
@@ -178,7 +169,7 @@
 }
 .luna-search-conversation form:focus-within {
   border-color: color-mix(in srgb, var(--accent-fill) 42%, var(--line));
-  box-shadow: 0 0 0 3px #54152a0a;
+
 }
 .luna-search-compose {
   display: flex;
@@ -189,8 +180,8 @@
 .luna-search-compose small {
   color: var(--muted);
   font-size: 10px;
-  direction: ltr;
 }
+.luna-search-compose small[dir="ltr"] { direction: ltr; }
 .luna-search-compose button {
   display: flex;
   align-items: center;
@@ -209,53 +200,23 @@
   opacity: .5;
   cursor: default;
 }
-.luna-search-privacy,
 .luna-search-person small {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.8;
 }
-.luna-search-results {
-  margin-top: 18px;
-  padding-top: 11px;
-  border-top: 1px solid var(--line);
-}
-.luna-search-results > p {
-  line-height: 1.8;
-}
-.luna-search-results h3 {
-  margin-top: 18px;
-  font-size: 14px;
-}
-.luna-search-criteria {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.luna-search-criteria span {
-  padding: 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: 99px;
-  color: var(--supporting-ink, var(--muted));
-  font-size: 10px;
-}
-.luna-search-person {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 13px 0;
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: transparent;
-  color: inherit;
-  text-align: start;
-  cursor: pointer;
-}
-.luna-search-person span {
-  display: grid;
-  gap: 5px;
-}
+.luna-search-results { padding-block-start: 12px; border-block-start: 1px solid var(--line); }
+.luna-search-results header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.luna-search-results h3 { margin: 0; font-size: .92rem; color: var(--ink); }
+.luna-search-results header small, .luna-search-results > p { color: var(--muted); font-size: .76rem; }
+.luna-search-results ul { list-style: none; padding: 0; margin: 4px 0 0; }
+.luna-search-results li + li { border-block-start: 1px solid var(--line); }
+.luna-search-results .luna-search-person { width: 100%; min-height: 50px; display: grid; grid-template-columns: 32px minmax(0,1fr) auto; align-items: center; gap: 11px; text-align: start; border: 0; padding: 7px 0; background: transparent; color: var(--ink); }
+.luna-search-person .nf-person-avatar { width: 32px; height: 32px; border-radius: 9px; background: var(--blush); color: var(--accent-fill); }
+.luna-search-person strong { font-size: .86rem; overflow-wrap: anywhere; }
+.luna-search-person > svg { color: var(--muted); }
+.luna-search-results > .btn-secondary { margin-block: 8px 0; }
+
 .luna-search-loading {
   font-size: 12px;
 }

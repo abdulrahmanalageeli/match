@@ -3,7 +3,6 @@ import memberAr from './member-copy.ts';
 import {MembershipAccess} from './membership/access';
 import { finalizeStagedPortrait, finalizePortraitStage, pendingPortraitStage } from './photos/stagedPortrait';
 import type { SignupVerification } from './auth/registrationDevice';
-import { BrandWordmark } from './Brand';
 import { withTestingDiscovery } from './community/testingDiscovery';
 import {membershipPriceLabel,type MembershipPlan} from './membershipPricing';
 import {MembershipChangeNotice} from './membership/MembershipEntry';
@@ -1154,16 +1153,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   let screen: ReactNode;
   let publicationScreen: string = view;
   if (loading)
-    screen = (
-      <div className="loading-stage">
-        <div className="wudayn-opening-brand"><img className="nf-opening-logo" src="/brand/wudayn-emblem-v2.png" alt="" /><BrandWordmark /></div>
-        <div className="nf-opening-caption">
-          <strong>توافق ذكي للزواج</strong>
-          <span role="status">جارٍ فتح التطبيق…</span>
-        </div>
-        <img className="nf-opening-horizon" src="/brand/nisfayn-horizon.svg" alt="" />
-      </div>
-    );
+    screen = <RoutePlaceholder startup/>;
   else if (socialPending) {
     publicationScreen = 'register';
     screen = <SocialOnboarding initialReceipt={socialPending.initialReceipt} email={socialPending.email} userId={socialPending.userId} busy={busy} onComplete={finishSocialOnboarding} onLogout={() => void run(async () => { await cloudLogout(); setSocialPending(null); go('login'); })} onPrivacy={() => setPolicy(true)} />;

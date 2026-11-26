@@ -14,3 +14,7 @@
 .wd-guide-answer-image { display:block; width:min(62%,15rem); height:auto; object-fit:contain; object-position:top; border:1px solid var(--line); border-radius:18px; margin:4px auto 18px; box-shadow:0 12px 30px #36121e14; }
 @media (prefers-reduced-motion:reduce) { .nf-help .nf-help-answers details[open] p { animation:none; } }
 html[data-nf-motion="reduced"] .nf-help .nf-help-answers details[open] p { animation:none; }
+
+.nf-help .nf-guide-heading { position: sticky; top: -1px; z-index: 2; gap: 10px; padding-block: 4px; background: var(--page-background); border-bottom: 1px solid var(--line); }
+.nf-guide-heading > svg { color: var(--accent); flex: none; }
+.nf-help .nf-guide-heading h2 { flex: 1; margin: 0; font-size: 1.2rem; }

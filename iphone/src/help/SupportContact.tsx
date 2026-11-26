@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Mail, MessageCircle, X } from "../BrandIcons";
+import { ChevronLeft, Copy, Mail, MessageCircle, X } from "../BrandIcons";
 import type { SupportCategory, SupportInput, SupportSource, SupportTicket } from './support';
 import { feedback } from '../feedback/haptics';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
@@ -100,11 +100,11 @@ function SupportDialog({ source, subject: initialSubject, context, close, focusT
   }
   return <dialog ref={dialog} className="nf-support-dialog" dir="rtl" aria-labelledby={heading} onCancel={event => { event.preventDefault(); if (!sending) close(); }}>
     <header><h2 id={heading}>المساعدة داخل التطبيق</h2><button type="button" aria-label="إغلاق المساعدة" disabled={sending} onClick={close}><X size={20}/></button></header>
-    <small>لا ترسل كلمة مرور أو رمز دخول أو صورة هوية.</small>
     <form onSubmit={event => { event.preventDefault(); void send(); }}>
       <label>نوع المساعدة<select value={category} disabled={sending} onChange={e => setCategory(e.target.value as SupportCategory)}><option value="help">استخدام التطبيق</option><option value="access">الحساب أو ربط الأهل</option><option value="billing">العضوية والدفع</option><option value="safety">الخصوصية أو السلامة</option></select></label>
       <label>الموضوع<input value={subject} required maxLength={140} disabled={sending} onChange={e => setSubject(e.target.value)}/></label>
       <label>كيف نساعدك؟<textarea value={body} required minLength={5} maxLength={3000} rows={5} disabled={sending} onChange={e => setBody(e.target.value)}/></label>
+      <small>لا ترسل كلمة مرور أو رمز دخول أو صورة هوية.</small>
       <KeyboardDismiss/>
       <button className="nf-support-primary" disabled={sending || loading || subject.trim().length < 3 || body.trim().length < 5}>{sending ? 'جارٍ الإرسال…' : 'إرسال طلب المساعدة'}</button>
     </form>
@@ -129,11 +129,12 @@ export function SupportContact({ subject = 'مساعدة في وُدَين', con
   const body = [context, 'أحتاج مساعدة بخصوص:'].filter(Boolean).join('\n\n');
   const href = `mailto:${contact}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   return <aside className="nf-support-contact" aria-label="التواصل مع فريق وُدَين">
-    {source && <><button type="button" onClick={() => setOpenedSource(source)}><MessageCircle size={17} aria-hidden="true"/> المساعدة وطلباتي</button></>}
-    <a href={href}><Mail size={17} aria-hidden="true" /> مراسلة فريق وُدَين بالبريد</a>
-    <small>لا ترسل كلمة مرور أو رمز دخول أو صورة هوية.</small>
-    {!source && <small>سجّل الدخول لمتابعة طلباتك.</small>}
-    <bdi>{contact}</bdi><button type="button" onClick={() => { void navigator.clipboard?.writeText(contact).then(() => setCopied(true), () => setCopied(false)); }}>{copied ? 'تم نسخ البريد' : 'نسخ عنوان البريد'}</button>
+    {source && <button className="nf-support-route" type="button" aria-haspopup="dialog" onClick={() => setOpenedSource(source)}>
+      <MessageCircle size={19} aria-hidden="true"/><span>المساعدة وطلباتي<small>أرسل طلبًا وتابع رد الفريق</small></span><ChevronLeft size={15} aria-hidden="true"/>
+    </button>}
+    <div className="nf-support-email"><a className="nf-support-route" href={href}><Mail size={19} aria-hidden="true"/><span>مراسلة فريق وُدَين بالبريد<bdi>{contact}</bdi></span></a>
+      <button className="nf-support-copy" type="button" aria-label={copied ? 'تم نسخ البريد' : 'نسخ عنوان البريد'} onClick={() => { void navigator.clipboard?.writeText(contact).then(() => setCopied(true), () => setCopied(false)); }}>{copied ? 'تم النسخ' : <Copy size={16}/>}</button>
+    </div>
     {source && (openedSource === source || openTicket) && <SupportDialog source={source} subject={subject} context={context} focusTicket={openTicket} close={() => { setOpenedSource(null); onTicketClosed?.(); }}/>}
   </aside>;
 }

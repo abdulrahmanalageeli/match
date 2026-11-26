@@ -11,6 +11,11 @@ export type FeedItem = {
 };
 export const feedTime = (value?: string) => value && Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0;
 
+export function isRecentNotification(at: string | undefined, now: number): boolean {
+  const stamp = feedTime(at);
+  return stamp > 0 && stamp > now - 7 * 24 * 60 * 60 * 1000;
+}
+
 export function buildFeed(connections: Connection[], notifications: ActivityNotification[], progress: Map<string, StepProgress>, seen: Set<string>, feedback: FeedbackNotice[] = []): FeedItem[] {
   const active = new Set(connections.filter(c => c.status === 'accepted').map(c => c.id));
   const exclusive = new Set(notifications.filter(n => n.kind === 'exclusive').map(n => n.requestId));
@@ -47,7 +52,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
           at: c.lastMessage && !c.lastMessage.senderIsMe ? c.lastMessage.createdAt : undefined,
           title: `رسائل من ${c.person.alias}`, detail: `${new Intl.NumberFormat('ar').format(c.unreadCount)} غير مقروءة · متابعة الحديث`,
           unread: true, target: 'conversation', requestId: c.id });
-      } else if (!exclusive.has(c.id)) {
+      } else if (!c.lastMessage && !p?.exclusive && !exclusive.has(c.id)) {
         rows.push({ id: `match:${c.id}`, kind: 'match', person: c.person, at: date,
           title: `تم قبول طلب التعارف مع ${c.person.alias}`, detail: 'راجعا شروط التعارف ومدته قبل أول رسالة', unread: false,
           target: 'conversation', requestId: c.id });

@@ -590,7 +590,7 @@ function validatePortraitReveal(blur: number, reveal?: { policy: PortraitRevealP
   return policy;
 }
 
-export function demoCommunity(viewer: () => Profile, seedConnections = true, simulationOptions: DemoSimulationOptions = {}): CommunitySource & { simulation: DemoSimulationController } {
+export function demoCommunity(viewer: () => Profile, seedConnections = true, simulationOptions: DemoSimulationOptions = {}): CommunitySource & { simulation: DemoSimulationController; exclusiveConnection: () => string | null; retireOtherConnections: () => void } {
   function demoAssessmentFor(person: (typeof examples)[number], member: Profile) {
     const peer = member.assessmentVersion === assessmentVersion ? { ...person, ...person.currentAssessment } : person;
     if (!simulationOptions.useAvailableTesterBasics) return peer;
@@ -762,6 +762,19 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     weeklyPicks ??= candidates().filter(p => !records.some(r => r.peer === p.id)).slice(0, 5).map(p => p.id);
     return weeklyPicks;
   }
+  function closeOtherConnections(keep: string | null, now: string) {
+    let changed = false;
+    for (const record of records) {
+      if (record.id === keep || record.status === 'closed') continue;
+      record.status = 'closed';
+      record.updatedAt = now;
+      record.allowRematch = false;
+      typingPeople.delete(record.id);
+      changed = true;
+    }
+    exclusiveId = keep;
+    return changed;
+  }
   function progress(id: string) {
     if (open(id).status !== "accepted") throw new Error("المحادثة غير متاحة.");
     return steps.get(id) ?? { stage: 0, mine: false, peer: id === "demo-mutual" };
@@ -806,7 +819,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     }
     if(journey?.exclusiveId && journey.consentMine && !journey.exclusive){
       steps.set(record.id,{...journey,exclusive:true,consentPeer:true,updatedAt:now});
-      exclusiveId=record.id;records.filter(r=>r.id!==record.id).forEach(r=>{r.status='closed';});
+      closeOtherConnections(record.id, now);
       return `${person.alias}: وافق على الحصرية`;
     }
     if(journey?.stepId && journey.mine && journey.stage<2){
@@ -817,9 +830,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     if (journey?.mine && journey.stage<2) {
       const stage=journey.stage+1;
       steps.set(record.id,{stage,mine:false,peer:false,exclusive:true,consentMine:true,consentPeer:true,updatedAt:now});
-      exclusiveId=record.id;
-      // The simulation owns these records only; the real paired tester is never touched.
-      records.filter(row=>row.id!==record.id&&row.status!=='closed').forEach(row=>{row.status='closed';row.updatedAt=now;});
+      closeOtherConnections(record.id, now);
       return `${person.alias}: وافق على المرحلة التالية`;
     }
     const permission=callPermissions.get(record.id);
@@ -862,6 +873,10 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   }, notify, simulationOptions.generateReading, () => simulationOptions.membershipTier?.()==='seriousness');
   return {
     simulation, profileReading,
+    exclusiveConnection: () => exclusiveId,
+    retireOtherConnections() {
+      if (closeOtherConnections(null, new Date().toISOString())) notify();
+    },
     watch(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     async notifications(){return activityRows.filter(row=>!blockedPeople.has(row.person.id)).slice().reverse().map(row=>({...row,person:candidates().find(p=>p.id===row.person.id)||row.person}));},
     async readNotifications(ids){const selected=new Set(ids);const time=new Date().toISOString();activityRows.forEach(row=>{if(selected.has(row.id))row.readAt??=time;});notify();},
@@ -910,7 +925,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       if (previous) demoPortraitFiles.delete(previous.id);
       notify();
     },
-    async setInterest(id, interested) { if(!examples.some(p=>p.id===id))throw Error('العضو غير متاح.');if(interested)interestedPeople.add(id);else interestedPeople.delete(id);notify(); },
+    async setInterest(id, interested) { if(interested && exclusiveId)throw Error('أنت في تعارف حصري.');if(!examples.some(p=>p.id===id))throw Error('العضو غير متاح.');if(interested)interestedPeople.add(id);else interestedPeople.delete(id);notify(); },
     async dismissPerson(id) { hiddenPeople.add(id); notify(); },
     async reportPerson(id,reason) { if(reason.trim().length<3)throw Error('اكتب سبب البلاغ من ٣ أحرف على الأقل.');hiddenPeople.add(id);blockedPeople.add(id);for(const r of records.filter(r=>r.peer===id)){r.status='closed';r.allowRematch=false;}notify(); },
     async unreadCount() {
@@ -970,7 +985,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         next.exclusive=action==='accept';
         next.consentMine=action!=='clear'; next.consentPeer=next.exclusive;
         next.exclusiveId=action==='clear'?undefined:expectedId??crypto.randomUUID();
-        if(next.exclusive){exclusiveId=id;records.filter(r=>r.id!==id).forEach(r=>{r.status='closed';});}
+        if(next.exclusive)closeOtherConnections(id, next.updatedAt);
         else if(exclusiveId===id)exclusiveId=null;
       }else{
         if(stage!==current.stage+1 && !(action==='clear'&&stage===2&&current.stage===2))throw Error('تغيّرت المرحلة.');
@@ -989,7 +1004,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       if (stage !== current.stage + 1 || stage > 2) throw new Error("الخطوة غير متاحة.");
       const next = agree && current.peer ? { stage, mine: false, peer: false } : { ...current, mine: agree };
       const value = { ...next, updatedAt: new Date().toISOString(), exclusive: next.stage >= 1, consentMine: agree, consentPeer: current.peer };
-      if (value.exclusive) { exclusiveId = id; records.forEach(r => { if (r.id !== id) r.status = 'closed'; }); }
+      if (value.exclusive) closeOtherConnections(id, value.updatedAt);
       steps.set(id, value); notify(); simulation.wake(); return value;
     },
     async markRead(id, throughId) {
@@ -1028,8 +1043,11 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
               lastMessage: r.status === "accepted" ? threadRows(r.id).at(-1) : null }];
       });
     },
-    async requestHistory() {
-      return records.filter(r => r.status === 'closed').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 50).map(r => ({
+    async requestHistory(beforeId) {
+      const closed = records.filter(r => r.status === 'closed').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id));
+      const index = beforeId ? closed.findIndex(record => record.id === beforeId) : -1;
+      if (beforeId && index < 0) return [];
+      return closed.slice(index + 1, index + 51).map(r => ({
         id: r.id, alias: examples.find(p => p.id === r.peer)?.alias ?? 'عضو',
         direction: r.direction, createdAt: r.createdAt, closedAt: r.updatedAt, outcome: 'closed' as const,
       }));

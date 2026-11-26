@@ -3,7 +3,7 @@ import { placeDiscoveryPortrait } from '../session';
 
 // Read the same authorized (possibly blurred) image the ordinary portrait
 // would display. Never mount its pixels in the capture-visible DOM.
-async function thumbnail(url: string, max: number, signal: AbortSignal) {
+async function thumbnail(url: string, max: number, signal: AbortSignal, crop?: { aspect: number; focus: number }) {
   // Use the already-authorized blob URL (or bundled asset) directly. Fetching
   // it into a second Blob copied the bitmap payload before every decode.
   if (signal.aborted) throw Error('Portrait request cancelled');
@@ -16,13 +16,19 @@ async function thumbnail(url: string, max: number, signal: AbortSignal) {
     img.src = url;
     await img.decode();
     if (signal.aborted) throw Error('Portrait request cancelled');
-    const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const { naturalWidth, naturalHeight } = img;
+    // AVFoundation centers aspect-fill images. Crop still photos at the same
+    // focal point as their HTML counterparts before handing them to UIKit.
+    const width = crop ? Math.min(naturalWidth, naturalHeight * crop.aspect) : naturalWidth;
+    const height = crop ? Math.min(naturalHeight, naturalWidth / crop.aspect) : naturalHeight;
+    const scale = Math.min(1, max / Math.max(width, height));
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
     const context = canvas.getContext('2d');
     if (!context) throw Error('Portrait unavailable');
-    context.drawImage(img, 0, 0, canvas.width, canvas.height);
+    context.drawImage(img, (naturalWidth - width) / 2, (naturalHeight - height) * (crop?.focus ?? .5),
+      width, height, 0, 0, canvas.width, canvas.height);
     const jpeg = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(blob => blob ? resolve(blob) : reject(Error('Portrait unavailable')), 'image/jpeg', .88);
     });
@@ -136,7 +142,7 @@ function unwatch(node: HTMLElement) {
   if (!visible.size) { stopWatching?.(); stopWatching = undefined; }
 }
 
-export function DiscoveryPhoto({ src, name, compact = false, observe }: { src?: string; name: string; compact?: boolean; observe?: (node: HTMLElement | null) => void }) {
+export function DiscoveryPhoto({ src, name, compact = false, illustrated = false, observe }: { src?: string; name: string; compact?: boolean; illustrated?: boolean; observe?: (node: HTMLElement | null) => void }) {
   const anchor = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     const node = anchor.current;
@@ -171,7 +177,10 @@ export function DiscoveryPhoto({ src, name, compact = false, observe }: { src?: 
       busy = true;
       void (async () => {
         if (!placed && !bitmap) {
-          const image = await thumbnail(src, compact ? 192 : 640, current.signal);
+          const position = getComputedStyle(node).objectPosition.split(' ')[1];
+          const focus = position?.endsWith('%') ? parseFloat(position) / 100 : .5;
+          const crop = illustrated ? undefined : { aspect: width / height, focus };
+          const image = await thumbnail(src, compact ? 192 : 640, current.signal, crop);
           if (disposed || current.signal.aborted) return;
           bitmap = image;
           // Measure again on the next shared frame after asynchronous encoding.
@@ -227,7 +236,7 @@ export function DiscoveryPhoto({ src, name, compact = false, observe }: { src?: 
       unwatch(node);
       remove();
     };
-  }, [src, compact]);
+  }, [src, compact, illustrated]);
   return <span data-access-checked-portrait="" ref={node => { anchor.current = node; observe?.(node); }} className={'wd-private-portrait' + (compact ? ' wd-private-portrait--small' : '')}
     role="img" aria-label={`الصورة الشخصية لـ ${name}`}/>;
 }

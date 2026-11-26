@@ -172,6 +172,9 @@
   border-radius: 13px;
   overflow: hidden;
 }
+.phone-app .mp-profile .mp-portrait-column .mp-portrait > :is(img, svg, [data-access-checked-portrait]) {
+  position: absolute; inset: 0; display: block; width: 100%; height: 100%; margin: 0; object-fit: cover; object-position: center 43%;
+}
 .mp-portrait-column .mp-portrait-caption { grid-column: 1 / -1; }
 .mp-hero .mp-hero-copy {
   display: flex;
@@ -419,7 +422,7 @@
 .phone-app .mp-profile .mp-fact-group dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 18px;
+  gap: 0;
   margin-inline-start: 34px;
 }
 .phone-app .mp-profile .mp-fact-group dl > div {
@@ -448,11 +451,24 @@
 .phone-app .mp-profile .mp-fact-group[data-visual="statements"] dl > div {
   min-height: 70px;
   padding-block: 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 54%, transparent);
+
 }
-.phone-app .mp-profile .mp-fact-group[data-visual="statements"] dl > div:nth-last-child(-n+2) { border-bottom: 0; }
+
 .phone-app .mp-profile .mp-fact-group[data-visual="statements"] dd { font-size: .83rem; line-height: 1.75; }
 
+@media (min-width: 351px) {
+  .phone-app .mp-profile .mp-fact-group dl > div { position: relative; padding-inline-end: 12px; }
+  .phone-app .mp-profile .mp-fact-group dl > div:nth-child(even) { padding-inline: 12px 0; }
+  .phone-app .mp-profile .mp-fact-group dl > div:nth-child(even)::after {
+    content: ''; position: absolute; inset-block: 10px; inset-inline-start: 0; width: 1px; background: var(--line);
+  }
+  .phone-app .mp-profile .mp-fact-group dl > div:last-child:nth-child(odd) { grid-column: 1 / -1; padding-inline-end: 0; }
+  .phone-app .mp-profile .mp-fact-group dl > div:nth-child(2n+3)::after {
+    content: ''; position: absolute; inset-block-start: 0; inset-inline-start: 0; width: 200%; height: 1px;
+    background: color-mix(in srgb, var(--line) 72%, transparent);
+  }
+  .phone-app .mp-profile .mp-fact-group dl > div:last-child:nth-child(2n+3)::after { width: 100%; }
+}
 @media(max-width:350px){
   .phone-app .mp-profile .mp-fact-group dl { grid-template-columns: minmax(0, 1fr); }
   .phone-app .mp-profile .mp-fact-group dl > div,

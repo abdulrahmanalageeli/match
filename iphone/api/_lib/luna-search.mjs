@@ -139,6 +139,9 @@ export function createLunaSearch({env=process.env,fetcher=fetch,clientFactory=op
     }
     const options={mode:'all',...filters,lunaFields,luna:plan.criteria,offset:0};
     const people=await rpc('marriage_browse',{options});
+    if (headers.accept === 'application/vnd.wudayn.search-cards+json') {
+      return {options,people:people.map(({id,alias,portrait,publicAvatar}) => ({id,alias,portrait,publicAvatar}))};
+    }
     return {options,summary:plan.summary,criteria:plan.criteria.map(({label,kind})=>({label,kind})),people};
   };
 }

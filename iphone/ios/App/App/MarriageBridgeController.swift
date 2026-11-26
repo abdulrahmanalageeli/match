@@ -8,7 +8,18 @@ import AuthenticationServices
 import CryptoKit
 import Security
 
+private final class MarriageWebView: WKWebView {
+    var chatKeyboard = false
+    override var inputAccessoryView: UIView? {
+        chatKeyboard ? nil : super.inputAccessoryView
+    }
+}
+
 final class MarriageBridgeController: CAPBridgeViewController {
+    override func webView(with frame: CGRect, configuration: WKWebViewConfiguration) -> WKWebView {
+        MarriageWebView(frame: frame, configuration: configuration)
+    }
+
     private let content = UIView()
     private var secureField: PhotoSecureField?
     private var backing: WudaynPrivacyNote?
@@ -66,6 +77,9 @@ final class MarriageBridgeController: CAPBridgeViewController {
     }
 
     func setProtectedContent(scope: CaptureScope, portraitOnly: Bool) {
+        if let chatView = webView as? MarriageWebView {
+            chatView.chatKeyboard = scope == .chat
+        }
         discoveryPortraitsEnabled = scope == .discovery && portraitOnly
         if !discoveryPortraitsEnabled {
             clearPortraits()
@@ -229,7 +243,9 @@ private final class DiscoveryPortraitView: UIView {
         super.layoutSubviews()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        display.frame = bounds
+        // The renderer belongs to the text canvas, whose bounds origin may
+        // differ from the outer portrait after UIKit lays the secure field out.
+        if let canvas = field.canvas() { display.frame = canvas.convert(bounds, from: self) }
         CATransaction.commit()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

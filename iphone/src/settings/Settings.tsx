@@ -142,6 +142,8 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const [showCompletion,setShowCompletion]=useState(false);
   useEffect(() => { if (completionEntry) setShowCompletion(true); }, [completionEntry]);
   const [supportTicket,setSupportTicket]=useState<string>();
+  const supportSection=useRef<HTMLDetailsElement>(null);
+  useLayoutEffect(()=>{ if(supportTicket && supportSection.current) supportSection.current.open=true; },[supportTicket]);
   const [verificationTarget,setVerificationTarget]=useState<string>();
   const [profilePanel,setProfilePanel]=useState<'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'|null>(null);
   useCapturePrivacy(profilePanel === 'photos' ? 'profile' : null);
@@ -275,7 +277,12 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
         </details>
         <PushSettings owner={owner ?? null} demo={demo} testerSession={testerSession} folded />
         <NativePrivacy owner={testerSession ? 'tester:'+testerSession : !demo ? owner??null : null} folded />
-        <details className="st-section st-fold st-hub"><summary><span><strong>المساعدة والدعم</strong><small>الدليل والتواصل مع الفريق</small></span></summary><div className="st-group">{onTryOnboarding&&<SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="كأنك عضو جديد، دون تغيير حسابك" action={onTryOnboarding}/>}<SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="الميزات والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div><SupportContact openTicket={supportTicket} onTicketClosed={()=>setSupportTicket(undefined)}/></details>
+        <details ref={supportSection} className="st-section st-fold st-hub st-support-hub">
+          <summary><span><strong>المساعدة والدعم</strong><small>الدليل والتواصل مع الفريق</small></span></summary>
+          <div className="st-group"><SettingRow icon={<BookOpen/>} title="دليلك في وُدَين" detail="جولة بالصور والأسئلة الشائعة" action={()=>setShowHelp(true)}/></div>
+          <SupportContact openTicket={supportTicket} onTicketClosed={()=>setSupportTicket(undefined)}/>
+          {onTryOnboarding && <div className="st-group"><SettingRow icon={<CirclePlay/>} title="تجربة التسجيل من البداية" detail="دون تغيير حسابك" action={onTryOnboarding}/></div>}
+        </details>
         <details className="st-section st-fold st-hub st-access"><summary><span><strong>الحساب</strong><small>المعرّف، تسجيل الخروج وحذف الحساب</small></span></summary>
           <div className="st-group">
             {state?.user.id&&<button type="button" className="st-row st-member-id-row" onClick={()=>void copyMemberId()}><span className="st-icon"><Copy size={18}/></span><span className="st-row-copy"><strong>معرّف العضو</strong><small dir="ltr">{state.user.id}</small></span><span aria-live="polite">{memberIdCopied?'تم النسخ':'نسخ'}</span></button>}

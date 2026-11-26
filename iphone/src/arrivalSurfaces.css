@@ -330,6 +330,8 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
   background: linear-gradient(145deg, #fbf5f7, #e9dce3);
   box-shadow: var(--nf-portrait-shadow);
 }
+.phone-app .cm-shell .df-discovery .dr-row-image[data-image] { padding: 0; background: var(--surface); }
+.phone-app .cm-shell .df-discovery .dr-row-image > :is(img, .wd-private-portrait) { object-position: center 43%; }
 .phone-app .cm-shell .df-discovery .dr-avatar-online::after { inset-inline-end: 0; bottom: 0; }
 .phone-app .cm-shell .df-discovery .dr-row-detail > :is(.dr-row-actions, .dr-sample-preview) { margin-inline-start: auto; }
 .phone-app .cm-shell .df-discovery :is(.dr-row-actions button, .dr-sample-preview) {
@@ -498,7 +500,7 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-head .cm-chat-person .cm-avatar { width: 36px; height: 36px; border-radius: 9px; transition: width 180ms ease, height 180ms ease; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] {
   display: flex; align-items: center; width: 100%; min-height: 44px; margin: 0;
-  padding: 0 12px max(1px, var(--nf-safe-bottom)); gap: 6px;
+  padding: 0 12px max(1px, calc(var(--nf-safe-bottom) - 7px)); gap: 6px;
   border: 0; border-radius: 0 0 21px 21px; background: var(--surface); box-shadow: none;
 }
 html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] { padding-bottom: 1px; }
@@ -646,7 +648,7 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
   aspect-ratio: 1.45 / 1;
   border-radius: 12px;
 }
-.df-card-portrait .df-portrait-image { object-position: center 14%; }
+.df-card-portrait :is(.df-portrait-image, .wd-private-portrait) { object-position: center 29%; }
 .df-card-portrait .df-portrait-placeholder .cm-avatar.large { margin: 0; }
 .phone-app .cm-shell .df-card-portrait .df-portrait-identity {
   position: static;
@@ -697,3 +699,19 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 .phone-app .cm-shell .mo-current-actions .mo-logo-progress,
 .phone-app .cm-shell .mo-current-actions .mo-logo-progress img { width: 24px; height: 24px; }
 .phone-app .cm-shell .mo-current-actions .nf-score-tile { font-size: 10px; gap: 2px; }
+
+
+.phone-app .dr-filter-body .dr-filter-heading {
+  display: flex; align-items: center; gap: 8px;
+  margin: 18px 0 2px; color: var(--accent-fill); font-size: .8rem; font-weight: 650;
+}
+.phone-app .dr-filter-body .dr-filter-heading:first-child { margin-block-start: 5px; }
+.dr-filter-heading::after { content: ''; flex: 1; height: 1px; background: linear-gradient(to left, var(--line), transparent); }
+.phone-app .dr-filter-body > :is(.nf-sheet-choice-row, .dr-filter-age, .dr-filter-availability, .dr-filter-group) {
+  background: transparent; border-block-end-color: color-mix(in srgb, var(--line) 66%, transparent);
+}
+.phone-app .dr-filter-body .dr-filter-fields .dr-filter-section {
+  border: 0; border-block-end: 1px solid var(--line); border-radius: 0; background: transparent;
+}
+.phone-app .dr-filter-body .dr-filter-fields .dr-filter-section summary { padding-inline: 0; }
+.phone-app .dr-filter-age-row label { border-radius: 8px; background: var(--raised-tint); }

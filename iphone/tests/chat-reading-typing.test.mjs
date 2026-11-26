@@ -41,15 +41,18 @@ function logWith(entries) {
   return log;
 }
 
-test('reading waits for the first unread message in older history before positioning or enabling receipts', async () => {
-  const page = deferred(); let requests = 0;
-  const source = { readState: async () => ({ firstUnreadId: 'unread', unreadCount: 60 }) }, log = logWith([['latest', 900]]), bottom = { current: true };
-  const thread = { rows: [{ id: 'latest' }], ready: true, hasOlder: true, loadingOlder: false, error: '', older: async () => { requests++; thread.loadingOlder = true; await page.promise; } };
+test('opening at the latest message does not fetch old pages or jump when unread information arrives', async () => {
+  const state = deferred(), source = { readState: () => state.promise };
+  const log = logWith([['latest', 900]]), bottom = { current: true };
+  const thread = { ready: false, hasOlder: true, older: () => assert.fail('Unexpected history fetch') };
   const f = mount(readingCode, 'useChatReading', [source, 'chat', { current: log }, bottom, thread, true]);
-  assert.equal(f.render().positioned, false); await settle(); assert.equal(f.render().positioned, false); assert.equal(requests, 1);
-  f.render(); assert.equal(requests, 1, 'No duplicate history fetch while paging');
-  log.entries.unshift(['unread', 300]); thread.rows = [{ id: 'unread' }, { id: 'latest' }]; thread.loadingOlder = false; page.resolve(); await settle();
-  assert.equal(f.render().positioned, true); assert.equal(log.scrollTop, 282); assert.equal(bottom.current, false); f.close();
+  assert.equal(f.render().positioned, false);
+  thread.ready = true;
+  assert.equal(f.render().positioned, true);
+  assert.equal(log.scrollTop, 700);
+  log.scrollTop = 350; bottom.current = false;
+  state.resolve({ firstUnreadId: 'earlier', unreadCount: 60 }); await settle();
+  assert.equal(f.render().firstUnreadId, 'earlier'); assert.equal(log.scrollTop, 350); f.close();
 });
 
 test('returning from a profile restores the exact reading anchor and offset', async () => {

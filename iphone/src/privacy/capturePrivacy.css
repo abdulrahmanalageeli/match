@@ -37,7 +37,7 @@
 .dr-row-image > .wd-private-portrait--small:not([data-portrait-state=ready]) {
   background: var(--raised-tint, #efedee);
 }
-.dr-row-image > .wd-private-portrait--small:not([data-portrait-state=ready]) { border-radius: 50%; }
+.dr-row-image > .wd-private-portrait--small { border-radius: 50%; }
 
 /* The note is also the sole printable child of body. A modal places the
    deliberate cover above an already-open photo viewer or conversation sheet. */

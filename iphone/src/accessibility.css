@@ -41,7 +41,7 @@ html[data-nf-chat-compact] .phone-app .cm-shell .cm-chat[data-conversation-id] .
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-bubble p,
 .phone-app .cm-shell .cm-chat[data-conversation-id] textarea { font-size: 1rem; overflow-wrap: anywhere; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-compose textarea {
-  padding-block: 6px; line-height: 1.5; min-height: max(44px, calc(1.5em + 12px));
+  padding-block: max(6px, calc((44px - 1.5em) / 2)); line-height: 1.5; min-height: 44px;
 }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy { min-width: 0; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-person-copy strong { font-size: 1rem; overflow-wrap: anywhere; }

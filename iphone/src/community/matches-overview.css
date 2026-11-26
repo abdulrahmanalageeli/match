@@ -50,10 +50,7 @@
 .mo-empty button { display:inline-flex; align-items:center; gap:8px; }
 .mo-quiet-empty { font-size:13px; color:var(--muted); padding:14px 0; line-height:1.8; }
 .mo-history { margin-top:16px; }
-.phone-app .mo-history .cm-request-history { margin:0; border:1px solid var(--line); border-radius:12px; padding:0 14px; background:var(--surface); }
-.phone-app .mo-history .cm-request-history summary { padding:11px 0; font-size:14px; color:var(--ink); font-weight:500; }
-.phone-app .mo-history .cm-request-history>p { font-size:12px; line-height:1.8; color:var(--muted); }
-.phone-app .mo-history .cm-request-history li { padding-block:12px; }
+.phone-app .mo-history .cm-request-history { margin:0; padding:0; border:0; border-block-start:1px solid var(--line); border-radius:0; background:transparent; }
 .mo-view button:focus-visible,.mo-search:focus-within { outline:2px solid var(--accent-fill); outline-offset:3px; }
 @media (max-width:360px) {
   .mo-current-card { grid-template-columns:50px minmax(0,1fr) auto; gap:5px; padding:8px; }
@@ -92,3 +89,19 @@
 .phone-app .cm-shell .mo-current-actions .mo-action-current { width:100%; height:28px; min-height:28px; padding:0; }
 .mo-current-actions .mo-chat-symbol { width:20px; height:20px; }
 .mo-current-actions .mo-unread { top:-4px; min-width:13px; height:13px; font-size:8px; }
+
+.cm-request-history .cm-history-heading, .cm-history-entry > summary { display:flex; align-items:center; gap:9px; min-height:48px; cursor:pointer; list-style:none; }
+.cm-request-history summary::-webkit-details-marker { display:none; }
+.cm-history-heading > span, .cm-history-entry > summary > span { flex:1; }
+.cm-history-heading strong, .cm-history-heading small { display:block; }
+.cm-history-heading small { color:var(--muted); font-size:.76rem; font-weight:400; line-height:1.65; }
+.cm-history-heading > svg:first-child { color:var(--accent); }
+.cm-history-heading > svg:last-child, .cm-history-entry > summary > svg { color:var(--muted); }
+.cm-request-history[open] > summary > svg:last-child, .cm-history-entry[open] > summary > svg { transform:rotate(-90deg); }
+.cm-request-history li:has(.cm-history-entry) { padding-block:0; }
+.cm-history-entry > summary { padding:7px 0; }
+.cm-history-entry > summary strong, .cm-history-entry > summary small { display:block; }
+.cm-history-entry > summary strong { color:var(--ink); font-size:.9rem; }
+.cm-history-entry > summary small, .cm-history-actions > small { color:var(--muted); font-size:.76rem; font-weight:400; line-height:1.7; }
+.cm-history-actions { display:grid; gap:3px; padding-block-end:10px; }
+.cm-history-actions > button { min-height:44px; background:transparent; border:0; padding:0; color:var(--accent); font:inherit; font-size:.86rem; text-align:start; }

@@ -8,9 +8,10 @@ const code=ts.transpileModule(readFileSync(new URL('../src/community/testingDisc
 const localRows=[];
 const local={discover:async()=>fixtures,inbox:async()=>localRows,request:async id=>{localRows.push({id:'local-request',person:{id,isDemo:true},status:'pending'});return 'local-request';},setInterest:async()=>{},act:async()=>{localRows[0].status='accepted';},unreadCount:async()=>1};
 function loadTestingModule(samples){
+  samples={inbox:async()=>[],exclusiveConnection:()=>null,...samples};
   const module={};
   new Function('require','exports',code)(name=>name==='./demoLunaSearch'?{demoLunaScore}:{demoCommunity:()=>samples,demoPeople:fixtures},module);
-  return module;
+  return {withTestingDiscovery:(real,...args)=>module.withTestingDiscovery({inbox:async()=>[],...real},...args)};
 }
 const exports=loadTestingModule(local);
 
@@ -108,8 +109,34 @@ test('owner demo actions and connections stay local while real actions use the s
  assert.deepEqual(remoteCalls,[]);
  assert.equal((await source.inbox()).length,2);
  assert.equal(await source.unreadCount(),3);
- assert.equal(source.demoInteractions,local);
+ assert.equal(source.demoInteractions.request,local.request);
  await source.request('real-member');
  await source.act('real-request','cancel');
  assert.deepEqual(remoteCalls,['real-member','real-request']);
+});
+
+test('mutual exclusivity suppresses every directory and retires competing fixture chats permanently', async () => {
+  const exclusive={id:'match',status:'accepted',person:{exclusive:true}};
+  const localRows=[{id:'sample-request',status:'pending',person:{id:'sample-0'}}];
+  const liveRows=[exclusive];
+  let retirements=0;
+  const local={
+    inbox:async()=>localRows, discover:()=>assert.fail('exclusive member saw sample directory'),
+    retireOtherConnections(){if(localRows.length)retirements++;localRows.length=0;},
+  };
+  const source=loadTestingModule(local).withTestingDiscovery({
+    inbox:async()=>liveRows,
+    discover:()=>assert.fail('exclusive member browsed profiles'),
+    lunaSearch:()=>assert.fail('exclusive search consumed quota'),
+    request:()=>assert.fail('exclusive member sent request'),
+  },()=>({}),'owner');
+  assert.deepEqual(await source.inbox(),[exclusive]);
+  for(const mode of ['all','recommended'])assert.deepEqual(await source.discover({mode}),[]);
+  assert.deepEqual(await source.discoverPages({mode:'all'},2),[[],[]]);
+  await assert.rejects(source.lunaSearch('في الرياض',{}),/حصري/);
+  await assert.rejects(source.request('sample-0'),/حصري/);
+  await assert.rejects(source.setInterest('member',true),/حصري/);
+  assert.equal(retirements,1);
+  exclusive.person.exclusive=false;
+  assert.deepEqual(await source.inbox(),[exclusive]);
 });

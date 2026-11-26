@@ -8,7 +8,7 @@ import './person-avatar.css';
 
 /** A compact version of the profile image, with the same private-photo access rules. */
 export function PersonAvatar({ person, source, className = '', protectedDiscovery = false, showMembership = true }: {
-  person: PublicPerson; source: CommunitySource; className?: string; protectedDiscovery?: boolean; showMembership?: boolean;
+  person: Pick<PublicPerson, 'alias'|'portrait'|'publicAvatar'|'demoPhoto'|'membershipTier'|'premium'>; source: CommunitySource; className?: string; protectedDiscovery?: boolean; showMembership?: boolean;
 }) {
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const letter = Array.from(person.alias.trim())[0] || 'ن';

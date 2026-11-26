@@ -6,7 +6,7 @@ import { NotificationFeed } from '../../src/notifications/NotificationFeed';
 import type { ActivityNotification } from '../../src/community/data';
 import { Chat } from '../../src/community/Community';
 import { CapturePrivacyHost } from '../../src/privacy/CapturePrivacy';
-import { demoCommunity, type CommunitySource, type Message, type Connection, type SeriousnessAgreement } from '../../src/community/data';
+import { demoCommunity, searchMessageRows, type CommunitySource, type Message, type Connection, type SeriousnessAgreement } from '../../src/community/data';
 import { testProfile } from '../../src/testing/pair';
 import '../../src/design.css';import '../../src/flows.css';import '../../src/screens.css';import '../../src/motion.css';
 import '../../src/mobile/keyboard.css';import '../../src/community/arrivalDiscovery.css';import '../../src/community/arrivalChat.css';import '../../src/arrivalSurfaces.css';import '../../src/typography.css';
@@ -46,6 +46,7 @@ const source:CommunitySource = {...base,
  conversationPilot: async () => params.has('feedback')
    ? {initialOpen:true, followupOpen:false, followupTalked:null, answer:null, mutualContinue:false}
    : null,
+ searchMessages: async (_id, query, before, kind) => searchMessageRows(read().map(asMessage), query, before, kind),
  ...(params.has('interrupt') ? {
    demoAcceptOutgoing: undefined,
    profileVisible: async () => {

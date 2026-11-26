@@ -1,70 +1,60 @@
 .luna-search {
   position: relative;
-  margin: 7px 0 11px;
+  margin: 0 0 3px;
   color: var(--ink);
 }
 .luna-search-entry {
+  display: grid;
+  align-items: start;
+  width: 100%;
+  min-height: 44px;
+  padding: 1px 0 0;
+  border: 0;
+  background: transparent;
+  border-radius: 10px;
+}
+.luna-search-pill {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   width: 100%;
-  min-height: 57px;
-  padding: 7px 8px 7px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent-fill) 17%, var(--line));
-  border-radius: 20px;
+  min-height: 35px;
+  padding: 3px 5px 3px 7px;
+  border: 1px solid #dfcfd2;
+  border-radius: inherit;
   background:
-    radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--accent-fill) 10%, transparent), transparent 36%),
-    linear-gradient(135deg, color-mix(in srgb, var(--surface) 98%, #fff), color-mix(in srgb, var(--accent-fill) 4%, var(--surface)));
-  box-shadow: 0 9px 24px #4a12200e, inset 0 1px 0 #fff;
-  color: inherit;
+    radial-gradient(ellipse at 100% 85%, #ead6d9, transparent 38%),
+    linear-gradient(115deg, #faf5ef, #fffdfb 55%, #f5e9e7);
+  box-shadow: 0 3px 9px #4613290b, inset 0 1px #fff;
+  color: var(--accent-fill);
   text-align: start;
   cursor: pointer;
 }
-.luna-search-entry::before,
-.luna-search-entry::after {
-  position: absolute;
-  z-index: -1;
-  content: "";
-  pointer-events: none;
-}
-.luna-search-entry::before {
-  inset: -22px auto -22px -26%;
-  width: 22%;
-  rotate: 15deg;
-  background: linear-gradient(90deg, transparent, #ffffffc7, transparent);
-  filter: blur(1px);
-  opacity: 0;
-}
-.luna-search-entry::after {
-  inset: auto 54px 0 auto;
-  width: 96px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent-fill) 28%, transparent), transparent);
-}
-.luna-search-entry[aria-expanded="true"] {
-  border-color: color-mix(in srgb, var(--accent-fill) 32%, var(--line));
-  box-shadow: 0 11px 29px #4a122016, 0 0 0 3px color-mix(in srgb, var(--accent-fill) 5%, transparent), inset 0 1px 0 #fff;
+.luna-search-entry[aria-expanded="true"] .luna-search-pill {
+  border-color: #aa687e;
+  box-shadow: 0 0 0 2px #681f3917, inset 0 1px #fff2;
 }
 .luna-search-title {
-  display: grid;
-  align-content: center;
-  gap: 1px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
   flex: 1;
   min-width: 0;
 }
 .luna-search-entry strong {
-  color: var(--accent-fill);
+  color: inherit;
   font-size: 14.5px;
   font-weight: 730;
   line-height: 1.3;
   letter-spacing: -.015em;
 }
 .luna-search-title small {
-  color: var(--supporting-ink, var(--muted));
-  font-size: 9.5px;
+  color: #705962;
+  font-size: 11px;
   font-weight: 520;
   line-height: 1.35;
 }
@@ -72,11 +62,11 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
   border: 1px solid color-mix(in srgb, var(--accent-fill) 24%, transparent);
-  border-radius: 15px 15px 15px 8px;
+  border-radius: 50%;
   background:
     radial-gradient(circle at 30% 20%, #fff, color-mix(in srgb, var(--accent-fill) 7%, var(--surface)) 70%);
   color: var(--accent-fill);
@@ -93,13 +83,13 @@
 }
 .luna-search-orb img {
   display: block;
-  width: 29px;
-  height: 29px;
+  width: 19px;
+  height: 19px;
   object-fit: contain;
 }
 .luna-search-orb-ai {
   position: absolute;
-  inset: 2px 2px auto auto;
+  inset: 0 0 auto auto;
   display: grid;
   place-items: center;
   width: 10px;
@@ -118,25 +108,24 @@
   justify-content: center;
   gap: 5px;
   min-width: 34px;
-  min-height: 34px;
+  min-height: 21px;
   padding-inline: 8px;
-  border: 1px solid color-mix(in srgb, var(--accent-fill) 11%, var(--line));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  color: var(--supporting-ink, var(--muted));
-  box-shadow: inset 0 1px 0 #fff;
+  border: 0;
+  border-inline-start: 1px solid #deccd1;
+  color: #75525f;
   white-space: nowrap;
 }
 .luna-search-access small {
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 650;
 }
 .luna-search-access[data-unlocked] {
-  width: 35px;
-  min-width: 35px;
+  width: 23px;
+  min-width: 23px;
   padding-inline: 0;
-  border-color: color-mix(in srgb, var(--accent-fill) 18%, var(--line));
-  background: linear-gradient(145deg, color-mix(in srgb, var(--accent-fill) 8%, var(--surface)), var(--surface));
+  border: 0;
+  border-radius: 50%;
+  background: var(--blush);
   color: var(--accent-fill);
 }
 .luna-search-conversation {
@@ -233,33 +222,19 @@
   line-height: 1.7;
 }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion="reduced"]) .luna-search-entry {
-    transition: border-color 180ms ease, box-shadow 220ms ease, transform 130ms ease;
+  html:not([data-nf-motion="reduced"]) .luna-search-pill {
+    transition: transform 140ms ease-out, border-color 160ms ease, box-shadow 160ms ease;
   }
-  html:not([data-nf-motion="reduced"]) .luna-search-entry::before {
-    animation: luna-search-sheen 5.4s ease-in-out infinite;
+  html:not([data-nf-motion="reduced"]) .luna-search-entry:active .luna-search-pill {
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 3px #46132912;
+    transition-duration: 70ms;
   }
-  html:not([data-nf-motion="reduced"]) .luna-search-orb {
-    animation: luna-search-orb 3.8s ease-in-out infinite;
-    transition: transform 130ms ease, border-color 180ms ease;
-  }
-  html:not([data-nf-motion="reduced"]) .luna-search-orb-ai {
-    animation: luna-search-spark 2.6s ease-in-out infinite;
-  }
-  html:not([data-nf-motion="reduced"]) .luna-search-entry:active { transform: scale(.992); }
-  html:not([data-nf-motion="reduced"]) .luna-search-entry:active .luna-search-orb { transform: scale(.95); }
   html:not([data-nf-motion="reduced"]) .luna-search-conversation {
-    animation: luna-search-open 220ms cubic-bezier(.2,.75,.25,1) both;
+    animation: luna-search-open 180ms cubic-bezier(.2,.7,.3,1) both;
   }
 }
-@keyframes luna-search-sheen {
-  0%, 66% { transform: translateX(0); opacity: 0; }
-  74% { opacity: .75; }
-  92%, 100% { transform: translateX(610%); opacity: 0; }
+@keyframes luna-search-open {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
 }
-@keyframes luna-search-orb {
-  0%, 100% { box-shadow: 0 6px 15px #4f102117, inset 0 1px 0 #fff; }
-  50% { box-shadow: 0 8px 20px #73183a26, 0 0 0 3px #73183a0a, inset 0 1px 0 #fff; }
-}
-@keyframes luna-search-spark { 0%, 100% { opacity: .65; transform: scale(.88) rotate(0); } 50% { opacity: 1; transform: scale(1.08) rotate(9deg); } }
-@keyframes luna-search-open { from { opacity: 0; transform: translateY(-5px) scale(.995); } to { opacity: 1; transform: none; } }

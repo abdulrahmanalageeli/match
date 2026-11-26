@@ -231,8 +231,10 @@ html[data-nf-motion=reduced] :is(.st-row, .st-switch-track, .st-switch-track i) 
 /* Compact account dashboard. Everyday actions stay visible; infrequent controls
    retain their full behavior inside clear, expandable groups. */
 .phone-app .st-content {
-  padding-inline: clamp(16px, 5vw, 22px);
   padding-bottom: calc(86px + var(--nf-safe-bottom));
+}
+@media (width > 520px) {
+  .phone-app .st-content { padding-inline: clamp(16px, 5vw, 22px); }
 }
 .phone-app .st-top { min-height: 54px; padding-block: max(8px, var(--nf-safe-top)) 8px; }
 .phone-app .st-top .brand { transform: scale(.9); transform-origin: right center; }

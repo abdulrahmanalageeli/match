@@ -145,3 +145,13 @@ html[data-nf-motion="reduced"] .phone-app .cm-shell .cm-media-preview { animatio
 .phone-app .cm-shell .cm-view .cm-request { padding-block: 14px; gap: 12px; }
 .phone-app .cm-shell .cm-view .cm-inbox-search { min-height: 46px; border-radius: 12px; }
 .phone-app .cm-shell .cm-view .cm-request-copy { gap: 4px; min-width: 0; }
+
+@media (max-width: 520px) {
+  .phone-app .cm-shell section.cm-chat[data-conversation-id] :is(
+    .cm-chat-head, .cm-chat-log, .cm-chat-compose, .cm-chat-plan[data-ready], .cm-agreement-slot
+  ) {
+    padding-left: var(--nf-page-left);
+    padding-right: var(--nf-page-right);
+  }
+  .cm-chat-stage > .cm-agreement-slot { width: 100%; }
+}

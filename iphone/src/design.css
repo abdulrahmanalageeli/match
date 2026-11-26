@@ -112,6 +112,17 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   overflow-wrap: anywhere;
 }
 .screen-content { padding-inline: clamp(18px, 5.9vw, 30px); }
+@media (max-width: 520px) {
+  :root {
+    --nf-page-gutter: 5px;
+    --nf-page-left: calc(env(safe-area-inset-left, 0px) + var(--nf-page-gutter));
+    --nf-page-right: calc(env(safe-area-inset-right, 0px) + var(--nf-page-gutter));
+  }
+  .screen-content {
+    padding-left: var(--nf-page-left);
+    padding-right: var(--nf-page-right);
+  }
+}
 .nisfayn-brand { display:inline-flex; align-items:center; gap:10px; flex:none; }
 .nisfayn-brand img { display: block; object-fit: contain; }
 .nisfayn-brand-symbol { width: 40px; height: 47px; }

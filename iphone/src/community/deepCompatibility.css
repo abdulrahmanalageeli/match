@@ -198,7 +198,12 @@
 @keyframes wd-deep-ambient { to { opacity:.95; transform:translate3d(-4%,7%,0) scale(1.08); } }
 @keyframes wd-deep-draw { to { stroke-dashoffset:0; } }
 @keyframes wd-deep-flow { from { stroke-dashoffset:100; } to { stroke-dashoffset:0; } }
-@media(max-width:540px) { .phone-app .cm-sheet.wd-deep-sheet:has(.wd-deep-shared) { width:100vw; height:100dvh; padding-inline:16px; border-radius:0; } }
+@media(max-width:540px) {
+  .phone-app .cm-sheet.wd-deep-sheet:has(.wd-deep-shared) {
+    width:100vw; height:100dvh; border-radius:0;
+    padding-left:var(--nf-page-left, 16px); padding-right:var(--nf-page-right, 16px);
+  }
+}
 @media(max-width:350px) { .wd-deep-index-grid { grid-template-columns:1fr; } .wd-deep-story-copy { padding-inline:2px; } .wd-deep-section-nav button { padding-inline:10px; } }
 @media(max-height:740px) { .wd-deep-story { gap:4px; } .wd-deep-couple b { width:30px; height:30px; } .wd-deep-art { height:48px; margin-block:-7px; } .wd-deep-art-mark img { width:32px; height:32px; } .wd-deep-story-copy { padding-block:5px 10px; } .wd-deep .wd-deep-story-copy h3 { margin-bottom:7px; font-size:1.1875rem; } .wd-deep-finding-body { gap:8px; font-size:.9rem; } .wd-deep-finding-meta { margin-bottom:7px; } }
 @media(max-height:620px) { .wd-deep-art { display:none; } .wd-deep-finding-body { gap:8px; } }

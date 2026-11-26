@@ -169,8 +169,8 @@ body {
 .flow-frame {
   min-height: 100svh;
   background: var(--page-background);
-  padding: var(--nf-safe-top) 24px
-    calc(26px + var(--nf-safe-bottom));
+  padding: var(--nf-safe-top) var(--nf-page-right, 24px)
+    calc(26px + var(--nf-safe-bottom)) var(--nf-page-left, 24px);
 }
 .flow-brand {
   margin-inline-start: auto;

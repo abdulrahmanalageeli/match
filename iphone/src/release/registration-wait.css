@@ -11,6 +11,10 @@
     calc(24px + var(--nf-safe-bottom, 0px)) max(22px, env(safe-area-inset-left));
 }
 .wd-wait-inner { max-inline-size: 28rem; margin-inline: auto; }
+@media (max-width: 520px) {
+  .wd-wait { padding-left: var(--nf-page-left); padding-right: var(--nf-page-right); }
+  .wd-wait-inner { max-inline-size: none; }
+}
 .wd-wait-mast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block-end: 15px; border-block-end: 1px solid #e3d9d4; }
 .wd-wait-brand { display: inline-flex; align-items: center; gap: 8px; color: var(--wait-wine); }
 .wd-wait-brand img { object-fit: contain; }

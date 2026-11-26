@@ -3,7 +3,8 @@
   width: 100%;
   max-width: var(--app-width);
   margin-inline: auto;
-  padding-inline: clamp(16px, 5vw, 28px);
+  padding-left: var(--nf-page-left, clamp(16px, 5vw, 28px));
+  padding-right: var(--nf-page-right, clamp(16px, 5vw, 28px));
   font: inherit;
   text-align: start;
   color: var(--ink);

@@ -97,6 +97,12 @@
     clip-path: inset(50%);
   }
 }
+@media (max-width: 520px) {
+  .wi-dialog .wi-shell :is(.wi-header, .wi-session-compass, .wi-thread, .wi-composer, .wi-content:not([data-chat])) {
+    padding-left: var(--nf-page-left);
+    padding-right: var(--nf-page-right);
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   html:not([data-nf-motion=reduced]) .wi-dialog[data-journey] .wi-hybrid-field {
     animation-duration: 190ms;

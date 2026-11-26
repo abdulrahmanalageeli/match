@@ -648,6 +648,10 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
   aspect-ratio: 1.45 / 1;
   border-radius: 12px;
 }
+@media (max-width: 520px) {
+  /* Keep the photograph close to its original height as the card gains width. */
+  .df-card-portrait > .df-portrait-media { aspect-ratio: 25 / 16; }
+}
 .df-card-portrait :is(.df-portrait-image, .wd-private-portrait) { object-position: center 29%; }
 .df-card-portrait .df-portrait-placeholder .cm-avatar.large { margin: 0; }
 .phone-app .cm-shell .df-card-portrait .df-portrait-identity {

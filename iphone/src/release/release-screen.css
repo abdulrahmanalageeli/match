@@ -96,6 +96,13 @@
 .wd-release-banner-update { padding: 0 4px; color: var(--accent); font-size: .9rem; font-weight: 700; }
 .wd-release-later { padding: 0 5px; color: var(--muted); font-size: .85rem; }
 .wd-release-screen button:focus-visible, .wd-release-banner button:focus-visible { outline-offset: 2px; }
+@media (max-width: 520px) {
+  .wd-release-screen, .wd-release-banner-inner {
+    padding-left: var(--nf-page-left);
+    padding-right: var(--nf-page-right);
+  }
+  .wd-release-layout { width: 100%; }
+}
 @media (prefers-reduced-motion: no-preference) {
   html:not([data-nf-motion="reduced"]) .wd-release-layout { animation: wd-release-enter 170ms ease-out; }
 }

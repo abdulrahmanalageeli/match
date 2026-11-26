@@ -79,7 +79,7 @@
 .mi-privacy p { font-size: .85rem; }
 .mi-tabbar {
   position: sticky; bottom: 0; z-index: 3; display: flex; justify-content: space-around;
-  padding: 5px 10px max(7px, var(--nf-safe-bottom)); background: var(--chrome); border-top: 1px solid var(--line);
+  padding: 5px var(--nf-page-right, 10px) max(7px, var(--nf-safe-bottom)) var(--nf-page-left, 10px); background: var(--chrome); border-top: 1px solid var(--line);
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
 }
 .mi-tab {

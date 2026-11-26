@@ -238,8 +238,17 @@
 html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) * { animation: none !important; transition: none !important; }
 html[data-nf-motion="reduced"] :is(.nf-intake--new, .nf-onboarding-sandbox) button:active { transform: none !important; }
 @media (max-width: 360px) {
-  .phone-app .nf-intake.nf-intake--new .nf-intake-header { padding-inline: 12px; gap: 8px; }
+  .phone-app .nf-intake.nf-intake--new .nf-intake-header { gap: 8px; }
   .phone-app .nf-intake.nf-intake--new .nf-intake-header-actions { gap: 4px; }
+}
+
+@media (max-width: 520px) {
+  .phone-app .nf-intake:is(.nf-intake--new, [data-editing]) :is(.nf-intake-header, .nf-intake-main),
+  .phone-app .nf-onboarding-sandbox :is(.nf-sandbox-bar, .nf-sandbox-finish) {
+    padding-left: var(--nf-page-left);
+    padding-right: var(--nf-page-right);
+  }
+  .nf-signup-status .flow-header { padding-inline: 0; }
 }
 
 /* Keep assessment navigation compact so the question leads the viewport. */

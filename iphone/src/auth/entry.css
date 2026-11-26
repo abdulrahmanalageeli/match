@@ -6,7 +6,7 @@
   --auth-wine: #65112e;
   --auth-gold: #b58a58;
   max-width: 520px; margin-inline: auto; min-height: 100svh;
-  padding: var(--nf-safe-top) clamp(16px, 4.6vw, 26px) 0;
+  padding: var(--nf-safe-top) var(--nf-page-right, clamp(16px, 4.6vw, 26px)) 0 var(--nf-page-left, clamp(16px, 4.6vw, 26px));
   overflow-anchor: none;
   background: radial-gradient(circle at 50% 8%, rgba(101,17,46,.055), transparent 27%), #faf8f7;
   color: var(--auth-ink);

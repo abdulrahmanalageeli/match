@@ -184,3 +184,17 @@ html[data-nf-motion='reduced'] .wd-launch-screen { display: none; }
 
 .wd-launch-screen { animation: wd-arrival-dissolve 2150ms linear both; }
 @keyframes wd-arrival-dissolve { 0%,84% { opacity: 1; } 100% { opacity: 0; } }
+
+@media (max-width: 520px) {
+  .phone-app .nf-welcome.nf-arrival.wd-welcome,
+  .wd-welcome-hero {
+    padding-left: var(--nf-page-left);
+    padding-right: var(--nf-page-right);
+  }
+  .wd-welcome-nav { left: var(--nf-page-left); right: var(--nf-page-right); }
+  .wd-welcome-hero {
+    margin-left: calc(0px - var(--nf-page-left));
+    margin-right: calc(0px - var(--nf-page-right));
+  }
+  .wd-welcome-nav .wd-pair-preview { width: 100%; }
+}

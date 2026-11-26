@@ -14,6 +14,8 @@
   --muted: #716b70;
   --gold: #c2b59f;
   --line: #e5e2de;
+  --nf-faded-divider: linear-gradient(to right, transparent, var(--line) 20%, var(--line) 80%, transparent);
+  --nf-page-gutter: clamp(18px, 5.9vw, 30px);
   --control-line: #a39c9f;
   --accent-fill: #54152a;
   --accent: var(--accent-fill);
@@ -72,12 +74,35 @@ body:has(.phone-app > :is(.app-screen, .flow-frame, .wd-welcome))::before {
   pointer-events: none;
 }
 body:has(.phone-app > .nf-auth-frame)::before { --nf-safe-surface: #f8f6f5; }
+body:has(.phone-app .mi-tabbar)::before,
+.phone-app .mi-tabbar::before {
+  background:
+    url("/brand/nisfayn-rose-ivory-waves.svg") left -28px bottom -8px / var(--nf-wave-width, min(72vw, 320px)) auto no-repeat,
+    linear-gradient(to bottom, color-mix(in srgb, var(--blush) 52%, var(--paper)), var(--paper));
+}
+.phone-app .mi-tabbar::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--nf-safe-bottom);
+  --nf-wave-width: min(72vw, 320px, calc(var(--nf-safe-bottom) * 5.5));
+  -webkit-mask-image: linear-gradient(to top, transparent, #000 min(14px, var(--nf-safe-bottom)));
+  mask-image: linear-gradient(to top, transparent, #000 min(14px, var(--nf-safe-bottom)));
+  transform: rotate(180deg);
+  pointer-events: none;
+}
 body:has(.phone-app > .wd-welcome)::before {
   --wd-welcome-photo: url('/brand/welcome/shared-future.webp');
   --nf-safe-surface: #fdfdfc var(--wd-welcome-photo) 86% top / auto max(700px, min(900px, 100svh)) no-repeat;
 }
 @media (max-width: 759px) {
   body:has(.phone-app > .wd-welcome)::before { --wd-welcome-photo: url('/brand/welcome/shared-future-mobile.webp'); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) body:has(.phone-app .mi-tabbar)::before,
+  html:not([data-nf-motion="reduced"]) .phone-app .mi-tabbar::before {
+    background-position-x: calc(-28px + 6px * var(--nf-safe-scroll, 0)), 0%;
+  }
 }
 @media (prefers-reduced-motion: reduce) { body:has(.phone-app)::before { --nf-safe-light: .08; } }
 html[data-nf-motion="reduced"] body:has(.phone-app)::before { --nf-safe-light: .08; }
@@ -111,10 +136,10 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   color: var(--ink);
   overflow-wrap: anywhere;
 }
-.screen-content { padding-inline: clamp(18px, 5.9vw, 30px); }
+.screen-content { padding-inline: var(--nf-page-gutter); }
 @media (max-width: 520px) {
   :root {
-    --nf-page-gutter: 5px;
+    --nf-page-gutter: clamp(12px, 3.5vw, 16px);
     --nf-page-left: calc(env(safe-area-inset-left, 0px) + var(--nf-page-gutter));
     --nf-page-right: calc(env(safe-area-inset-right, 0px) + var(--nf-page-gutter));
   }

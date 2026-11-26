@@ -11,7 +11,7 @@ export function NextStep({ source, assessment, onAssessment, onRequest, onConver
   assessment?: NextStepAssessment;
   onAssessment?: () => void;
   onRequest: (id: string) => void;
-  onConversation: (id: string) => void;
+  onConversation: (id: string, panel?: 'agreement'|'journey') => void;
   onStateChange?: (state: NextStepState) => void;
 }) {
   const [snapshot, setSnapshot] = useState<NextStepSnapshot | null>(null);
@@ -48,18 +48,26 @@ export function NextStep({ source, assessment, onAssessment, onRequest, onConver
   }, [source]);
   const {premium,connectionLimit}=useMembershipAccess();
   const next = snapshot && chooseNextStep(snapshot, onAssessment ? assessment : undefined, connectionLimit??(premium?2:1));
-  if (!next || next.kind === 'request') return null;
-  const Icon = next.kind === 'assessment' ? BookOpen : next.kind === 'agreement' ? Feather : next.kind === 'journey' ? Route
+  if (!next) return null;
+  const showAgreement = next.agreementPeer !== undefined;
+  const Icon = next.kind === 'assessment' ? BookOpen : next.kind === 'agreement' || showAgreement ? Feather : next.kind === 'journey' ? Route
     : next.kind === 'capacity' ? HeartHandshake : next.kind === 'waiting' ? Send : MessageCircle;
   const open = () => {
     if (next.target === 'assessment') onAssessment?.();
-    else if (next.connectionId) (next.target === 'request' ? onRequest : onConversation)(next.connectionId);
+    else if (next.connectionId && next.target === 'request') onRequest(next.connectionId);
+    else if (next.connectionId && showAgreement) onConversation(next.connectionId, 'agreement');
+    else if (next.connectionId) onConversation(next.connectionId, next.kind==='agreement'||next.kind==='journey' ? next.kind : undefined);
   };
   return <MotionReveal key={next.key} className="df-next-step" duration={320} distance={5}>
-    <MotionPressButton className="df-next-step-action" type="button" onClick={open}>
-      <span className="df-next-step-mark" aria-hidden="true"><Icon size={17} strokeWidth={1.75}/></span>
-      <strong className="df-next-step-label" dir="auto">{next.action}</strong>
-      <ChevronLeft className="df-next-step-chevron" size={15} aria-hidden="true"/>
+    <MotionPressButton className="df-next-step-action" data-agreement={showAgreement || undefined} type="button" onClick={open}>
+      <span className="df-next-step-mark" aria-hidden="true"><Icon size={showAgreement ? 21 : 17} strokeWidth={1.75}/></span>
+      {showAgreement ? <>
+        <span className="df-agreement-heading"><strong>ميثاق التعارف</strong>{next.agreementPeer && <small>مع <bdi>{next.agreementPeer}</bdi></small>}</span>
+        <span className="df-agreement-view">عرض <ChevronLeft size={13}/></span>
+      </> : <>
+        <strong className="df-next-step-label" dir="auto">{next.action}</strong>
+        <ChevronLeft className="df-next-step-chevron" size={15} aria-hidden="true"/>
+      </>}
     </MotionPressButton>
   </MotionReveal>;
 }

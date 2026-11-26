@@ -8,7 +8,9 @@ import { emptyFeed } from './emptyFeed';
 import { readAlertProgress } from './alertProgress';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { notificationUpdates, type InAppUpdate, type PushOpen } from './push';
-import { updateEvents } from '../../admin/server/updateEvents';
+import { actionLabel, updateEvents } from '../../admin/server/updateEvents';
+import type { CompatibilityUpdate } from './ActivityAlerts';
+import { CompatibilityChangeSheet } from './CompatibilityNotice';
 import './notification-feed.css';
 
 const viewedRequests = new WeakMap<CommunitySource, Set<string>>();
@@ -37,7 +39,9 @@ function EventIcon({ item }: { item: FeedItem }) {
   return item.kind === 'match' ? <Heart {...props}/> : <Send {...props}/>;
 }
 
-export function NotificationFeed({ pushOwner, openUpdate, initialInterest, onIntentOpened, source, connections, onProfile, onConversation, onRequest, onBrowse, onRetry, loading: connectionsLoading = false, error: connectionError = '' }: {
+export function NotificationFeed({ compatibilityUpdates = [], onCompatibilityRead, curatedUpdate, onCuratedUpdate, pushOwner, openUpdate, initialInterest, onIntentOpened, source, connections, onProfile, onConversation, onRequest, onBrowse, onRetry, loading: connectionsLoading = false, error: connectionError = '' }: {
+  compatibilityUpdates?:CompatibilityUpdate[]; onCompatibilityRead?:(id:string,key:string)=>void;
+  curatedUpdate?:{id:string;name:string;at:string}; onCuratedUpdate?:()=>void;
   pushOwner?:string|null; openUpdate?:(update:PushOpen)=>void|Promise<void>;
   initialInterest?:string; onIntentOpened?:()=>void;
   source: CommunitySource; connections: Connection[]; onProfile: (person: PublicPerson) => void;
@@ -49,14 +53,13 @@ export function NotificationFeed({ pushOwner, openUpdate, initialInterest, onInt
   const [progress, setProgress] = useState(new Map<string, StepProgress>()), [opening, setOpening] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<FeedbackNotice[]>([]);
   const [memberUpdates,setMemberUpdates]=useState<InAppUpdate[]>([]);
-  const [expandedUpdates,setExpandedUpdates]=useState(false);
+  const [openFit,setOpenFit]=useState<string>();
   const [seen, setSeen] = useState(() => viewedRequests.get(source) || new Set<string>());
   const connectionsRef = useRef(connections); connectionsRef.current = connections;
   const openingRef = useRef(false);
   const acceptedIds = connections.filter(c => c.status === 'accepted').map(c => c.id).sort().join(',');
   useEffect(()=>{
     setMemberUpdates([]);
-    setExpandedUpdates(false);
     if(!pushOwner)return;
     let active=true,pending=false;
     const refresh=async()=>{
@@ -67,10 +70,12 @@ export function NotificationFeed({ pushOwner, openUpdate, initialInterest, onInt
       finally {pending=false;}
     };
     void refresh();
-    const timer=window.setInterval(refresh,30000);
+    const timer=window.setInterval(refresh,10000);
+    const stop=source.watch(refresh);
+    window.addEventListener('wudayn:notification-read',refresh);
     document.addEventListener('visibilitychange',refresh);
-    return ()=>{active=false;clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
-  },[pushOwner]);
+    return ()=>{active=false;clearInterval(timer);stop();window.removeEventListener('wudayn:notification-read',refresh);document.removeEventListener('visibilitychange',refresh);};
+  },[pushOwner,source]);
   useEffect(() => {
     setLoading(true); setItems([]); setProgress(new Map()); setFeedback([]);
     setSeen(viewedRequests.get(source) || new Set());
@@ -109,8 +114,15 @@ export function NotificationFeed({ pushOwner, openUpdate, initialInterest, onInt
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', tick); };
   }, []);
   const events = useMemo(() => buildFeed(connections, items, progress, seen, feedback), [connections, items, progress, seen, feedback]);
-  const rows = events.filter(item => isRecentNotification(item.at, now));
   const recentUpdates = memberUpdates.filter(update => isRecentNotification(update.createdAt, now));
+  const durable = new Set(recentUpdates.map(update=>update.event+':'+update.target));
+  const rows = events.filter(item => {
+    if(!isRecentNotification(item.at,now))return false;
+    if(item.kind==='match')return !durable.has('introduction:accepted:'+item.requestId);
+    if(item.kind==='exclusive')return !durable.has('journey:exclusive:'+item.requestId);
+    if(item.kind==='journey')return !durable.has('journey:invited:'+item.requestId);
+    return true;
+  });
   useEffect(()=>{
     if(!initialInterest||loading)return;
     setFilter('interests');
@@ -119,12 +131,32 @@ export function NotificationFeed({ pushOwner, openUpdate, initialInterest, onInt
     if(item){
       onProfile(item.person);
       if(item.activityId) void source.readNotifications?.([item.activityId]).catch(()=>{});
-    }
+    } else setError('هذا الملف لم يعد متاحًا من الإشعار.');
     onIntentOpened?.();
   },[initialInterest,loading,events,source,onProfile,onIntentOpened]);
   const visible = filterFeed(rows, filter);
-  const visibleUpdates=filter==='all'?recentUpdates:filter==='unread'?recentUpdates.filter(update=>update.unread):[];
-  const unread = rows.filter(item => item.unread).length+recentUpdates.filter(item=>item.unread).length;
+  const updateMatchesFilter = (update: InAppUpdate) => {
+    const destination=updateEvents[update.event][1];
+    if (filter==='all') return true;
+    if (filter==='unread') return update.unread;
+    if (filter==='journey') return ['agreement','journey','family','family_room','analysis'].includes(destination);
+    if (filter==='requests') return ['request','history'].includes(destination)||update.event==='introduction:accepted';
+    if (filter==='messages') return destination==='chat';
+    return false;
+  };
+  const visibleUpdates=recentUpdates.filter(updateMatchesFilter);
+  const recentFits=compatibilityUpdates.filter(row=>isRecentNotification(row.at,now));
+  const fitDetail=recentFits.find(row=>row.id===openFit);
+  const visibleFits=recentFits.filter(row=>filter==='all'||filter==='journey'||filter==='unread'&&row.unread);
+  const showCurated=curatedUpdate&&isRecentNotification(curatedUpdate.at,now);
+  const timeline = [
+    ...visible.map(row=>({type:'activity' as const,row,id:row.id,at:row.at})),
+    ...visibleUpdates.map(row=>({type:'update' as const,row,id:row.id,at:row.createdAt})),
+    ...visibleFits.map(row=>({type:'fit' as const,row,id:'fit:'+row.id,at:row.at})),
+    ...(showCurated && ['all','unread','requests'].includes(filter) ? [{type:'curated' as const,row:curatedUpdate!,id:'curated:'+curatedUpdate!.id,at:curatedUpdate!.at}] : []),
+  ].sort((a,b)=>feedTime(b.at)-feedTime(a.at)||a.id.localeCompare(b.id));
+  const unread=rows.filter(row=>row.unread).length+recentUpdates.filter(row=>row.unread).length+
+    recentFits.filter(row=>row.unread).length+Number(Boolean(showCurated));
   const empty = emptyFeed(filter);
   async function open(item: FeedItem) {
     if (openingRef.current || !item.target) return;
@@ -132,7 +164,12 @@ export function NotificationFeed({ pushOwner, openUpdate, initialInterest, onInt
     try {
       if (item.target === 'profile') onProfile(item.person);
       else if (item.requestId && connections.some(c => c.id === item.requestId)) {
-        if (item.target === 'request') onRequest(item.requestId); else onConversation(item.requestId, item.kind === 'feedback');
+        if (item.target === 'request') onRequest(item.requestId);
+        else if (openUpdate && (item.kind==='journey'||item.kind==='exclusive'||item.kind==='match')) await openUpdate({
+          requestId:item.requestId,kind:'update',event:item.kind==='match'?'introduction:accepted':
+            item.kind==='exclusive'?'journey:confirmed':'journey:invited',
+        });
+        else onConversation(item.requestId, item.kind === 'feedback');
       } else { setError('تغيّرت حالة هذا التعارف. حدّث الإشعارات للاطّلاع على آخر المستجدات.'); return; }
       // Navigation must not wait for a read receipt. A failed receipt remains
       // unread on the next refresh, so it can be retried without blocking entry.
@@ -142,48 +179,55 @@ export function NotificationFeed({ pushOwner, openUpdate, initialInterest, onInt
     finally { openingRef.current = false; setOpening(null); }
   }
   return <section className="cm-notification-feed" aria-label="الإشعارات والتحديثات">
-    {pushOwner&&openUpdate&&visibleUpdates.length>0&&
-      <div className="nf-member-updates" aria-label="مستجدات وُدَين">
-        {visibleUpdates.slice(0,expandedUpdates?25:4).map(update=>{
-          const [title,destination,cue]=updateEvents[update.event];
-          const Icon=destination==='analysis'?Sparkles:cue==='step'?Route:cue==='account'?ShieldCheck:cue==='celebration'?Gift:MessageCircle;
-          return <button className="nf-member-update" type="button" key={update.id} data-cue={cue} data-unread={update.unread} onClick={async()=>{
-            try {
-              await openUpdate({kind:'update',requestId:update.target,event:update.event});
-              setMemberUpdates(rows=>rows.map(row=>row.id===update.id?{...row,unread:false}:row));
-              void notificationUpdates(pushOwner,update.id).catch(()=>{});
-            } catch {setError('تعذّر فتح هذا التحديث. حاول مجددًا.');}
-          }}>
-            <span className="nf-member-update-icon"><Icon size={17} aria-hidden="true"/></span>
-            <span><strong>{title}</strong><small>{datedYearFormat.format(new Date(update.createdAt))}</small></span>
-            <ChevronLeft size={15} aria-hidden="true"/>
-          </button>;
-        })}
-        {visibleUpdates.length>4&&
-          <button type="button" className="btn-text" aria-expanded={expandedUpdates} onClick={()=>setExpandedUpdates(value=>!value)}>
-            {expandedUpdates?'عرض أقل':'بقية المستجدات'}
-          </button>}
-      </div>}
     {unread > 0 && <div className="nf-feed-summary" role="status"><span>الإشعارات غير المقروءة</span><b>{new Intl.NumberFormat('ar').format(unread)}</b></div>}
     <div className="nf-feed-filters" role="group" aria-label="تصفية الإشعارات">{filters.map(option => <button key={option.id} aria-pressed={filter === option.id} onClick={() => setFilter(option.id)}>{option.label}{option.id === 'unread' && unread > 0 && <span>{new Intl.NumberFormat('ar').format(unread)}</span>}</button>)}</div>
     {(error || connectionError) && <div className="nf-feed-error" role="alert"><span>{error || connectionError}</span><button onClick={() => { setRetry(n => n + 1); onRetry?.(); }}>إعادة المحاولة</button></div>}
-    {(loading || connectionsLoading) && !rows.length && !visibleUpdates.length && <div className="nf-feed-loading" role="status"><span/><span/><span/><span className="mi-sr-only">جارٍ تحميل الإشعارات…</span></div>}
-    {!loading && !connectionsLoading && !error && !connectionError && !visible.length && !visibleUpdates.length && <MotionReveal key={filter} className="nf-feed-empty" duration={320} distance={6}><span>{filter === 'unread' ? <Check size={24}/> : <Bell size={23}/>}</span><h2>{empty.title}</h2><p>{empty.detail}</p>
+    {(loading || connectionsLoading) && !timeline.length && <div className="nf-feed-loading" role="status"><span/><span/><span/><span className="mi-sr-only">جارٍ تحميل الإشعارات…</span></div>}
+    {!loading && !connectionsLoading && !error && !connectionError && !timeline.length && <MotionReveal key={filter} className="nf-feed-empty" duration={320} distance={6}><span>{filter === 'unread' ? <Check size={24}/> : <Bell size={23}/>}</span><h2>{empty.title}</h2><p>{empty.detail}</p>
       {filter !== 'all' && <MotionPressButton className="btn-secondary" onClick={() => setFilter('all')}>عرض كل التحديثات</MotionPressButton>}
       {filter === 'all' && onBrowse && <MotionPressButton className="btn-secondary" onClick={onBrowse}>استكشف الملفات</MotionPressButton>}
     </MotionReveal>}
-    <div className="nf-feed-timeline">{visible.map((item, index) => {
-      const group = dayLabel(item.at), showGroup = index === 0 || group !== dayLabel(visible[index - 1].at);
-      return <div key={item.id} className="nf-feed-entry">
-        {showGroup && <h2 className="nf-feed-day">{group}</h2>}
-        <button className="cm-notification-row" data-unread={item.unread || undefined} data-kind={item.kind} disabled={!item.target || opening !== null} aria-busy={opening === item.id || undefined} onClick={() => void open(item)}>
-          <span className="nf-feed-avatar"><PersonAvatar person={item.person} source={source}/><i><EventIcon item={item}/></i></span>
-          <span className="nf-feed-copy"><span className="nf-feed-row-head"><strong>{item.title}</strong>{item.unread && <i className="nf-feed-unread" aria-label="غير مقروء"/>}</span><small>{item.detail}</small>
-            <span className="nf-feed-meta">{item.unread && <span className="nf-feed-read-state">جديد</span>}{feedTime(item.at) ? <time dateTime={item.at} title={fullDate.format(new Date(item.at!))}>{timeFormat.format(new Date(item.at!))}</time> : <span>الوقت غير متوفر</span>}{item.attention && <em>بانتظارك</em>}</span>
+    <div className="nf-feed-timeline">{timeline.map((entry,index)=>{
+      const group=dayLabel(entry.at), showGroup=index===0||group!==dayLabel(timeline[index-1].at);
+      const item=entry.type==='activity'?entry.row:null;
+      const update=entry.type==='update'?entry.row:null;
+      const style=update&&updateEvents[update.event];
+      const Icon=entry.type==='fit'||style&&style[1]==='analysis'?Sparkles:
+        style&&style[2]==='step'?Route:style&&style[2]==='account'?ShieldCheck:
+        style&&style[1]==='membership'?Gift:HeartHandshake;
+      const unread=entry.type==='curated'||entry.row.unread;
+      const title=item?.title ?? (style ? style[0] : entry.type==='fit' ? `تحدّثت قراءة التوافق مع ${entry.row.name}` :
+        entry.type==='curated' ? `قُبل التعارف مع ${entry.row.name}` : '');
+      const detail=item?.detail ?? (update ? actionLabel(update.event) : entry.type==='fit' ? 'عرض ما تغيّر' : 'عرض التعارف');
+      const activate=async()=>{
+        if(entry.type==='activity'){await open(entry.row);return;}
+        if(entry.type==='curated'){onCuratedUpdate?.();return;}
+        if(entry.type==='fit'){setOpenFit(entry.row.id);onCompatibilityRead?.(entry.row.id,entry.row.change.key);return;}
+        if(!pushOwner||!openUpdate||openingRef.current)return;
+        openingRef.current=true;setOpening(entry.id);setError('');
+        try {
+          await openUpdate({kind:'update',requestId:entry.row.target,event:entry.row.event});
+          setMemberUpdates(rows=>rows.map(row=>row.id===entry.id?{...row,unread:false}:row));
+          void notificationUpdates(pushOwner,entry.id).catch(()=>{});
+        } catch {setError('تعذّر فتح هذا التحديث. حاول مجددًا.');}
+        finally {openingRef.current=false;setOpening(null);}
+      };
+      return <div key={entry.id} className="nf-feed-entry">
+        {showGroup&&<h2 className="nf-feed-day">{group}</h2>}
+        <button className="cm-notification-row" data-unread={unread||undefined} data-kind={item?.kind??entry.type}
+          disabled={Boolean(item&&!item.target)||opening!==null} aria-busy={opening===entry.id||undefined} onClick={()=>void activate()}>
+          {item ? <span className="nf-feed-avatar"><PersonAvatar person={item.person} source={source}/><i><EventIcon item={item}/></i></span>
+            : <span className="nf-member-update-icon" data-cue={style ? style[2] : undefined}><Icon size={17} aria-hidden="true"/></span>}
+          <span className="nf-feed-copy"><span className="nf-feed-row-head"><strong>{title}</strong>{unread&&<i className="nf-feed-unread" aria-label="غير مقروء"/>}</span>
+            <small>{detail}</small>
+            <span className="nf-feed-meta">{unread&&<span className="nf-feed-read-state">جديد</span>}
+              {entry.at&&<time dateTime={entry.at} title={fullDate.format(new Date(entry.at))}>{timeFormat.format(new Date(entry.at))}</time>}
+              {item?.attention&&<em>بانتظارك</em>}</span>
           </span>
-          {item.target && <ChevronLeft className="nf-feed-chevron" size={15} aria-hidden="true"/>}
+          {(!item||item.target)&&<ChevronLeft className="nf-feed-chevron" size={15} aria-hidden="true"/>}
         </button>
       </div>;
     })}</div>
+    {fitDetail&&<CompatibilityChangeSheet name={fitDetail.name} change={fitDetail.change} fit={fitDetail.fit} onClose={()=>setOpenFit(undefined)}/>}
   </section>;
 }

@@ -93,7 +93,7 @@ import { PersonAvatar } from "../avatars/PersonAvatar";
 import { MatchesOverview } from './MatchesOverview';
 import { dressStyles, type PublicAvatar } from "../compatibility/appearance";
 import type { StepProgress } from "./data";
-import { journeyStages } from '../notifications/ActivityAlerts';
+import { journeyStages, type CompatibilityUpdate } from '../notifications/ActivityAlerts';
 import { NativePushAction } from '../notifications/NativePushAction';
 import type { PushOpen } from '../notifications/push';
 import { NotificationFeed } from '../notifications/NotificationFeed';
@@ -144,7 +144,11 @@ type Tab = "discover" | "curated" | "inbox" | "chats";
 type CommunityProps = {
   pushOwner?: string | null;
   viewerGender?: "man" | "woman";
-  onMutual: (connection: Connection) => void;
+  onMutual?: (connection: Connection) => void;
+  compatibilityUpdates?: CompatibilityUpdate[];
+  onCompatibilityRead?: (id:string,key:string)=>void;
+  curatedUpdate?: {id:string;name:string;at:string};
+  onCuratedUpdate?:()=>void;
   openConversation?: string;
   openMessage?: string;
   openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;openJourney?:boolean;openInterest?:string;
@@ -644,7 +648,7 @@ function Discovery({
   onBeena?: () => void;
   beenaAnswered?: number;
   onInbox: (entry: RequestEntry) => void;
-  onConversation: (id: string) => void;
+  onConversation: (id: string, panel?: 'agreement'|'journey') => void;
 }) {
   const {premium,upgrade,connectionLimit}=useMembershipAccess();
   const [remembered] = useState(() => readBrowseMemory(source));
@@ -1317,7 +1321,7 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
         <p>تبقى السجلات محفوظة. يمكنك إنهاء هذا التعارف في أي وقت؛ المحادثات المغلقة لا تُفتح تلقائيًا.</p>
         {otherConnections !== null && <details className="nf-journey-closure"><summary>ما سيُغلق في حسابك <span>{ar.format(otherConnections.length)}</span><ChevronLeft size={14}/></summary>{otherConnections.length ? <ul>{otherConnections.map(item=><li key={item.id}>{item.person.alias} · {item.status==='accepted'?'محادثة قائمة':'طلب قيد الانتظار'}</li>)}</ul> : <p>لا توجد طلبات أو محادثات أخرى ظاهرة في حسابك حاليًا.</p>}<small>هذه معاينة لحالتك الحالية. يُطبّق الإغلاق على التعارفات الأخرى لدى الطرفين عند موافقتكما، وقد تتغير القائمة قبل ذلك.</small></details>}
         {!progress.consentMine && <label className="nf-journey-consent-check"><input type="checkbox" checked={exclusiveConsent} onChange={e => setExclusiveConsent(e.target.checked)} disabled={busy}/> <span>{memberAr.exclusiveConsent}</span></label>}
-        <p className="nf-journey-consent-state">{progress.consentMine ? 'سُجّلت موافقتك. بانتظار الطرف الآخر.' : progress.consentPeer ? 'موافقتك الآن ستفعّل الالتزام وتغلق التعارف الآخر.' : 'لن تُغلق أي محادثة قبل موافقتكما معًا.'}</p>
+        <p className="nf-journey-consent-state">{progress.consentMine ? 'سُجّلت موافقتك. بانتظار الطرف الآخر.' : progress.consentPeer ? 'موافقتك الآن ستخفي ملفيكما من الاكتشاف وتغلق التعارفات والطلبات الأخرى.' : 'بعد موافقتكما يختفي ملفاكما من الاكتشاف وتُغلق التعارفات الأخرى.'}</p>
         <MotionPressButton className={progress.consentMine ? 'btn-secondary' : 'btn-primary'} disabled={busy || (!progress.consentMine && !exclusiveConsent)} onClick={() => source.journeyChoice ? void decide('exclusive',progress.consentMine?'clear':progress.consentPeer?'accept':'propose') : void act(false)}>{progress.consentMine ? memberAr.withdrawExclusive : progress.consentPeer ? memberAr.acceptExclusive : memberAr.proposeExclusive}</MotionPressButton>
          {source.journeyChoice&&progress.consentPeer&&!progress.consentMine&&<button type="button" className="btn-text" disabled={busy} onClick={()=>void decide('exclusive','clear')}>رفض طلب الحصرية</button>}
         {!progress.consentMine&&!progress.consentPeer&&<button type="button" className="btn-text" disabled={busy} onClick={()=>{setReviewCommitment(false);setExclusiveConsent(false);}}>ليس الآن</button>}
@@ -1846,7 +1850,7 @@ const requestScrollMemory = new WeakMap<CommunitySource, Map<string, number>>();
 function Requests({
   source, pushOwner,
   onChatChange,
-  onMutual,
+  onMutual, compatibilityUpdates, onCompatibilityRead, curatedUpdate, onCuratedUpdate,
   openConversation,
   openMessage,
   openRoom,openAgreement,openAnalysis,openJourney,openInterest,openUpdate,
@@ -1863,7 +1867,11 @@ function Requests({
   pushOwner?: string | null;
   source: CommunitySource;
   onChatChange: (chat: boolean) => void;
-  onMutual: (connection: Connection) => void;
+  onMutual?: (connection: Connection) => void;
+  compatibilityUpdates?: CompatibilityUpdate[];
+  onCompatibilityRead?: (id:string,key:string)=>void;
+  curatedUpdate?: {id:string;name:string;at:string};
+  onCuratedUpdate?:()=>void;
   openConversation?: string;
   openMessage?: string;
   openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;openJourney?:boolean;openInterest?:string;
@@ -2005,11 +2013,20 @@ function Requests({
     const targetId = openConversation || openRequest;
     if (!targetId) return;
     let active = true;
+    let retryTimer:number|undefined;
     const intent = ++navigation.current;
-    void refresh().then(() => {
-      if (!active) return;
-      if (intent !== navigation.current) { onConversationOpened(); return; }
-      if (!inboxReadSucceeded.current) { onConversationOpened(); return; }
+    async function resolveIntent(retries=2) {
+      await refresh();
+      if (!active || intent!==navigation.current) return;
+      if (!inboxReadSucceeded.current && retries>0) {
+        retryTimer=window.setTimeout(()=>void resolveIntent(retries-1),400);
+        return;
+      }
+      if (!inboxReadSucceeded.current) {
+        setNotice('تعذّر فتح الإشعار. حاول مرة أخرى بعد استعادة الاتصال.');
+        onConversationOpened();
+        return;
+      }
       const target = loadedRows.current.find(row => row.id === targetId && (openConversation ? row.status === "accepted" : ["pending", "accepted"].includes(row.status)));
       if (target) {
         setMessageTarget({connection:target.id,message:openMessage,room:openRoom,agreement:openAgreement?intent:undefined,analysis:openAnalysis?intent:undefined,journey:openJourney?intent:undefined});
@@ -2018,11 +2035,12 @@ function Requests({
         setActionError("");
         window.scrollTo(0, 0);
       } else {
-        setActionError('لم يعد هذا النشاط متاحًا.');
+        setNotice('لم يعد هذا النشاط متاحًا.');
       }
       onConversationOpened();
-    });
-    return () => { active = false; };
+    }
+    void resolveIntent();
+    return () => { active = false; window.clearTimeout(retryTimer); };
   }, [openConversation, openRequest, openMessage, openRoom, openAgreement, openAnalysis, openJourney, refresh, onConversationOpened]);
   useLayoutEffect(() => {
     if (inChat) document.querySelector<HTMLElement>(".cm-chat-head h1")?.focus({ preventScroll: true });
@@ -2089,9 +2107,11 @@ function Requests({
       setRemoveTarget(null);
       if (action === "accept") {
         setList(rows => rows.map(row => row.id === request.id ? { ...row, status: "accepted" } : row));
-        const accepted = (await source.inbox()).find(row=>row.id===request.id&&row.status==='accepted');
-        if (intent !== navigation.current) return;
-        onMutual(accepted || { ...request, status: "accepted" });
+        if(onMutual){
+          const accepted=(await source.inbox()).find(row=>row.id===request.id&&row.status==='accepted');
+          if(intent!==navigation.current)return;
+          onMutual(accepted || {...request,status:'accepted'});
+        }
         void refresh();
       } else {
         if (action === 'report') setReportSent(request.person.isDemo?'local':'sent');
@@ -2250,7 +2270,7 @@ function Requests({
         else if (intent === navigation.current) setActionError(messageFor(error));
       } finally { acting.current = false; setBusy(false); }
     };
-    return <Profile source={source} person={existing?.person ?? visitPerson} back={() => { navigation.current++; setVisitPerson(null); setActionError(''); }} backText="العودة للإشعارات" primary={<>
+    return <Profile source={source} person={existing?.person ?? visitPerson} connectionId={existing?.status==='accepted'?existing.id:undefined} back={() => { navigation.current++; setVisitPerson(null); setActionError(''); }} backText="العودة للإشعارات" primary={<>
       {actionError && <Banner alert text={actionError}/>}
       <button className="btn-primary" disabled={busy || unavailable} onClick={() => void openOrRequest()}>
         {!existing && <AddPersonMark/>}
@@ -2290,7 +2310,7 @@ function Requests({
     {exitFeedback}
     {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
     {notice && <Banner text={notice}/>}
-    <NotificationFeed pushOwner={pushOwner} openUpdate={openUpdate} initialInterest={openInterest} onIntentOpened={onConversationOpened} source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
+    <NotificationFeed compatibilityUpdates={compatibilityUpdates} onCompatibilityRead={onCompatibilityRead} curatedUpdate={curatedUpdate} onCuratedUpdate={onCuratedUpdate} pushOwner={pushOwner} openUpdate={openUpdate} initialInterest={openInterest} onIntentOpened={onConversationOpened} source={source} connections={list} loading={loading} error={error} onBrowse={onBrowse} onRetry={()=>void refresh()}
       onProfile={person => { setVisitPerson(person); void source.noteProfileOpen?.(person.id).catch(() => {}); }}
       onConversation={(id, openFeedback) => { if (list.some(row => row.id === id && row.status === 'accepted')) enterChat(id, null, false, openFeedback); else setNotice('هذا التعارف لم يعد متاحًا.'); }}
       onRequest={id => { listScroll.current = window.scrollY; navigation.current++; setSelected(id); setChat(false); setActionError(''); setNotice(''); window.scrollTo(0,0); }} />
@@ -2416,6 +2436,10 @@ export function Community(props: CommunityProps) {
   const [conversationToOpen, setConversationToOpen] = useState<string>();
   const { tab, source, onTab, onAccount, onHome, paused, onResume } = props;
   const discoveryUnavailable = paused || Boolean(props.profileReviewPending);
+  const onConversationOpened=useCallback(()=>{
+    setConversationToOpen(undefined);
+    props.onConversationOpened();
+  },[props.onConversationOpened]);
   useEffect(() => {
     if (tab === "inbox" && requestToOpen) setRequestToOpen(undefined);
   }, [tab, requestToOpen]);
@@ -2436,17 +2460,18 @@ export function Community(props: CommunityProps) {
           />
         </section>
       ) : tab === "discover" ? (
-        <Discovery source={source} onAccount={onAccount} profileSaved={props.profileSaved} onBeena={props.onBeena} beenaAnswered={props.beenaAnswered} onInbox={entry => { setRequestToOpen(entry); onTab("inbox"); }} onConversation={id=>{setConversationToOpen(id);onTab('chats');}} />
+        <Discovery source={source} onAccount={onAccount} profileSaved={props.profileSaved} onBeena={props.onBeena} beenaAnswered={props.beenaAnswered} onInbox={entry => { setRequestToOpen(entry); onTab("inbox"); }} onConversation={(id,panel)=>{if(panel && props.openUpdate){void props.openUpdate({requestId:id,kind:'update',event:panel==='agreement'?'agreement:proposed':'journey:invited'});return;}setConversationToOpen(id);onTab('chats');}} />
       ) : (
         <Requests key={tab} pushOwner={props.pushOwner} source={source} onChatChange={setChat} conversations={tab === "chats"} matches={tab === 'curated'}
           onBrowse={() => onTab('discover')}
           onMatches={() => onTab('curated')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}
-          onMutual={props.onMutual} openConversation={props.openConversation??conversationToOpen}
+          onMutual={props.onMutual} compatibilityUpdates={props.compatibilityUpdates} onCompatibilityRead={props.onCompatibilityRead}
+          curatedUpdate={props.curatedUpdate} onCuratedUpdate={props.onCuratedUpdate} openConversation={props.openConversation??conversationToOpen}
           openRoom={props.openRoom} openAgreement={props.openAgreement} openAnalysis={props.openAnalysis} openJourney={props.openJourney} openInterest={props.openInterest}
           openMessage={props.openMessage}
           openRequest={props.openRequest} openUpdate={props.openUpdate}
-          onConversationOpened={()=>{setConversationToOpen(undefined);props.onConversationOpened();}}
+          onConversationOpened={onConversationOpened}
           initialRequest={tab === "inbox" ? requestToOpen : undefined} />
       )}
       {(!chat || tab === "discover") && (

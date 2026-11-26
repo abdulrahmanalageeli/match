@@ -1,5 +1,5 @@
-import {useEffect, useRef, useState} from 'react';
-import {Search, Sparkles, ChevronLeft, LockKeyhole} from '../BrandIcons';
+import {useEffect, useId, useRef, useState} from 'react';
+import {Sparkles, ChevronDown, ChevronLeft, LockKeyhole} from '../BrandIcons';
 import {useMembershipAccess} from '../membership/access';
 import type {LunaResults} from './lunaSearchClient';
 import type {CommunitySource, Filters, PublicPerson} from './data';
@@ -9,6 +9,7 @@ import './luna-search.css';
 
 export function LunaSearch({source,filters,open}:{source:CommunitySource;filters:Filters;open:(person:PublicPerson,mode:Filters['mode'])=>void}) {
   const {tier,upgrade}=useMembershipAccess();
+  const accessId=useId();
   const [expanded,setExpanded]=useState(false),[query,setQuery]=useState('');
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const [result,setResult]=useState<LunaResults|null>(null);
@@ -79,14 +80,15 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
     }
   }
   return <section className="luna-search" aria-label="البحث مع لونا">
-    <button className="luna-search-entry" data-locked={tier!=='seriousness'||undefined} type="button" aria-label="ابحث مع لونا" aria-expanded={expanded} onClick={()=>{if(expanded){sequence.current++;lock.current=false;setOpening(null);setBusy(false);setResult(null);setError('');}setExpanded(value=>!value);}}>
-      <span className="luna-search-pill">
-      <span className="luna-search-orb"><img src="/brand/wudayn-emblem-v2.png" width="22" height="22" alt=""/><span className="luna-search-orb-ai" aria-hidden="true"><Sparkles size={10}/></span></span>
-      <span className="luna-search-title"><strong>ابحث مع لونا</strong><small>اكتبها بطريقتك</small></span>
-      <span className="luna-search-access" data-unlocked={tier==='seriousness'||undefined}>
-        {tier==='seriousness'?<Search size={17}/>:<><LockKeyhole size={14}/><small>وسام الجدية</small></>}
+    <button className="luna-search-entry" data-locked={tier!=='seriousness'||undefined} type="button" aria-label="ابحث مع لونا" aria-expanded={expanded} aria-describedby={tier!=='seriousness'?accessId:undefined} onClick={()=>{if(expanded){sequence.current++;lock.current=false;setOpening(null);setBusy(false);setResult(null);setError('');}setExpanded(value=>!value);}}>
+      <span className="luna-search-signature">
+        <img src="/brand/wudayn-emblem-v2.png" width="24" height="24" alt=""/>
+        <strong>لونا</strong>
       </span>
-      </span>
+      <span className="luna-search-prompt">وش يهمّك في شريك حياتك؟</span>
+      {tier!=='seriousness'
+        ? <span id={accessId} className="luna-search-access"><LockKeyhole size={12}/><span><span className="mi-sr-only">يتطلب </span>وسام الجدية</span></span>
+        : <ChevronDown size={15} className="luna-search-chevron"/>}
     </button>
     {expanded&&<div className="luna-search-conversation">
       {tier!=='seriousness'?<div className="luna-search-upgrade"><p>البحث حسب الوصف متاح مع وسام الجدية.</p><button className="f-primary" onClick={()=>upgrade("seriousness")}>اكتشف وسام الجدية</button></div>:!source.lunaSearch?<p role="status">البحث متاح عند تسجيل الدخول بحساب عضوية حقيقي.</p>:<>

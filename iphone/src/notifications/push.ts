@@ -19,9 +19,21 @@ import { isUpdateEvent, type UpdateEvent } from '../../admin/server/updateEvents
 export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication' | 'simulation' | 'update';event?:UpdateEvent;scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
 export type InAppUpdate = {id:string;event:UpdateEvent;target:string;createdAt:string;unread:boolean};
 
+const updateReads = new Map<string,Promise<InAppUpdate[]>>();
 export async function notificationUpdates(owner:string,readId?:string):Promise<InAppUpdate[]> {
-  const rows=await pushRpc<InAppUpdate[]>(owner,'updates',{read_id:readId??null});
-  return rows.filter(row=>isUpdateEvent(row.event)&&/^[0-9a-f-]{36}$/i.test(row.target));
+  if (readId) {
+    await pushRpc<InAppUpdate[]>(owner,'updates',{read_id:readId});
+    updateReads.delete(owner);
+    window.dispatchEvent(new Event('wudayn:notification-read'));
+    return [];
+  }
+  const pending=updateReads.get(owner);
+  if (pending) return pending;
+  const next=pushRpc<InAppUpdate[]>(owner,'updates',{read_id:null}).then(rows=>
+    rows.filter(row=>isUpdateEvent(row.event)&&/^[0-9a-f-]{36}$/i.test(row.target)));
+  updateReads.set(owner,next);
+  try { return await next; }
+  finally { if(updateReads.get(owner)===next)updateReads.delete(owner); }
 }
 type Device = { token: string; installationId: string; environment: 'sandbox' | 'production' };
 type Permission = { buildNumber?:string; permission: 'granted' | 'prompt' | 'denied'; installationId: string };

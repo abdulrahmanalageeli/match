@@ -69,10 +69,12 @@ export type Connection = {
   person: PublicPerson;
   lastMessage?: Pick<Message, "body" | "senderIsMe" | "createdAt"> | null;
   unreadCount?: number;
+  latestUnreadAt?: string;
 };
 export type MatchingExclusion = { id: string; alias: string; reason: 'blocked' | 'no_rematch'; since?: string };
 export type RequestHistoryEntry = {
   id: string; alias: string; direction: "incoming" | "outgoing";
+  resolution?: "declined" | "withdrawn" | "ended" | "expired" | "closed"; canRequestAgain?: boolean;
   createdAt: string; closedAt?: string | null; outcome: "closed" | "expired";
 };
 export type MessageReply = { id: string; body: string; senderIsMe: boolean; deletedAt?: string | null };
@@ -204,6 +206,7 @@ export interface CommunitySource extends ManualVerificationSource {
   notifications?(): Promise<ActivityNotification[]>;
   readNotifications?(ids: string[]): Promise<void>;
   inbox(): Promise<Connection[]>;
+  requestHistoryItem?(id:string): Promise<RequestHistoryEntry | null>;
   requestHistory?(beforeId?: string): Promise<RequestHistoryEntry[]>;
   matchingExclusions?(): Promise<MatchingExclusion[]>;
   request(memberId: string): Promise<string>;
@@ -395,6 +398,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
       rememberSupportDirectory(userId,options);
       return cards;
     },
+    acknowledgeMatch: read_id => timedRpc('marriage_push_updates',{read_id}),
     inbox() {
       // Mounted widgets and realtime listeners read the same authorized inbox
       // in one turn. A later read always gets a fresh server snapshot.
@@ -404,6 +408,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
       }
       return inboxForTurn;
     },
+    requestHistoryItem: target => timedRpc("marriage_request_history_item", {target}),
     requestHistory: beforeId => beforeId ? timedRpc("marriage_request_history_page", {before_id:beforeId}) : timedRpc("marriage_request_history", {}),
     matchingExclusions: () => timedRpc("marriage_matching_exclusions", {}),
     reportChatScreenshot: (requestId, eventId) => timedRpc('marriage_chat_screenshot', { request_id: requestId, event_id: eventId }),

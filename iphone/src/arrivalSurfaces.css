@@ -22,18 +22,10 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat-head { padding-block-s
 .phone-app .cm-chat-arrival-paths { opacity: .08; inset: -40px 0 0; }
 .phone-app main.nf-intake.nf-intake--new::before { content: none; }
 .phone-app .mi-tabbar {
-  border-top: 1px solid var(--line);
-  background: var(--chrome);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  --tab-surface: var(--surface);
   box-shadow: none;
 }
-.phone-app .mi-tab { color: var(--muted); transition: color 180ms ease, scale 120ms ease; }
-.phone-app .mi-tab-active { color: var(--accent); }
-.phone-app .mi-tab-marker { background: var(--accent); }
-.phone-app .mi-tab { font-size: .8125rem; min-height: 54px; gap: 5px; }
-.phone-app .mi-tab svg { width: 22px; height: 22px; stroke-width: 1.65; }
-.phone-app .mi-tab-active svg { stroke-width: 2; }
+.phone-app .mi-tab { transition: color 180ms ease, scale 120ms ease; }
 @media (min-width: 760px) {
   .phone-app:has(.nf-arrival) { max-width: 1080px; }
   .phone-app:has(.nf-auth-frame) { max-width: 1040px; }
@@ -74,11 +66,6 @@ html .phone-app [data-motion-reveal] { animation: none !important; translate: no
 html .phone-app [data-motion-press] { transition: none !important; scale: none !important; }
 html .phone-app [data-motion-press]:active { translate: none !important; }
 
-.phone-app .mi-tab { font-size: 10px; gap: 4px; color: var(--supporting-ink, #999398); }
-.phone-app .mi-tab svg { width: 20px; height: 20px; stroke-width: 1.45; }
-.phone-app .mi-tab-active { color: var(--accent); }
-.phone-app .mi-tab-active svg { stroke-width: 1.8; }
-.phone-app .mi-tab-marker { width: 16px; height: 2px; }
 
 /* Shared Nisfayn surface language: white, softly separated, quietly outlined. */
 .phone-app { --nf-card-shadow: 0 1px 5px #30242b04; --nf-card-radius: var(--radius-card); }
@@ -200,9 +187,8 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .dr-preference-inline { font-family: var(--font-ui); gap: 4px; align-items: baseline; }
 .phone-app .cm-shell .dr-preference-inline strong { font-family: inherit; font-size: 18px; font-weight: 700; letter-spacing: 0; }
 .phone-app .cm-shell .dr-preference-inline .dr-fit-caption { font-family: inherit; font-size: 12px; line-height: 1.2; font-weight: 500; color: var(--tinted-ink, #795462); }
-.phone-app .mi-tab { font-size: 12px; font-weight: 500; gap: 5px; min-height: 56px; color: var(--supporting-ink, #817b80); }
-.phone-app .mi-tab svg { width: 23px; height: 23px; stroke-width: 1.65; }
-.phone-app .mi-tab-active { color: var(--accent); font-weight: 600; }
+.phone-app .mi-tab { font-weight: 500; }
+.phone-app .mi-tab-active { font-weight: 600; }
 .phone-app .cm-shell .dr-avatar-online { inset: -3px; width: auto; height: auto; border: 2px solid #32805b; border-radius: 15px; background: transparent; box-shadow: 0 0 0 2px #fff; pointer-events: none; }
 .phone-app .cm-shell .dr-avatar-online::after { content: ''; position: absolute; inset-inline-end: -3px; bottom: -3px; width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #32805b; }
 .phone-app .cm-shell .dr-online-label { color: var(--positive-ink, #276947); font-size: 10px; font-weight: 600; white-space: nowrap; }
@@ -650,8 +636,11 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
   border-radius: 12px;
 }
 @media (max-width: 520px) {
-  /* Keep the photograph close to its original height as the card gains width. */
-  .df-card-portrait > .df-portrait-media { aspect-ratio: 25 / 16; }
+  .df-card-portrait > .df-portrait-media { aspect-ratio: 5 / 3; }
+  .phone-app .cm-shell .df-discovery .df-portrait-identity .df-identity-line h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
 }
 .df-card-portrait :is(.df-portrait-image, .wd-private-portrait) { object-position: center 29%; }
 .df-card-portrait .df-portrait-placeholder .cm-avatar.large { margin: 0; }

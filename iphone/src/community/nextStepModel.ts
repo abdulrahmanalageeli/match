@@ -11,6 +11,7 @@ export type NextStepChoice = {
   action: string;
   target: 'request' | 'conversation' | 'assessment';
   connectionId?: string;
+  agreementPeer?: string;
   attention?: boolean;
 };
 export type NextStepState = { loaded: boolean; acceptedCount: number; exclusive: boolean; pendingIncomingCount: number };
@@ -65,7 +66,7 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
     }
   }
 
-  if (!state.exclusive && state.acceptedCount < 2) {
+  if (!state.exclusive && state.acceptedCount < capacity) {
     const incoming = snapshot.connections.find(c => c.status === 'pending' && c.direction === 'incoming');
     if (incoming) return {
       key: `request:${incoming.id}`, kind: 'request', title: 'طلب تعارف جديد',
@@ -92,8 +93,8 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
   for (const c of accepted) {
     const a = snapshot.agreements.get(c.id);
     if (a?.status === 'none' || a?.status === 'proposed' || a?.status === 'expired') {
-      return conversation(c, 'waiting', 'الخطوة التالية لدى الطرف الآخر',
-        a.status === 'none' ? `بانتظار اقتراح المدة من ${c.person.alias}. تبدأ المراسلة بعد موافقتكما على الشروط والمدة.` : `اقتراحك مع ${c.person.alias} بانتظار المراجعة. يمكنك الاطّلاع على اتفاقكما في المحادثة.`, 'عرض اتفاقنا');
+      return { ...conversation(c, 'waiting', 'الخطوة التالية لدى الطرف الآخر',
+        a.status === 'none' ? `بانتظار اقتراح المدة من ${c.person.alias}. تبدأ المراسلة بعد موافقتكما على الشروط والمدة.` : `اقتراحك مع ${c.person.alias} بانتظار المراجعة. يمكنك الاطّلاع على اتفاقكما في المحادثة.`, 'عرض اتفاقنا'), agreementPeer: c.person.alias };
     }
   }
   const fresh = accepted.find(c => !c.lastMessage && (!snapshot.requiresAgreement || ['accepted', 'family'].includes(snapshot.agreements.get(c.id)?.status ?? '')));

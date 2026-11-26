@@ -1,133 +1,43 @@
 .luna-search {
   position: relative;
-  margin: 0 0 3px;
+  margin: 0 0 8px;
   color: var(--ink);
 }
 .luna-search-entry {
-  display: grid;
-  align-items: start;
-  width: 100%;
-  min-height: 44px;
-  padding: 1px 0 0;
-  border: 0;
-  background: transparent;
-  border-radius: 10px;
-}
-.luna-search-pill {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: clamp(6px, 2vw, 12px);
   width: 100%;
-  min-height: 35px;
-  padding: 3px 5px 3px 7px;
-  border: 1px solid #dfcfd2;
-  border-radius: inherit;
-  background:
-    radial-gradient(ellipse at 100% 85%, #ead6d9, transparent 38%),
-    linear-gradient(115deg, #faf5ef, #fffdfb 55%, #f5e9e7);
-  box-shadow: 0 3px 9px #4613290b, inset 0 1px #fff;
-  color: var(--accent-fill);
+  min-height: 44px;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
   text-align: start;
-  cursor: pointer;
 }
-.luna-search-entry[aria-expanded="true"] .luna-search-pill {
-  border-color: #aa687e;
-  box-shadow: 0 0 0 2px #681f3917, inset 0 1px #fff2;
+.luna-search-signature {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 5px;
+  color: var(--accent);
 }
-.luna-search-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 6px;
-  flex: 1;
-  min-width: 0;
-}
-.luna-search-entry strong {
-  color: inherit;
-  font-size: 14.5px;
-  font-weight: 730;
-  line-height: 1.3;
-  letter-spacing: -.015em;
-}
-.luna-search-title small {
-  color: #705962;
-  font-size: 11px;
-  font-weight: 520;
-  line-height: 1.35;
-}
-.luna-search-orb {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
-  border: 1px solid color-mix(in srgb, var(--accent-fill) 24%, transparent);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 20%, #fff, color-mix(in srgb, var(--accent-fill) 7%, var(--surface)) 70%);
-  color: var(--accent-fill);
-  box-shadow: 0 6px 15px #4f102117, inset 0 1px 0 #fff;
-  overflow: hidden;
-}
-.luna-search-orb::after {
-  position: absolute;
-  inset: -1px;
-  border: 1px solid #ffffffb5;
-  border-radius: inherit;
-  content: "";
-  pointer-events: none;
-}
-.luna-search-orb img {
-  display: block;
-  width: 19px;
-  height: 19px;
-  object-fit: contain;
-}
-.luna-search-orb-ai {
-  position: absolute;
-  inset: 0 0 auto auto;
-  display: grid;
-  place-items: center;
-  width: 10px;
-  height: 10px;
-  padding: 1.5px;
-  border-radius: 50%;
-  background: #fff;
-  color: var(--accent-fill);
-  box-shadow: 0 2px 5px #4f102126;
-  stroke-width: 1.9;
-}
-.luna-search-orb-ai svg { width: 10px; height: 10px; }
+.luna-search-signature img { display: block; width: 24px; height: 24px; object-fit: contain; }
+.luna-search-signature strong { font-size: 1rem; font-weight: 650; line-height: 1.4; }
+.luna-search-prompt { flex: 1; min-width: 0; font-size: .8125rem; line-height: 1.5; color: var(--muted); }
 .luna-search-access {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-width: 34px;
-  min-height: 21px;
-  padding-inline: 8px;
-  border: 0;
-  border-inline-start: 1px solid #deccd1;
-  color: #75525f;
-  white-space: nowrap;
+  gap: 4px;
+  color: var(--muted);
+  font-size: .6875rem;
+  line-height: 1.35;
 }
-.luna-search-access small {
-  font-size: 10.5px;
-  font-weight: 650;
-}
-.luna-search-access[data-unlocked] {
-  width: 23px;
-  min-width: 23px;
-  padding-inline: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--blush);
-  color: var(--accent-fill);
-}
+.luna-search-access svg, .luna-search-chevron { flex: none; }
+.luna-search-chevron { color: var(--accent); }
+.luna-search-entry[aria-expanded="true"] .luna-search-chevron { transform: rotate(180deg); }
+.luna-search-entry:is(:active, [aria-expanded="true"]) { border-color: var(--rose); }
 .luna-search-conversation {
   margin-block: 8px 0;
   padding: 4px 4px 10px;
@@ -221,15 +131,18 @@
   font-size: 12px;
   line-height: 1.7;
 }
+@media (max-width: 520px) {
+  .luna-search-upgrade { flex-wrap: wrap; gap: 4px 12px; }
+  .luna-search-upgrade p { flex: 1 1 10em; }
+  .luna-search-upgrade .f-primary {
+    width: auto;
+    min-height: 44px;
+    padding: 4px 12px;
+    font-size: .8125rem;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion="reduced"]) .luna-search-pill {
-    transition: transform 140ms ease-out, border-color 160ms ease, box-shadow 160ms ease;
-  }
-  html:not([data-nf-motion="reduced"]) .luna-search-entry:active .luna-search-pill {
-    transform: translateY(1px);
-    box-shadow: inset 0 1px 3px #46132912;
-    transition-duration: 70ms;
-  }
+  html:not([data-nf-motion="reduced"]) .luna-search-chevron { transition: transform 160ms ease; }
   html:not([data-nf-motion="reduced"]) .luna-search-conversation {
     animation: luna-search-open 180ms cubic-bezier(.2,.7,.3,1) both;
   }

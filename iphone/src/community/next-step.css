@@ -29,3 +29,15 @@
 .df-next-step-mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: var(--blush); }
 .df-next-step-label { min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.4; font-weight: 650; }
 .df-next-step-chevron { color: var(--muted); }
+.phone-app .df-next-step-action[data-agreement] {
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 7px;
+  padding-inline: 8px;
+  background: transparent;
+}
+.df-next-step-action[data-agreement]:active { background: var(--blush); }
+.df-next-step-action[data-agreement] .df-next-step-mark { width: 24px; background: transparent; }
+.df-agreement-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 7px; }
+.df-agreement-heading strong { font-size: .875rem; font-weight: 600; color: var(--ink); }
+.df-agreement-heading small { font-size: .75rem; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
+.df-agreement-view { display: inline-flex; align-items: center; gap: 3px; font-size: .75rem; font-weight: 600; }

@@ -89,3 +89,11 @@ test('feed entries expire after seven days, including unread and undated entries
   const chat = {...request,status:'accepted',updatedAt:visit.createdAt,lastMessage:{body:'مرحبا',senderIsMe:true,createdAt:visit.createdAt}};
   assert.deepEqual(buildFeed([chat], [], new Map(), new Set()), []);
 });
+
+test('an unread incoming message remains dated after you send the newest message',()=>{
+  const chat={...request,status:'accepted',unreadCount:1,latestUnreadAt:visit.createdAt,
+    lastMessage:{body:'تم',senderIsMe:true,createdAt:'2026-11-06T14:01:00Z'}};
+  const [row]=filterFeed(buildFeed([chat],[],new Map(),new Set()),'messages');
+  assert.equal(row.at,visit.createdAt);
+  assert.equal(row.unread,true);
+});

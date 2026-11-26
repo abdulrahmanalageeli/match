@@ -80,18 +80,6 @@ final class SimulatorChecks: XCTestCase {
         try await capture("Discovery profile", in: web)
     }
 
-    private func captureDisplay(_ name: String) async throws {
-        let documents = try XCTUnwrap(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first)
-        let request = documents.appendingPathComponent("display-preview-request")
-        let acknowledgement = documents.appendingPathComponent("display-preview-done")
-        try name.write(to: request, atomically: true, encoding: .utf8)
-        for _ in 0..<150 {
-            if (try? String(contentsOf: acknowledgement, encoding: .utf8)) == name { return }
-            try await Task.sleep(nanoseconds: 200_000_000)
-        }
-        throw NSError(domain: "SimulatorChecks", code: 3, userInfo: [NSLocalizedDescriptionKey: "No display capture for " + name])
-    }
-
     func testSafeAreaChrome() async throws {
         let web = try await openPreview()
         try await waitFor("location.pathname.endsWith('/preview.html') && document.querySelector('.wd-overview, .mi-tabbar')", in: web)
@@ -114,14 +102,10 @@ final class SimulatorChecks: XCTestCase {
             """
         try await waitFor(geometry, in: web)
         try await waitFor("document.querySelector('.df-recommendation').getBoundingClientRect().left >= 12 && document.querySelector('.luna-search-entry').getBoundingClientRect().height >= 44", in: web)
-        try await Task.sleep(nanoseconds: 650_000_000)
-        try await captureDisplay("discovery")
 
         _ = try await web.evaluateJavaScript("document.querySelector('.mi-tab[data-tab=settings]').click(); true")
         try await waitFor("document.querySelector('.mi-tab-active[data-tab=settings]')", in: web)
         try await waitFor(geometry, in: web)
-        try await Task.sleep(nanoseconds: 650_000_000)
-        try await captureDisplay("settings")
     }
 }
 

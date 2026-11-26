@@ -18,7 +18,20 @@ target.build_configurations.each do |config|
     'TEST_HOST'=>'$(BUILT_PRODUCTS_DIR)/App.app/App', 'BUNDLE_LOADER'=>'$(TEST_HOST)'
   })
 end
+display = project.new_target(:ui_test_bundle, 'DisplayChecks', :ios, '16.0')
+display.add_dependency(host)
+FileUtils.cp(File.join(__dir__, 'DisplayChecks.swift'), dir)
+display.source_build_phase.add_file_reference(project.main_group.new_file('DisplayChecks.swift'))
+display.build_configurations.each do |config|
+  config.build_settings.merge!({
+    'PRODUCT_BUNDLE_IDENTIFIER'=>'com.blindmatch.marriage.displaychecks',
+    'GENERATE_INFOPLIST_FILE'=>'YES', 'SWIFT_VERSION'=>'5.0', 'TEST_TARGET_NAME'=>'App'
+  })
+end
+project.root_object.attributes['TargetAttributes'] ||= {}
+project.root_object.attributes['TargetAttributes'][display.uuid] = { 'TestTargetID'=>host.uuid }
 project.save
 scheme = Xcodeproj::XCScheme.new("#{bundle}/xcshareddata/xcschemes/App.xcscheme")
 scheme.add_test_target(target)
+scheme.add_test_target(display)
 scheme.save_as(bundle, 'App')

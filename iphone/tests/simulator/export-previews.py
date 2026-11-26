@@ -7,6 +7,8 @@ import sys
 root = Path(sys.argv[1])
 attachments = root / "attachments"
 names = {
+    "discovery full display": "discovery",
+    "settings full display": "settings",
     "notifications": "notifications",
     "discovery and luna": "discovery-and-luna",
     "luna expanded": "luna-expanded",

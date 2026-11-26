@@ -6,7 +6,12 @@ import sys
 
 root = Path(sys.argv[1])
 attachments = root / "attachments"
-names = {"notifications": "notifications", "matched profile": "matched-profile", "unmatched profile": "unmatched-profile"}
+names = {
+    "notifications": "notifications",
+    "discovery and luna": "discovery-and-luna",
+    "luna expanded": "luna-expanded",
+    "discovery profile": "discovery-profile",
+}
 manifest = attachments / "manifest.json"
 
 def visit(node):

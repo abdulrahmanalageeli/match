@@ -1,10 +1,43 @@
+.nf-activity .nf-activity-toast.nf-compatibility-notice {
+  padding: 0; border: 0; background: transparent; box-shadow: none; animation: none;
+  color: #242326; isolation: isolate;
+}
+.nf-compatibility-notice-card {
+  display: flex; width: 100%; min-width: 0; border: 1px solid #e5e2de;
+  border-radius: 12px; background: #fff;
+  box-shadow: 0 8px 28px #48152b13, 0 1px 3px #48152b07;
+}
+.nf-compatibility-notice-open {
+  display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0;
+  padding: 14px 13px 14px 3px; border: 0; border-radius: 12px;
+  background: transparent; color: inherit; font: inherit; text-align: start; cursor: pointer;
+}
+.nf-compatibility-notice-mark {
+  display: grid; place-items: center; flex-shrink: 0; width: 37px; height: 43px;
+  color: #54152a; border: 1px solid #e5e2de; border-radius: 10px 19px 14px 14px;
+  background: #f1f0ed;
+}
+.nf-compatibility-notice-copy { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.nf-compatibility-notice-copy > strong { font-size: 16px; line-height: 1.65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nf-compatibility-notice-copy > small {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; color: #716b70; font-size: 14px; line-height: 1.65;
+}
+.nf-compatibility-notice-reading { color: #716b70; font-size: 14px; }
 .nf-compatibility-score-change { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 10px; font-size: 14px; line-height: 1.65; }
 .nf-compatibility-score-label { color: #716b70; }
 .nf-compatibility-score-values { display: inline-flex; align-items: center; gap: 6px; direction: rtl; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .nf-compatibility-score-values > span { color: #716b70; }
 .nf-compatibility-score-values > svg { color: #91898c; }
 .nf-compatibility-score-values > strong { color: #54152a; font-weight: 700; }
-.nf-compatibility-change-sheet :focus-visible { outline: 2px solid #54152a; outline-offset: 3px; }
+.nf-compatibility-notice-chevron { color: #91898c; flex-shrink: 0; }
+.nf-compatibility-notice-dismiss {
+  display: grid; place-items: center; flex-shrink: 0; align-self: flex-start;
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 16px;
+  color: #716b70; background: transparent; cursor: pointer;
+}
+.nf-compatibility-notice [disabled] { cursor: default; }
+.nf-compatibility-notice :focus-visible, .nf-compatibility-change-sheet :focus-visible { outline: 2px solid #54152a; outline-offset: 3px; }
 .nf-compatibility-change-sheet {
   box-sizing: border-box; width: min(calc(100vw - 24px), 500px); max-height: min(84dvh, 800px);
   margin: auto auto max(14px, var(--nf-safe-bottom)); padding: 0; overflow-x: hidden;
@@ -48,15 +81,21 @@
 .nf-compatibility-change-loading { color: #716b70; font-size: 14px; }
 .nf-compatibility-change-done { width: 100%; min-height: 47px; margin-top: 12px; border: 1px solid #54152a; border-radius: 10px; background: #54152a; color: #fff; font: inherit; font-size: 16px; cursor: pointer; }
 @media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .nf-compatibility-notice { transition: opacity 180ms ease-out, translate 180ms ease-out; }
+  html:not([data-nf-motion="reduced"]) .nf-compatibility-notice[data-leaving] { opacity: 0; translate: 0 -5px; }
   html:not([data-nf-motion="reduced"]) .nf-compatibility-change-sheet[open] { animation: nf-fit-sheet-in 280ms cubic-bezier(.22,.78,.28,1); }
   @keyframes nf-fit-sheet-in { from { opacity: 0; translate: 0 14px; } to { opacity: 1; translate: 0 0; } }
 }
 @media (max-width: 360px) {
+  .nf-compatibility-notice-open { gap: 8px; padding-inline-start: 10px; }
+  .nf-compatibility-notice-mark { width: 30px; height: 37px; }
+  .nf-compatibility-notice-chevron { display: none; }
   .nf-compatibility-change-body { padding-inline: 18px; }
   .nf-compatibility-change-body h2 { font-size: 21px; }
 }
 
-.nf-compatibility-change-emblem { border: 0; border-radius: 10px; background: #f1f0ed; }
+.nf-compatibility-notice-mark, .nf-compatibility-change-emblem { border: 0; border-radius: 10px; background: #f1f0ed; }
 .nf-compatibility-change-scores { padding-inline: 0; border: 0; border-block: 1px solid #e5e2de; border-radius: 0; }
 .nf-compatibility-change-note { padding: 14px; border-radius: 0; line-height: 1.8; }
+.nf-compatibility-notice-dismiss { width: 44px; height: 44px; }
 .nf-compatibility-change-done { min-height: 52px; }

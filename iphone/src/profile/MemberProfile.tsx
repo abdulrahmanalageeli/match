@@ -1,7 +1,5 @@
 import {BrandWait} from '../feedback/RoutePlaceholder';
 import { DemoDeepReading } from '../community/DemoDeepReading';
-import { DeepCompatibility } from '../community/DeepCompatibility';
-import { Sheet } from '../community/Sheet';
 import { mahrRanges } from '../compatibility/marriage';
 import {MemberBadge} from '../membership/MemberBadge';
 import {useMembershipAccess} from '../membership/access';
@@ -132,10 +130,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   </article>;
   const b=person.marriageBasics;
   const privateDemo = person.isDemo && (source?.simulation || source?.demoInteractions || source?.familyTestMode);
-  const acceptedConnection = connectionId ?? (person.connectionStatus==='accepted' ? person.connectionId : undefined);
-  const readingSource = person.isDemo ? source?.demoInteractions ?? source : source;
-  const demoReading = !preview && acceptedConnection && person.isDemo ? readingSource?.profileReading : undefined;
-  const liveReading = !preview && acceptedConnection && !person.isDemo ? readingSource?.deepAnalysis : undefined;
+  const reading = !preview && person.isDemo ? (source?.demoInteractions ?? source)?.profileReading : undefined;
   const photo=!person.publicAvatar&&!failed&&person.demoPhoto?.startsWith('/demo/portraits/')?person.demoPhoto:undefined;
   const hasFit=premium&&!person.compatibilityLocked&&!preview&&Boolean(person.fit||person.reasons.length);
   const visibleSection=section==='fit'&&!hasFit?'about':section;
@@ -192,13 +187,9 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       </div>
     </section>
     {!preview&&primary&&<div className="mp-primary">{primary}</div>}
-    {acceptedConnection && readingSource && (demoReading || liveReading) && <>
-      <MotionPressButton className="mp-passport-link" onClick={()=>setReadingId(acceptedConnection)}><BookOpenCheck size={22} aria-hidden="true"/><span><strong>تحليل وُدَين المعمّق</strong><small>قراءة التوافق مع {person.alias}</small></span><ArrowRight size={16} aria-hidden="true"/></MotionPressButton>
-      {readingId===acceptedConnection && (demoReading
-        ? <DemoDeepReading person={person} read={demoReading} watch={readingSource.watch} open onClose={()=>setReadingId(undefined)}/>
-        : <DeepCompatibility profileRequest source={liveReading} watch={readingSource.watch} connectionId={acceptedConnection} peerName={person.alias} open
-            onOpenChange={open=>setReadingId(open?acceptedConnection:undefined)}
-            sheet={content=><Sheet title="تحليل وُدَين المعمّق" className="wd-deep-sheet" onClose={()=>setReadingId(undefined)}>{content}</Sheet>}/>)}
+    {reading && <>
+      <MotionPressButton className="mp-passport-link" onClick={()=>setReadingId(person.id)}><BookOpenCheck size={22} aria-hidden="true"/><span><strong>تحليل وُدَين المعمّق</strong><small>قراءة التوافق مع {person.alias}</small></span><ArrowRight size={16} aria-hidden="true"/></MotionPressButton>
+      <DemoDeepReading key={person.id} person={person} read={reading} watch={(source?.demoInteractions ?? source)!.watch} open={readingId===person.id} onClose={()=>setReadingId(undefined)}/>
     </>}
     <div className="mp-sections" ref={sections} role="group" aria-label="أقسام الملف"
       style={{'--mp-tabs':1+Number(hasDetails)+Number(hasFit||(!preview&&!premium)), '--mp-index':visibleSection==='fit'?1+Number(hasDetails):Number(visibleSection==='details')} as CSSProperties}>

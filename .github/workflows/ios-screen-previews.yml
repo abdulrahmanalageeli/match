@@ -31,8 +31,7 @@ jobs:
           xcrun simctl boot "$SIMULATOR_UDID"
       - name: Bundle Wudayn and its local preview fixtures
         run: |
-          npm ci
-          npm run build
+          npm ci --prefer-offline
           node tests/simulator/build-fixtures.mjs
           npx --no-install cap sync ios
           gem list -i xcodeproj || gem install --user-install xcodeproj -v 1.27.0 --no-document
@@ -42,7 +41,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/wudayn-preview/screens"
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
           xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState unplugged --batteryLevel 100 || true
-          printf 'Device: %s\nCommit: %s\n' "$SIMULATOR_NAME" "$GITHUB_SHA" > "$RUNNER_TEMP/wudayn-preview/screens/build.txt"
+          printf 'Device: %s\nPreview commit: %s\n' "$SIMULATOR_NAME" "$GITHUB_SHA" > "$RUNNER_TEMP/wudayn-preview/screens/build.txt"
           set -o pipefail
           xcodebuild test -project ios/App/App.xcodeproj -scheme App -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" -parallel-testing-enabled NO \

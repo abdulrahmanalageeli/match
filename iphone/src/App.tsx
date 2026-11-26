@@ -48,6 +48,8 @@ import {
 import { demoProfile, demoCommunity, cloudCommunity } from "./community/data";
 import { releaseChatSource, sendNotificationReply } from "./community/chatOutbox";
 import { useUnreadCount } from "./community/useUnreadCount";
+import { useMutualMatches } from "./community/useMutualMatches";
+import { MatchCelebration } from "./community/MatchCelebration";
 import { initializeMatchSound } from "./community/matchSound";
 import { PublicationCenter } from './publishing/PublicationCenter';
 import { ConductCenter } from './conduct/ConductCenter';
@@ -57,7 +59,7 @@ import { simulationActivityDestination } from "./notifications/simulationDeviceA
 import { RegistrationWait } from "./release/RegistrationWait";
 import type { PushOpen } from "./notifications/push";
 import { updateEvents } from "../admin/server/updateEvents";
-import { useMemberActivity } from "./notifications/ActivityAlerts";
+import { ActivityAlerts } from "./notifications/ActivityAlerts";
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
 import { useNativeCalls } from './voice/nativeCalls';
 import { pairSource, testProfile, type TestSession } from "./testing/pair";
@@ -351,19 +353,10 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     if (badgeOwner) void setPushBadge(count, badgeOwner).catch(() => {});
   }, [badgeOwner]);
   const chatUnread = useUnreadCount(memberAccess ? source : null, updatePushBadge);
-  const activity = useMemberActivity(memberAccess && !paused && !onboardingPreview ? source : null);
+  const mutual = useMutualMatches(memberAccess && !paused ? source : null);
   const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean;journey?:boolean;interest?:boolean } | null>(null);
-  const [pushPanel,setPushPanel]=useState<{owner:string;panel:"family"|"family_room"|"history"|"verification"|"support"|"safety";id:string}>();
-  const matchToAcknowledge = useRef<{id:string;source:NonNullable<typeof source>}|null>(null);
-  const clearConversationIntent = useCallback(() => {
-    const opened=matchToAcknowledge.current;
-    matchToAcknowledge.current=null;
-    setConversationIntent(null);
-    if(opened && opened.source===source)void opened.source.inbox().then(rows=>{
-      const key=rows.find(row=>row.id===opened.id)?.celebrationKey;
-      if(key)return opened.source.acknowledgeMatch?.(key);
-    }).catch(()=>{});
-  }, [source]);
+  const [pushPanel,setPushPanel]=useState<{owner:string;panel:"family"|"verification"|"support"|"safety";id:string}>();
+  const clearConversationIntent = useCallback(() => setConversationIntent(null), []);
   useNativeCalls(!demo && memberAccess ? token : null,tester?.session);
   const simulationAlerts = !demo && token && (!live || live.user.id !== token) ? undefined
     : !memberAccess || paused || onboardingPreview ? null
@@ -381,23 +374,17 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     const navigate=(next:View)=>go(next,true);
     if(kind==='publication'){setPublicationOpen({id,owner:token});return;}
     const destination=kind==='update'&&event?.event?updateEvents[event.event][1]:null;
-    if(tester && id==='00000000-0000-4000-8000-000000000001' && destination!=='family') id='tester-pair';
-    if(destination==='application'){
-      if(token)void refresh(token,true);
-      setApplicationChapter(undefined);
-      navigate(event?.event==='application:approved'?'main':'application');
-      return;
-    }
-    if(destination==='membership'){if(token)void refresh(token,true);navigate('membership');return;}
+    if(destination==='application'){setApplicationChapter(undefined);navigate(event?.event==='application:approved'?'main':'application');return;}
+    if(destination==='membership'){navigate('membership');return;}
     if(destination==='gifting'){if(token)setGiftNotification({owner:token,id});setGiftRoute({from:'membership'});navigate('gifting');return;}
-    if(destination==='family'||destination==='family_room'||destination==='history'||destination==='verification'||destination==='support'||destination==='safety'){
+    if(destination==='family'||destination==='verification'||destination==='support'||destination==='safety'){
       const owner=tester?.session??token;
       if(owner)setPushPanel({owner,panel:destination,id});
       navigate(destination==='safety'?'main':'settings');
       return;
     }
     if(!memberAccess)return;
-    if (!source) return;
+    if (!source || (demo && !tester)) return;
     if (kind === 'simulation') {
       if (!simulationAlerts) return;
       const destination = await simulationActivityDestination(simulationAlerts,id);
@@ -413,8 +400,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       navigate('chats');
       return;
     }
-    matchToAcknowledge.current=kind==='mutual'||event?.event==='introduction:accepted'?{source,id}:null;
-    setConversationIntent({ source, id, requestOnly: kind === "request" || destination === "request" || destination === "activity", messageId:event?.messageId,roomId:event?.roomId,agreement:kind==='reminder'||kind==='mutual'||destination==='agreement',analysis:kind==='analysis'||destination==='analysis',journey:destination==='journey',interest:destination==='activity' });
+    setConversationIntent({ source, id, requestOnly: kind === "request" || destination === "request" || destination === "activity", messageId:event?.messageId,roomId:event?.roomId,agreement:kind==='reminder'||destination==='agreement',analysis:kind==='analysis'||destination==='analysis',journey:destination==='journey',interest:destination==='activity' });
     navigate(kind === "request" || destination === "activity" || destination === "request" ? "inbox" : "chats");
     try{
       if(event?.action==='reply'&&event.text?.trim()&&event.actionId){
@@ -431,7 +417,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   });
   usePushNotifications(tester ? `tester:${tester.session}` : !demo ? token : null,openNotification,simulationAlerts);
   const curatedPrevious = useRef<{ owner: string | null; id?: string; status?: Proposal["status"] } | null>(null);
-  const [curatedMatch, setCuratedMatch] = useState<{ owner: string | null; id: string; name: string; at: string } | null>(null);
+  const [curatedMatch, setCuratedMatch] = useState<{ owner: string | null; id: string; name: string } | null>(null);
   useEffect(() => {
     if (!source || !memberAccess) return;
     return () => releaseChatSource(source);
@@ -532,7 +518,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [guideClosedHere, setGuideClosedHere] = useState(false);
   const guideEntry = atWelcome || Boolean((tester || live) && (view === 'main' || view === 'discover'));
   const canShowArrivalPrompt = guideEntry && !loading && !socialPending && !conversationIntent &&
-    !publicationOpen && !policy && !confirm && !onboardingPreview && !error;
+    !publicationOpen && !policy && !confirm && !onboardingPreview && !mutual.match && !curatedMatch && !error;
   const showArrivalGuide = canShowArrivalPrompt && (!guideSeen || guideReplayed) &&
     (guideReplayed || (!startAtLogin && !openLogin));
   function closeArrivalGuide() {
@@ -1103,7 +1089,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     const previous = curatedPrevious.current;
     if (active && !paused && proposal?.status === "mutual" && previous?.owner === curatedOwner &&
         previous.id === proposal.id && previous.status !== "mutual") {
-      setCuratedMatch({ owner: curatedOwner, id: proposal.id, name: proposal.alias, at: new Date().toISOString() });
+      setCuratedMatch({ owner: curatedOwner, id: proposal.id, name: proposal.alias });
     } else if (!active || paused || proposal?.status !== "mutual" || previous?.owner !== curatedOwner || previous?.id !== proposal?.id) {
       setCuratedMatch(null);
     }
@@ -1163,8 +1149,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     />
   );
   const Application = demo && newDemoIntake && warmIntake ? warmIntake : LazyIntake;
-  // Keep the mounted route identity when the preload resolves during a notification handoff.
-  const Community = LazyCommunity;
+  const Community = warmCommunity ?? LazyCommunity;
   let screen: ReactNode;
   let publicationScreen: string = view;
   if (loading)
@@ -1339,9 +1324,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         onCompletion={() => { setCompletionEntry(value => value + 1); go('settings'); }}
         profileReviewPending={Boolean(live?.user.profileReviewPending)}
         source={source}
-        compatibilityUpdates={activity.changes} onCompatibilityRead={activity.read}
-        curatedUpdate={curatedMatch?.owner===curatedOwner ? curatedMatch : undefined}
-        onCuratedUpdate={()=>{setCuratedMatch(null);go('proposal',true);}}
+        onMutual={mutual.announce}
         openConversation={conversationIntent?.source === source && !conversationIntent.requestOnly ? conversationIntent.id : undefined}
         openRoom={conversationIntent?.source===source?conversationIntent.roomId:undefined}
         openAnalysis={conversationIntent?.source===source&&conversationIntent.analysis}
@@ -1456,6 +1439,25 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         </Suspense>
       </PublicationCenter>
 
+      {source && memberAccess && !paused && !onboardingPreview && !showArrivalGuide && !(demo && newDemoIntake && view === 'application') && <ActivityAlerts pushOwner={tester ? 'tester:'+tester.session : !demo ? token : null} source={source} celebrationsBlocked={Boolean(mutual.match || curatedMatch || policy || confirm || view === 'application')} onNotifications={() => go('inbox')} onOpen={id => {
+        setConversationIntent({ source, id }); go('chats');
+      }}/>}
+      {memberAccess && mutual.match && !policy && !confirm && !onboardingPreview && view !== "application" && (
+        <MatchCelebration key={mutual.match.id} name={mutual.match.person.alias}
+          onClose={() => mutual.dismiss(mutual.match!.id)}
+          onContinue={() => {
+            if (!source || !mutual.match) return;
+            setConversationIntent({ source, id: mutual.match.id });
+            mutual.dismiss(mutual.match.id);
+            go("chats");
+          }} />
+      )}
+      {memberAccess && !mutual.match && curatedMatch?.owner === curatedOwner && curatedMatch?.id === proposal?.id && curatedMatch && active && !paused &&
+        !policy && !confirm && !onboardingPreview && view !== "application" && (
+        <MatchCelebration key={curatedMatch.id} name={curatedMatch.name} continueLabel="عرض التعارف"
+          onClose={() => setCuratedMatch(null)}
+          onContinue={() => { setCuratedMatch(null); go("proposal"); }} />
+      )}
       {policy && (
         <Modal title="الخصوصية وشروط العضوية" close={() => setPolicy(false)}>
           <Policy />

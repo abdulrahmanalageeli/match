@@ -1,9 +1,8 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { ArrowLeft, Check, Volume2, VolumeX, X } from "../BrandIcons";
 import { getDevicePreferences, useDevicePreferences } from "../settings/preferences";
 import { playMatchSound, prepareMatchSound, stopMatchSound } from "./matchSound";
 import "./matchCelebration.css";
-import {useVoiceCalls} from "../voice/VoiceCalls";
 import type { MilestoneKind } from './milestones';
 
 type MatchCelebrationProps = {
@@ -13,30 +12,6 @@ type MatchCelebrationProps = {
   continueLabel?: string;
   milestone?: MilestoneKind;
 };
-
-// Global celebrations wait for the member to finish a call, dialog, or text entry.
-export function DeferredMatchCelebration(props: MatchCelebrationProps) {
-  const occupied=Boolean(useVoiceCalls()?.occupied);
-  const [ready,setReady]=useState(false);
-  useEffect(()=>{
-    if(ready||occupied)return;
-    const check=()=>{
-      if(!document.hidden&&!document.querySelector('dialog[open]')&&
-        !document.activeElement?.matches('input,textarea,[contenteditable="true"]'))setReady(true);
-    };
-    const observer=new MutationObserver(check);
-    observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['open']});
-    document.addEventListener('visibilitychange',check);
-    document.addEventListener('focusout',check);
-    check();
-    return ()=>{
-      observer.disconnect();
-      document.removeEventListener('visibilitychange',check);
-      document.removeEventListener('focusout',check);
-    };
-  },[occupied,ready]);
-  return ready ? <MatchCelebration {...props}/> : null;
-}
 
 // The caller mounts this only after the server confirms mutual acceptance.
 export function MatchCelebration({ name, onContinue, onClose, continueLabel = "ابدأ المحادثة", milestone }: MatchCelebrationProps) {

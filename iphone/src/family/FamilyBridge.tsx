@@ -207,8 +207,8 @@ function FamilyHub({ request, onBack, source, connectionId: initialConnection, n
   useEffect(()=>{if(!initialRoom||!state||handledRoom.current===initialRoom)return;handledRoom.current=initialRoom;
     const target=state.rooms.find(r=>r.id===initialRoom);
     if(target?.canRead&&target.status==='active')setRoomId(initialRoom);
-    else if(target&&(target.status==='pending'||target.status==='active')){
-      setNotice(target.status==='pending'?'المساحة بانتظار الموافقات. راجع المشاركين وحالة دعوتك أدناه.':'اكتملت الموافقات. يمكنك متابعة حالة المساحة من هنا.');
+    else if(target?.status==='pending'){
+      setNotice('المساحة بانتظار الموافقات. راجع المشاركين وحالة دعوتك أدناه.');
       document.getElementById(`fb-room-${initialRoom}`)?.focus();
     }
     else setNotice('هذه المساحة لم تعد متاحة لك. يمكنك مراجعة المساحات الحالية.');

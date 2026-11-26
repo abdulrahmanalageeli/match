@@ -12,12 +12,12 @@ final class SimulatorChecks: XCTestCase {
         return nil
     }
 
-    private func openPage(_ query: String) async throws -> WKWebView {
+    private func openPreview() async throws -> WKWebView {
         for _ in 0..<160 {
             let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }
             for window in windows {
                 if let web = findWebView(window) {
-                    let address = "capacitor://localhost/simulator-tests/tests/fixtures/profile-qa.html?" + query
+                    let address = "capacitor://localhost/tests/simulator/preview.html"
                     web.load(URLRequest(url: URL(string: address)!))
                     return web
                 }
@@ -40,12 +40,6 @@ final class SimulatorChecks: XCTestCase {
 
     private func capture(_ name: String, in web: WKWebView) async throws {
         try await waitFor("document.fonts.status === 'loaded'", in: web)
-        _ = try await web.evaluateJavaScript("""
-            const style = document.createElement('style');
-            style.textContent = '#qa-result, .nf-tester-tools { display:none !important }';
-            document.head.appendChild(style);
-            true
-            """)
         try await Task.sleep(nanoseconds: 450_000_000)
         let surface: UIView = web.window.map { $0 as UIView } ?? web
         let image = UIGraphicsImageRenderer(bounds: surface.bounds).image { _ in
@@ -58,25 +52,32 @@ final class SimulatorChecks: XCTestCase {
     }
 
     func testScreenPreviews() async throws {
-        let web = try await openPage("alerts&actor=abdulrahman")
-        try await waitFor("location.search.includes('alerts') && window.qaAlerts && (document.querySelector('.wd-overview') || document.querySelector('[data-community-tab]'))", in: web)
+        let web = try await openPreview()
+        try await waitFor("location.pathname.endsWith('/preview.html') && document.querySelector('.wd-overview, .mi-tabbar')", in: web)
         _ = try await web.evaluateJavaScript("document.querySelector('.wd-overview header button')?.click(); true")
-        let notificationsTab = "Array.from(document.querySelectorAll('button')).find(el => el.textContent.trim() === 'الإشعارات')"
+        let discoverTab = "document.querySelector('.mi-tab[data-tab=discover]')"
+        try await waitFor(discoverTab, in: web)
+        _ = try await web.evaluateJavaScript("\(discoverTab).click(); true")
+        let luna = "document.querySelector('.luna-search-entry')"
+        try await waitFor(luna + " && document.querySelector('button[data-weekly-person]')", in: web)
+        try await capture("Discovery and Luna", in: web)
+        _ = try await web.evaluateJavaScript("\(luna).click(); true")
+        try await waitFor("document.querySelector('.luna-search-conversation')", in: web)
+        try await capture("Luna expanded", in: web)
+        _ = try await web.evaluateJavaScript("\(luna).click(); true")
+
+        let notificationsTab = "document.querySelector('button.mi-tab[data-tab=inbox]')"
         try await waitFor(notificationsTab, in: web)
-        _ = try await web.evaluateJavaScript("""
-            window.qaAlerts.add('agreement:proposed','c0000000-0000-4000-8000-000000000001');
-            window.qaAlerts.add('family_room:invited','c0000000-0000-4000-8000-000000000002','c0000000-0000-4000-8000-000000000055');
-            \(notificationsTab).click();
-            true
-            """)
-        try await waitFor("document.querySelectorAll('.cm-notification-row').length >= 3", in: web)
+        _ = try await web.evaluateJavaScript("\(notificationsTab).click(); true")
+        try await waitFor("document.querySelector('.cm-notification-feed')", in: web)
         try await capture("Notifications", in: web)
 
-        for (state, title) in [("accepted","Matched profile"),("unmatched","Unmatched profile")] {
-            _ = try await openPage("profileConnection=" + state + "&actor=reham")
-            try await waitFor("location.search.includes('profileConnection=\(state)') && document.querySelector('.mp-profile h1')", in: web)
-            try await capture(title, in: web)
-        }
+        _ = try await web.evaluateJavaScript("\(discoverTab).click(); true")
+        let profile = "document.querySelector('button[data-weekly-person]')"
+        try await waitFor(profile, in: web)
+        _ = try await web.evaluateJavaScript("\(profile).click(); true")
+        try await waitFor("document.querySelector('.mp-profile h1')", in: web)
+        try await capture("Discovery profile", in: web)
     }
 }
 

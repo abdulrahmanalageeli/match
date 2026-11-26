@@ -72,6 +72,11 @@ body:has(.phone-app > :is(.app-screen, .flow-frame, .wd-welcome))::before {
   pointer-events: none;
 }
 body:has(.phone-app > .nf-auth-frame)::before { --nf-safe-surface: #f8f6f5; }
+body:has(.phone-app .mi-tabbar)::before {
+  background:
+    url("/brand/nisfayn-rose-ivory-waves.svg") left -28px bottom -8px / min(72vw, 320px) auto no-repeat,
+    linear-gradient(to bottom, color-mix(in srgb, var(--blush) 52%, var(--paper)), var(--paper));
+}
 body:has(.phone-app > .wd-welcome)::before {
   --wd-welcome-photo: url('/brand/welcome/shared-future.webp');
   --nf-safe-surface: #fdfdfc var(--wd-welcome-photo) 86% top / auto max(700px, min(900px, 100svh)) no-repeat;
@@ -114,7 +119,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
 .screen-content { padding-inline: clamp(18px, 5.9vw, 30px); }
 @media (max-width: 520px) {
   :root {
-    --nf-page-gutter: 5px;
+    --nf-page-gutter: clamp(12px, 3.5vw, 16px);
     --nf-page-left: calc(env(safe-area-inset-left, 0px) + var(--nf-page-gutter));
     --nf-page-right: calc(env(safe-area-inset-right, 0px) + var(--nf-page-gutter));
   }

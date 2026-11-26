@@ -42,20 +42,21 @@ jobs:
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
           xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState unplugged --batteryLevel 100 || true
           printf 'Device: %s\nPreview commit: %s\n' "$SIMULATOR_NAME" "$GITHUB_SHA" > "$RUNNER_TEMP/wudayn-preview/screens/build.txt"
+          bash tests/simulator/capture-display.sh &
+          capture_pid=$!
+          trap 'kill "$capture_pid" 2>/dev/null || true' EXIT
           set -o pipefail
           xcodebuild test -project ios/App/App.xcodeproj -scheme App -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" -parallel-testing-enabled NO \
-            -only-testing:SimulatorChecks/SimulatorChecks/testScreenPreviews \
+            -only-testing:SimulatorChecks/SimulatorChecks/testSafeAreaChrome \
             -derivedDataPath "$RUNNER_TEMP/WudaynBuild" \
             -resultBundlePath "$RUNNER_TEMP/wudayn-preview/Wudayn.xcresult" \
             CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/wudayn-preview/xcodebuild.log"
-      - name: Export PNGs
-        if: always()
+          wait "$capture_pid"
+      - name: Confirm both simulator screenshots
         run: |
-          if [ -d "$RUNNER_TEMP/wudayn-preview/Wudayn.xcresult" ]; then
-            xcrun xcresulttool export attachments --path "$RUNNER_TEMP/wudayn-preview/Wudayn.xcresult" --output-path "$RUNNER_TEMP/wudayn-preview/attachments"
-            python3 tests/simulator/export-previews.py "$RUNNER_TEMP/wudayn-preview"
-          fi
+          test -s "$RUNNER_TEMP/wudayn-preview/screens/discovery.png"
+          test -s "$RUNNER_TEMP/wudayn-preview/screens/settings.png"
       - name: Save screen previews and diagnostics
         if: always()
         uses: actions/upload-artifact@v4

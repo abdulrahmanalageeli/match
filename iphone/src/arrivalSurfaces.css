@@ -650,8 +650,11 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
   border-radius: 12px;
 }
 @media (max-width: 520px) {
-  /* Keep the photograph close to its original height as the card gains width. */
-  .df-card-portrait > .df-portrait-media { aspect-ratio: 25 / 16; }
+  .df-card-portrait > .df-portrait-media { aspect-ratio: 5 / 3; }
+  .phone-app .cm-shell .df-discovery .df-portrait-identity .df-identity-line h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
 }
 .df-card-portrait :is(.df-portrait-image, .wd-private-portrait) { object-position: center 29%; }
 .df-card-portrait .df-portrait-placeholder .cm-avatar.large { margin: 0; }

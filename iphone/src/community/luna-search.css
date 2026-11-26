@@ -221,6 +221,22 @@
   font-size: 12px;
   line-height: 1.7;
 }
+@media (max-width: 520px) {
+  .luna-search-pill {
+    min-height: 32px;
+    padding-block: 2px;
+    box-shadow: inset 0 1px #fff;
+  }
+  .luna-search-entry strong { font-weight: 600; }
+  .luna-search-upgrade { flex-wrap: wrap; gap: 4px 12px; }
+  .luna-search-upgrade p { flex: 1 1 10em; }
+  .luna-search-upgrade .f-primary {
+    width: auto;
+    min-height: 44px;
+    padding: 4px 12px;
+    font-size: .8125rem;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   html:not([data-nf-motion="reduced"]) .luna-search-pill {
     transition: transform 140ms ease-out, border-color 160ms ease, box-shadow 160ms ease;

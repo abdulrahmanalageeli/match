@@ -88,6 +88,23 @@
   border: 0; background: transparent; padding: 3px 2px 0; color: var(--muted);
 }
 .mi-tab svg { width: 20px; height: 20px; stroke-width: 1.55; }
+.mi-tabbar::before,
+.mi-tab-active::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: var(--nf-safe-bottom);
+  pointer-events: none;
+}
+.mi-tabbar::before {
+  bottom: 0;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--blush) 46%, transparent));
+}
+.mi-tab-active::after {
+  top: 100%;
+  background: url("/brand/nisfayn-rose-ivory-waves.svg") center top / 150% auto no-repeat;
+  mask-image: radial-gradient(ellipse at 50% 0, black 15%, transparent 75%);
+}
 .mi-tab-icon { position: relative; display: inline-flex; }
 .mi-tab-count { position: absolute; top: -5px; left: 12px; min-width: 15px; padding: 1px 3px;
   border-radius: 12px; border: 1px solid var(--paper); background: var(--accent-fill); color: var(--paper);

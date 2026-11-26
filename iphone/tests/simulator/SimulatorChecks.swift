@@ -79,5 +79,49 @@ final class SimulatorChecks: XCTestCase {
         try await waitFor("document.querySelector('.mp-profile h1')", in: web)
         try await capture("Discovery profile", in: web)
     }
+
+    private func captureDisplay(_ name: String) async throws {
+        let documents = try XCTUnwrap(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first)
+        let request = documents.appendingPathComponent("display-preview-request")
+        let acknowledgement = documents.appendingPathComponent("display-preview-done")
+        try name.write(to: request, atomically: true, encoding: .utf8)
+        for _ in 0..<150 {
+            if (try? String(contentsOf: acknowledgement, encoding: .utf8)) == name { return }
+            try await Task.sleep(nanoseconds: 200_000_000)
+        }
+        throw NSError(domain: "SimulatorChecks", code: 3, userInfo: [NSLocalizedDescriptionKey: "No display capture for " + name])
+    }
+
+    func testSafeAreaChrome() async throws {
+        let web = try await openPreview()
+        try await waitFor("location.pathname.endsWith('/preview.html') && document.querySelector('.wd-overview, .mi-tabbar')", in: web)
+        _ = try await web.evaluateJavaScript("document.querySelector('.wd-overview header button')?.click(); true")
+        let discover = "document.querySelector('.mi-tab[data-tab=discover]')"
+        try await waitFor(discover, in: web)
+        _ = try await web.evaluateJavaScript("\(discover).click(); true")
+        try await waitFor("document.querySelector('.df-recommendation') && document.fonts.status === 'loaded'", in: web)
+        let geometry = """
+            (() => {
+              const bar = document.querySelector('.mi-tabbar');
+              const active = bar.querySelector('[aria-current=page]');
+              const bottom = parseFloat(getComputedStyle(bar, '::before').height);
+              const top = parseFloat(getComputedStyle(document.body, '::before').height);
+              return top > 0 && bottom > 0 && innerWidth === document.documentElement.scrollWidth
+                && Math.abs(bar.getBoundingClientRect().bottom - innerHeight) < 2
+                && active.getBoundingClientRect().bottom <= innerHeight - bottom + 1
+                && [...bar.children].every(item => item.getBoundingClientRect().height >= 44);
+            })()
+            """
+        try await waitFor(geometry, in: web)
+        try await waitFor("document.querySelector('.df-recommendation').getBoundingClientRect().left >= 12 && document.querySelector('.luna-search-entry').getBoundingClientRect().height >= 44", in: web)
+        try await Task.sleep(nanoseconds: 650_000_000)
+        try await captureDisplay("discovery")
+
+        _ = try await web.evaluateJavaScript("document.querySelector('.mi-tab[data-tab=settings]').click(); true")
+        try await waitFor("document.querySelector('.mi-tab-active[data-tab=settings]')", in: web)
+        try await waitFor(geometry, in: web)
+        try await Task.sleep(nanoseconds: 650_000_000)
+        try await captureDisplay("settings")
+    }
 }
 

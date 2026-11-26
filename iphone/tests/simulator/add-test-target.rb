@@ -24,7 +24,7 @@ FileUtils.cp(File.join(__dir__, 'DisplayChecks.swift'), dir)
 display.source_build_phase.add_file_reference(project.main_group.new_file('DisplayChecks.swift'))
 display.build_configurations.each do |config|
   config.build_settings.merge!({
-    'PRODUCT_BUNDLE_IDENTIFIER'=>'com.blindmatch.marriage.displaychecks',
+    'PRODUCT_NAME'=>'DisplayChecks', 'PRODUCT_BUNDLE_IDENTIFIER'=>'com.blindmatch.marriage.displaychecks',
     'GENERATE_INFOPLIST_FILE'=>'YES', 'SWIFT_VERSION'=>'5.0', 'TEST_TARGET_NAME'=>'App'
   })
 end

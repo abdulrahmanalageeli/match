@@ -41,7 +41,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/wudayn-preview/screens"
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
-          xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState unplugged --batteryLevel 100 || true
+          xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryLevel 100
           printf 'Device: %s\nPreview commit: %s\n' "$SIMULATOR_NAME" "$GITHUB_SHA" > "$RUNNER_TEMP/wudayn-preview/screens/build.txt"
           set -o pipefail
           xcodebuild test -project ios/App/App.xcodeproj -scheme App -configuration Debug \

@@ -75,7 +75,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .cm-conversations-view > .cm-header { border-bottom: 0; }
 .phone-app .cm-shell .cm-conversations-view > .cm-segments { margin-top: 6px; }
 .phone-app .cm-shell .df-header { min-height: 42px; padding-block: max(4px, var(--nf-safe-top)) 4px; }
-.phone-app .cm-shell .df-feed-tabs { gap: 16px; }
+.phone-app .cm-shell .df-feed-tabs { gap: 0; }
 .phone-app .cm-shell .df-feed-tabs button { min-height: 40px; padding-block: 7px; font-size: 13px; gap: 6px; }
 .phone-app .cm-shell .df-feed-controls { margin-bottom: 4px; }
 .phone-app .cm-shell .dr-tools { margin-block: 0 4px; align-items: center; }
@@ -261,7 +261,7 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 /* Only controls receive taps, including where the request target extends into the row gutter. */
 .phone-app .cm-shell .df-discovery .dr-person-row { pointer-events: none; }
 .phone-app .cm-shell .df-discovery .dr-person-row button { pointer-events: auto; }
-.phone-app .cm-shell .df-discovery .dr-row-overview { gap: 10px; }
+.phone-app .cm-shell .df-discovery .dr-row-overview { min-block-size: clamp(44px, 12.5vw, 52px); gap: 10px; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group { position: relative; display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; }
 .phone-app .cm-shell .df-discovery .dr-row-profile-group > .dr-row-profile { position: absolute; inset: 0; z-index: 1; min-height: 0; border-radius: 6px; }
 .phone-app .cm-shell .df-discovery .dr-row-name { gap: 4px; }
@@ -307,7 +307,16 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 }
 .phone-app .cm-shell .df-discovery .dr-row-name .dr-row-interest:focus-visible { outline: 2px solid #54152a; outline-offset: 2px; }
 .phone-app .cm-shell .df-discovery .dr-row-name .dr-row-interest:disabled { opacity: .55; }
-.phone-app .cm-shell .df-discovery .dr-person-row { padding-block-start: 7px; }
+.phone-app .cm-shell .df-discovery .dr-person-row {
+  padding: 6px clamp(6px, 2vw, 12px) 5px;
+  margin: 0;
+  background: transparent; box-shadow: none;
+}
+.phone-app .cm-shell .df-discovery .dr-person-row[data-membership="seriousness"] { margin-block: 3px; }
+.phone-app .cm-shell .df-discovery .dr-person-row:not([data-membership="seriousness"]) + .dr-person-row:not([data-membership="seriousness"]) {
+  border-block-start: 1px solid transparent;
+  border-image: var(--nf-faded-divider) 1;
+}
 .phone-app .cm-shell .df-discovery .dr-row-avatar { width: 48px; height: 48px; }
 .phone-app .cm-shell .df-discovery :is(.dr-row-image, .dr-avatar-online) { border-radius: 50%; }
 .phone-app .cm-shell .df-discovery .dr-row-image {

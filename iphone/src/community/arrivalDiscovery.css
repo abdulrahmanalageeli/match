@@ -30,16 +30,27 @@
 .phone-app .cm-shell .df-feed-controls { margin-bottom: 12px; }
 .phone-app .cm-shell .df-discovery-help { display: flex; justify-content: center; margin-block: 4px 20px; }
 .phone-app .cm-shell .df-discovery-help > .nf-help-link { font-size: 13px; }
-.phone-app .cm-shell .df-feed-tabs { display: flex; gap: 22px; padding: 0; border: 0; border-bottom: 1px solid var(--arrival-rule); border-radius: 0; background: transparent; box-shadow: none; }
+.phone-app .cm-shell .df-feed-tabs { position: relative; display: flex; padding: 0; border: 0; border-bottom: 1px solid var(--arrival-rule); border-radius: 0; background: transparent; box-shadow: none; }
 .phone-app .cm-shell :is(.df-header, .df-feed-tabs) {
   border-image: var(--nf-faded-divider) 1;
 }
-.phone-app .cm-shell .df-feed-tabs button { flex: 1; min-height: 50px; padding: 12px 0; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); font-size: 14px; gap: 8px; margin-bottom: -1px; font-weight: 500; }
+.phone-app .cm-shell .df-feed-tabs button { flex: 1; min-width: 0; min-height: 50px; padding: 12px 0; border: 0; border-radius: 0; color: var(--muted); font-size: 14px; gap: 8px; font-weight: 500; }
 .phone-app .cm-shell .df-feed-tabs button[aria-pressed="true"] {
-  color: var(--accent); background: transparent; border-bottom-color: currentColor; box-shadow: none; font-weight: 600;
-  border-image: linear-gradient(var(--fade-inward, to left), transparent, currentColor 42%) 1;
+  color: var(--accent); background: transparent; box-shadow: none; font-weight: 600;
 }
-.phone-app .cm-shell .df-feed-tabs button:last-child { --fade-inward: to right; }
+.phone-app .cm-shell .df-feed-tabs::after {
+  --ink-width: 3.75rem;
+  content: ""; position: absolute; pointer-events: none;
+  inset-block-end: -1px; inset-inline-start: 25%; margin-inline-start: calc(var(--ink-width) / -2);
+  width: var(--ink-width); height: 2.5px; border-radius: 100%;
+  background: var(--accent);
+}
+.phone-app .cm-shell .df-feed-tabs:has(> button:last-child[aria-pressed="true"])::after { inset-inline-start: 75%; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion=reduced]) .phone-app .cm-shell .df-feed-tabs::after {
+    transition: inset-inline-start 250ms cubic-bezier(.22,.8,.25,1);
+  }
+}
 .phone-app .cm-shell .df-interest-filters { gap: 8px; padding-block: 4px 9px; }
 .phone-app .cm-shell .df-interest-filters button,
 .phone-app .cm-shell .cm-applied button { min-height: 40px; border-color: #d8d4d1; border-radius: 10px; background: var(--surface); color: var(--muted); padding-inline: 14px; font-size: 0.8125rem; }

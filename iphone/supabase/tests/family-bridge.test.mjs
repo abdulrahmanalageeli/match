@@ -218,6 +218,9 @@ test('exact room roster requires both member approvals and family acceptance; no
   await family(b,'consent',{connectionId,agree:true});
   await assert.rejects(family(a,'create_room',{connectionId,title:'غرفة أهل',participantIds:['member:'+b.id,'family:'+outsider.id]}),/غير مرتبط/);
   let state=await family(a,'create_room',{connectionId,title:'غرفة أهل',participantIds});const roomId=state.rooms[0].id;
+  const updates=member=>asMember(db,member.id,member.sessionId,()=>db.query('select public.marriage_push_updates() as rows').then(result=>result.rows[0].rows));
+  assert.ok((await updates(b)).some(row=>row.event==='family_room:invited'&&row.target===roomId));
+  assert.ok(!(await updates(a)).some(row=>row.event==='family_room:invited'&&row.target===roomId));
   assert.equal(state.rooms[0].canRead,false);assert.equal(state.rooms[0].status,'pending');
   await assert.rejects(family(g,'send',{roomId,body:'مرحبا',clientId:randomUUID()}),/الغرفة/);
   assert.equal((await family(g,'state')).rooms.length,0,'guardian cannot see proposed roster before both members approve');
@@ -227,6 +230,9 @@ test('exact room roster requires both member approvals and family acceptance; no
   assert.equal((await family(b,'state')).rooms[0].status,'pending');
   state=await family(b,'approve_room',{roomId,agree:true});assert.equal(state.rooms[0].status,'pending');
   state=await family(g,'accept_room',{roomId,agree:true});assert.equal(state.rooms[0].status,'active');assert.equal(state.rooms[0].canSend,true);
+  assert.ok((await updates(b)).some(row=>row.event==='family_room:active'&&row.target===roomId));
+  assert.ok((await updates(a)).some(row=>row.event==='family_room:ready'&&row.target===roomId));
+  assert.ok(!(await updates(b)).some(row=>row.event==='family_room:invited'&&row.target===roomId));
   await assert.rejects(family(a,'messages',{roomId}),/مشاركين/);
   const clientId=randomUUID(),messageId=await family(g,'send',{roomId,body:'موعد لقاء الأهل',clientId});
   assert.equal(await family(g,'send',{roomId,body:'موعد لقاء الأهل',clientId}),messageId);

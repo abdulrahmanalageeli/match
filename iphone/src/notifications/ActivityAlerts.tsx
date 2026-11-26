@@ -1,215 +1,75 @@
-import { captureTitle, captureDetail, publishChatScreenshots } from "./chatScreenshots";
-import { readAlertProgress } from './alertProgress';
+import { useEffect, useState } from 'react';
 import memberAr from '../member-copy.ts';
-import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, MessageCircle, Route, X } from "../BrandIcons";
-import type { ActivityNotification, CommunitySource, PublicPerson, StepProgress } from '../community/data';
-import { PersonAvatar } from '../avatars/PersonAvatar';
-import { playActivitySound } from '../community/matchSound';
-import { useVoiceCalls } from '../voice/VoiceCalls';
-import { pushConfigured, pushControls, type PushControls } from './push';
-import './activity.css';
-import { confirmedMilestone, type MilestoneKind } from '../community/milestones';
-import { MatchCelebration } from '../community/MatchCelebration';
+import type { CommunitySource } from '../community/data';
+import { publishChatScreenshots } from './chatScreenshots';
 import { compatibilitySnapshot, compareCompatibility, type CompatibilityChange, type CompatibilitySnapshot } from '../compatibility/changes';
 import type { MatchFit } from '../compatibility/model';
-import { CompatibilityNotice, CompatibilityChangeSheet } from './CompatibilityNotice';
+import './activity.css';
 
-type Activity = { key: string; id: string; title: string; detail: string; kind: 'message' | 'journey' | 'visit' | 'request' | 'screenshot'; stamp: string; person?: PublicPerson };
-type FitChange = { id: string; name: string; fit: MatchFit; before: CompatibilitySnapshot; change: CompatibilityChange };
 export const journeyStages = memberAr.stages;
+export type CompatibilityUpdate = {
+  id: string; name: string; fit: MatchFit; before: CompatibilitySnapshot;
+  change: CompatibilityChange; at: string; unread: boolean;
+};
 
-export function ActivityAlerts({ source, pushOwner, onOpen, onNotifications, celebrationsBlocked = false }: { source: CommunitySource; pushOwner?:string|null; onOpen: (id: string) => void; onNotifications: () => void; celebrationsBlocked?: boolean }) {
-  const [toast, setToast] = useState<Activity | null>(null);
-  const [milestone,setMilestone]=useState<{id:string;name:string;kind:MilestoneKind}|null>(null);
-  const [celebrationReady,setCelebrationReady]=useState(false);
-  const [fitChanges, setFitChanges] = useState<FitChange[]>([]);
-  const [fitDetailId, setFitDetailId] = useState<string | null>(null);
-  const [quietSurface, setQuietSurface] = useState(false);
-  const open = useRef(onOpen); open.current = onOpen;
-  const inbox = useRef(onNotifications); inbox.current = onNotifications;
-  const voice = useVoiceCalls();
-  const controls = useRef<PushControls | null>(null);
-  useEffect(()=>{
-    controls.current=null;
-    if(!pushOwner || !pushConfigured)return;
-    let revision=0;
-    const refresh=()=>{
-      const current=++revision;
-      void pushControls(pushOwner).then(value=>{if(current===revision)controls.current=value;}).catch(()=>{});
-    };
-    refresh();
-    window.addEventListener('wudayn:push-controls',refresh);
-    return ()=>{revision++;window.removeEventListener('wudayn:push-controls',refresh);};
-  },[pushOwner]);
-  const occupied = useRef(false); occupied.current = Boolean(voice?.occupied);
+// The feed owns presentation. Chat still receives authorized screenshot events.
+export function useMemberActivity(source: CommunitySource | null) {
+  const [state, setState] = useState<{source: CommunitySource; changes: CompatibilityUpdate[]} | null>(null);
   useEffect(() => {
-    if (!source.heartbeat) return;
-    let pending = false;
-    const beat = async () => {
-      if (document.hidden || pending) return;
-      pending = true;
-      try { await source.heartbeat?.(); } catch { /* Presence expires naturally if connectivity is lost. */ }
-      finally { pending = false; }
-    };
-    void beat();
-    const timer = window.setInterval(() => void beat(), 30_000);
-    document.addEventListener('visibilitychange', beat);
-    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', beat); };
-  }, [source]);
-  useEffect(() => {
-    let active = true, fetching = false, dirty = false, initialSnapshot = true;
-    const seen = new Map<string, string>(), stages = new Map<string, StepProgress>();
-    const fits = new Map<string, CompatibilitySnapshot>();
-    const completed = new Map<string, Activity>();
-    let progress = new Map<string, StepProgress>();
-    let progressAt = 0;
-    let trailing: number | undefined;
-    let notifications: ActivityNotification[] = [];
-    setToast(null);
-    setFitChanges([]);setFitDetailId(null);
-    setMilestone(null);setCelebrationReady(false);
+    if (!source) return;
+    const owner=source;
+    let active=true, busy=false, again=false;
+    let activityAt=0, trailing:number|undefined;
+    const fits=new Map<string, CompatibilitySnapshot>();
     async function refresh() {
       if (!active || document.hidden) return;
-      if (fetching) { dirty = true; return; }
-      fetching = true;
+      if (busy) { again=true; return; }
+      busy=true;
       try {
-        const remaining = 2500 - (Date.now() - progressAt);
-        const readActivity = remaining <= 0;
-        if (readActivity) {
-          progressAt = Date.now();
-          if (trailing !== undefined) { clearTimeout(trailing); trailing = undefined; }
-        } else if (source.reportChatScreenshot && trailing === undefined) {
-          // A realtime signal can arrive just inside the throttle window.
-          trailing = window.setTimeout(() => { trailing = undefined; void refresh(); }, remaining);
+        const delay=2500-(Date.now()-activityAt);
+        if (delay<=0) {
+          activityAt=Date.now(); window.clearTimeout(trailing); trailing=undefined;
+          void owner.notifications?.().then(rows=>{
+            if(active)publishChatScreenshots(owner,rows);
+          }).catch(()=>{});
+        } else if(trailing===undefined) {
+          trailing=window.setTimeout(()=>{trailing=undefined;void refresh();},delay);
         }
-        const [allConnections, activity] = await Promise.all([
-          source.inbox(),
-          readActivity ? source.notifications?.().catch(() => undefined) : undefined,
-        ]);
-        if (!active) return;
-        if (activity) {
-          notifications = activity;
-          publishChatScreenshots(source, activity);
-        }
-        const connections = allConnections.filter(c => c.status === 'accepted');
-        if (readActivity) {
-          progress = await readAlertProgress(source, connections, progress);
-          for (const id of stages.keys()) if (!progress.has(id)) {
-            stages.delete(id);
-            completed.delete(id);
-          }
-        }
-        if (!active) return;
-        const observations = connections.map(c => ({ connection: c, previous: fits.get(c.id), snapshot: compatibilitySnapshot(c.person.fit) }));
-        for (const { connection, snapshot } of observations) if (snapshot) fits.set(connection.id, snapshot);
-        for (const id of fits.keys()) if (!connections.some(c => c.id === id)) fits.delete(id);
-        setFitChanges(current => {
-          const next: FitChange[] = [];
-          for (const { connection: c, previous, snapshot } of observations) {
-            if (!snapshot || !c.person.fit) continue;
-            const queued = current.find(item => item.id === c.id);
-            const before = queued?.before ?? previous;
-            if (!before) continue; // The first authorized reading is a baseline, not a change.
-            const change = compareCompatibility(before, snapshot);
-            if (change) next.push({ id: c.id, name: c.person.alias, fit: c.person.fit, before, change });
-          }
-          // Consecutive saves become one net change per connection, rather than a stack of alerts.
-          return next.length || current.length ? next : current;
+        const rows=(await owner.inbox()).filter(row=>row.status==='accepted');
+        if(!active)return;
+        const observed=rows.map(row=>({row,before:fits.get(row.id),now:compatibilitySnapshot(row.person.fit)}));
+        fits.clear();
+        for(const {row,now} of observed)if(now)fits.set(row.id,now);
+        setState(current=>{
+          const previous=current?.source===owner?current.changes:[];
+          const changes=observed.flatMap(({row,before,now})=>{
+            const retained=previous.find(item=>item.id===row.id);
+            const baseline=retained?.before??before;
+            const change=compareCompatibility(baseline,now);
+            if(!baseline||!change||!row.person.fit)return [];
+            const same=retained?.change.key===change.key;
+            return [{id:row.id,name:row.person.alias,fit:row.person.fit,before:baseline,change,
+              at:same?retained.at:new Date().toISOString(),unread:same?retained.unread:true}];
+          });
+          return previous.length||changes.length?{source:owner,changes}:current;
         });
-        const next: Activity[] = notifications.filter(n => !n.readAt).map(n => n.kind === 'screenshot' ? {
-          key: n.id, id: connections.some(c => c.id === n.requestId) ? n.requestId! : '', kind: 'screenshot',
-          title: captureTitle(n.person.alias), detail: captureDetail, stamp: n.createdAt, person: n.person,
-        } : ({ key: n.id, id: n.requestId || '', kind: n.kind !== 'exclusive' ? 'visit' : 'journey', title: n.kind === 'interest' ? `${memberAr.interest} من ${n.person.alias}` : n.kind === 'profile_visit' ? `${memberAr.visit} من ${n.person.alias}` : 'اتفقتما على التعارف الحصري', detail: n.kind === 'interest' ? 'تعرّف على الملف من الإشعارات' : n.kind === 'profile_visit' ? 'يمكنك الاطّلاع على الملف من الإشعارات' : 'يمكنكما متابعة الحديث في محادثتكما', stamp: n.createdAt, person:n.person }));
-        for (const c of allConnections) if (c.status === 'pending' && c.direction === 'incoming') {
-          next.push({key:c.id+':request',id:c.id,kind:'request',title:`طلب تعارف من ${c.person.alias}`,detail:'اطّلع على الملف واقبل الطلب أو اعتذر',stamp:c.createdAt||c.updatedAt||c.id,person:c.person});
-        }
-        const openChat = document.querySelector('[data-conversation-id]')?.getAttribute('data-conversation-id');
-        for (const c of connections) {
-          if (c.unreadCount) next.push({ key: c.id + ':message', id: c.id, kind: 'message', title: `رسائل من ${c.person.alias}`, detail: `الرسائل غير المقروءة: ${new Intl.NumberFormat('ar-SA').format(c.unreadCount)} · فتح المحادثة`, stamp: c.lastMessage?.createdAt || String(c.unreadCount), person:c.person });
-          const p = progress.get(c.id), previous = stages.get(c.id);
-          if (p) {
-            if(p.rewindPeer) next.push({key:c.id+':rewind',id:c.id,kind:'journey',title:`اقتراح من ${c.person.alias}: العودة إلى المرحلة السابقة`,detail:'راجعا المرحلة معًا · بانتظار موافقتك',stamp:p.updatedAt||String(p.stage),person:c.person});
-            const achievement=confirmedMilestone(previous,p);
-            if(achievement)setMilestone(current=>current??{id:c.id,name:c.person.alias,kind:achievement});
-            if (previous !== undefined && p.stage > previous.stage) completed.set(c.id, { key: c.id + ':stage', id: c.id, kind: 'journey', title: 'اتفقتما على الخطوة التالية', detail: journeyStages[p.stage], stamp: String(p.stage),person:c.person });
-            if (previous !== undefined && (p.stage < previous.stage || previous.exclusive && !p.exclusive)) {completed.delete(c.id);setMilestone(current=>current?.id===c.id?null:current);}
-            stages.set(c.id, p);
-            if ((!p.exclusive && p.consentPeer && !p.consentMine) || (p.exclusive && p.peer && !p.mine && p.stage < 2)) next.push({ key: c.id + ':journey', id: c.id, kind: 'journey', title: `اقتراح خطوة جديدة من ${c.person.alias}`, detail: (!p.exclusive ? 'التعارف الحصري' : journeyStages[p.stage + 1]) + ' · بانتظار موافقتك', stamp: String(p.stage),person:c.person });
-          }
-          const done = completed.get(c.id);
-          if (done) next.push(done);
-        }
-        setMilestone(current=>current && (!progress.has(current.id)||!connections.some(c=>c.id===current.id))?null:current);
-        // A withdrawn request can be proposed again and should alert again.
-        for (const key of seen.keys()) if (!next.some(item => item.key === key)) seen.delete(key);
-        // Restored history remains in the feed; only new activity interrupts this session.
-        if (initialSnapshot) { for (const item of next) seen.set(item.key,item.stamp); initialSnapshot = false; }
-        let newest: Activity | undefined;
-        for (const item of next) {
-          if (seen.get(item.key) !== item.stamp && !(item.kind === 'message' && item.id === openChat)) newest = item;
-          seen.set(item.key, item.stamp);
-        }
-        // Replace retained alerts with current metadata after deletions/read receipts.
-        setToast(current => newest || next.find(item => item.key === current?.key) || null);
-        if (newest && newest.kind!=='visit' && !occupied.current) {
-          const prefs=controls.current;
-          const hour=prefs?.quiet ? Number(new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hourCycle:'h23',timeZone:prefs.zone}).format(new Date())) : -1;
-          const quiet=prefs?.quiet && (prefs.start<prefs.end ? hour>=prefs.start && hour<prefs.end : hour>=prefs.start || hour<prefs.end);
-          const category=newest.kind==='message'||newest.kind==='screenshot'?'message':'connections';
-          if(!quiet && prefs?.sound!==false && prefs?.[category]!==false) playActivitySound();
-        }
-      } catch { /* Existing inbox error handling owns connection failures. */ }
-      finally { fetching = false; if (dirty && active) { dirty = false; void refresh(); } }
+      } catch { /* The inbox owns connection errors. */ }
+      finally { busy=false; if(again){again=false;void refresh();} }
     }
-    void refresh();
-    const stop = source.watch(() => void refresh());
-    document.addEventListener('visibilitychange', refresh);
-    return () => { active = false; if (trailing !== undefined) clearTimeout(trailing); stop(); document.removeEventListener('visibilitychange', refresh); };
-  }, [source]);
-  const fitDetail = fitChanges.find(item => item.id === fitDetailId);
-  useEffect(() => { if (fitDetailId && !fitDetail) setFitDetailId(null); }, [fitDetailId, fitDetail]);
-  useEffect(() => { if (voice?.occupied || celebrationsBlocked) setFitDetailId(null); }, [voice?.occupied, celebrationsBlocked]);
-  // A small notice can coexist with typing, but never compete with a call, modal or celebration.
-  useEffect(() => {
-    if (!fitChanges.length || toast || celebrationsBlocked || celebrationReady || voice?.occupied || fitDetailId) {
-      setQuietSurface(false); return;
-    }
-    const check = () => setQuietSurface(!document.hidden && !document.querySelector('dialog[open]'));
-    const observer = new MutationObserver(check);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] });
-    document.addEventListener('visibilitychange', check);check();
-    return () => { observer.disconnect();document.removeEventListener('visibilitychange', check); };
-  }, [fitChanges.length, toast, celebrationsBlocked, celebrationReady, voice?.occupied, fitDetailId]);
-  const dismissFit = (id: string) => { setFitChanges(items => items.filter(item => item.id !== id));setFitDetailId(null); };
-  // Let the member finish a dialog, typing or a call before presenting a milestone.
-  useEffect(()=>{
-    if(!milestone){setCelebrationReady(false);return;}
-    if(celebrationReady||celebrationsBlocked||voice?.occupied)return;
-    let timer:number|undefined;
-    const check=()=>{clearTimeout(timer);timer=window.setTimeout(()=>{
-      if(!document.hidden&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA'].includes(document.activeElement?.tagName??''))setCelebrationReady(true);
-    },120);};
-    const observer=new MutationObserver(check);observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['open']});
-    document.addEventListener('focusout',check);document.addEventListener('visibilitychange',check);check();
-    return()=>{clearTimeout(timer);observer.disconnect();document.removeEventListener('focusout',check);document.removeEventListener('visibilitychange',check);};
-  },[milestone,celebrationReady,celebrationsBlocked,voice?.occupied]);
-  useEffect(() => {
-    if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 6500);
-    return () => clearTimeout(timer);
-  }, [toast]);
-  const visit = (item: Activity) => { setToast(null); if (item.kind === 'visit' || item.kind === 'request' || !item.id) inbox.current(); else open.current(item.id); };
-  return <aside className="nf-activity" aria-label="تنبيهات المحادثات">
-    {toast && !celebrationReady && <div className="nf-activity-toast" role="status">
-      <button className="nf-activity-item" onClick={() => visit(toast)}>{toast.person?<PersonAvatar person={toast.person} source={source}/>:toast.kind === 'message' ? <MessageCircle size={20}/> : <Route size={20}/>}<span><strong>{toast.title}</strong><small>{toast.detail}</small></span><ChevronLeft size={16}/></button>
-      <button className="nf-activity-dismiss" aria-label="إخفاء التنبيه" onClick={() => setToast(null)}><X size={17}/></button>
-    </div>}
-    {quietSurface && !toast && !celebrationReady && !celebrationsBlocked && !voice?.occupied && !fitDetailId && fitChanges[0] &&
-      <CompatibilityNotice key={fitChanges[0].id + fitChanges[0].change.key} name={fitChanges[0].name} change={fitChanges[0].change}
-        onOpen={() => setFitDetailId(fitChanges[0].id)} onDismiss={() => dismissFit(fitChanges[0].id)}/>}
-    {fitDetail && !voice?.occupied && !celebrationsBlocked && <CompatibilityChangeSheet name={fitDetail.name} change={fitDetail.change} fit={fitDetail.fit} onClose={() => dismissFit(fitDetail.id)}/>}
-    {milestone&&celebrationReady&&!celebrationsBlocked&&!voice?.occupied&&<MatchCelebration key={milestone.id+milestone.kind} name={milestone.name} milestone={milestone.kind} continueLabel="متابعة المحادثة" onClose={()=>setMilestone(null)} onContinue={()=>{const id=milestone.id;setMilestone(null);setToast(null);open.current(id);}}/>}
-
-  </aside>;
+    const beat=()=>{if(!document.hidden)void owner.heartbeat?.().catch(()=>{});};
+    void refresh();beat();
+    const stop=owner.watch(refresh), heartbeat=owner.heartbeat?window.setInterval(beat,30000):undefined;
+    document.addEventListener('visibilitychange',refresh);
+    document.addEventListener('visibilitychange',beat);
+    return ()=>{
+      active=false;stop();window.clearTimeout(trailing);window.clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange',refresh);
+      document.removeEventListener('visibilitychange',beat);
+    };
+  },[source]);
+  const changes=state?.source===source?state.changes:[];
+  const read=(id:string,key:string)=>setState(current=>current?.source===source?{
+    ...current,changes:current.changes.map(row=>row.id===id&&row.change.key===key?{...row,unread:false}:row),
+  }:current);
+  return {changes,read};
 }

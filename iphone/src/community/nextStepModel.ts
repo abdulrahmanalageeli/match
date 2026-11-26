@@ -65,7 +65,7 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
     }
   }
 
-  if (!state.exclusive && state.acceptedCount < 2) {
+  if (!state.exclusive && state.acceptedCount < capacity) {
     const incoming = snapshot.connections.find(c => c.status === 'pending' && c.direction === 'incoming');
     if (incoming) return {
       key: `request:${incoming.id}`, kind: 'request', title: 'طلب تعارف جديد',

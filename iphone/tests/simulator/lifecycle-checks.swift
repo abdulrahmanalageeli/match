@@ -187,6 +187,17 @@ final class SimulatorChecks: XCTestCase {
                 print("[lifecycle] completed \(branch)")
             } catch { XCTFail("Relationship branch " + branch + ": " + error.localizedDescription) }
         }
-        try await exerciseLocalStoreKit(web: web)
+    }
+
+    func testLocalStoreKitForRegisteredPair() async throws {
+        let web = try await host()
+        for _ in 0..<240 {
+            if (try? await web.evaluateJavaScript("typeof window.Capacitor?.nativePromise === 'function'")) as? Bool == true {
+                try await exerciseLocalStoreKit(web: web)
+                return
+            }
+            try await Task.sleep(nanoseconds: 125_000_000)
+        }
+        XCTFail("Could not open the native membership bridge")
     }
 }

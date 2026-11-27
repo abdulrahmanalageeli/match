@@ -17,6 +17,11 @@ extension SimulatorChecks {
         store.resetToDefaultState()
         store.disableDialogs = true
         defer { store.clearTransactions() }
+        let expected = Set(["com.blindmatch.marriage.monthly.men", "com.blindmatch.marriage.monthly.women"])
+        let products = try await Product.products(for: Array(expected))
+        let available = Set(products.map { $0.id })
+        print("[lifecycle] local StoreKit catalog " + available.sorted().joined(separator: ", "))
+        guard available == expected else { throw membershipFailure("Local StoreKit did not load both configured membership products") }
 
         @MainActor func bridge(_ method: String, _ options: [String: Any] = [:]) async throws -> [String: Any] {
             let response = try await web.callAsyncJavaScript("""
@@ -24,13 +29,17 @@ extension SimulatorChecks {
                   const data = await window.Capacitor.nativePromise('AppleMembership', method, options);
                   return JSON.stringify({ok:true, data:data || {}});
                 } catch (e) {
-                  return JSON.stringify({ok:false, code:String(e.code || 'BRIDGE_ERROR')});
+                  return JSON.stringify({ok:false, code:String(e.code || 'BRIDGE_ERROR'), detail:String(e.message || '').slice(0,160)});
                 }
                 """, arguments: ["method":method, "options":options], in: nil, contentWorld: .page)
             guard let string = response as? String,
                   let envelope = try JSONSerialization.jsonObject(with: Data(string.utf8)) as? [String:Any],
                   let ok = envelope["ok"] as? Bool else { throw membershipFailure("Unreadable bridge response: " + method) }
-            guard ok else { throw membershipFailure((envelope["code"] as? String) ?? "Missing bridge error") }
+            guard ok else {
+                let code = (envelope["code"] as? String) ?? "Missing bridge error"
+                print("[lifecycle] membership bridge \(method) · \(code) · " + (envelope["detail"] as? String ?? ""))
+                throw membershipFailure(code)
+            }
             return (envelope["data"] as? [String:Any]) ?? [:]
         }
 

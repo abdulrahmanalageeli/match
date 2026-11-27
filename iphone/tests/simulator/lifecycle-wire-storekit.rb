@@ -1,4 +1,5 @@
 require 'pathname'
+require 'rexml/document'
 require 'xcodeproj'
 
 # Use only on the disposable simulator checkout, after the hosted XCTest target exists.
@@ -22,4 +23,13 @@ target.source_build_phase.add_file_reference(swift, true)
 target.resources_build_phase.add_file_reference(config, true)
 target.build_configurations.each { |config| config.build_settings['ENABLE_TESTING_SEARCH_PATHS'] = 'YES' }
 project.save
-puts "Wired the local StoreKit test source and Wudayn.storekit into #{target.name}"
+
+# The disposable job invokes xcodebuild -project App.xcodeproj -scheme App.
+# Select the local catalog in its Run action as well as in the hosted test bundle.
+scheme_path = project_root.join('App.xcodeproj/xcshareddata/xcschemes/App.xcscheme')
+scheme = REXML::Document.new(scheme_path.read)
+launch = scheme.elements['Scheme/LaunchAction'] or abort 'Missing App scheme LaunchAction'
+storekit = launch.elements['StoreKitConfigurationFileReference'] || launch.add_element('StoreKitConfigurationFileReference')
+storekit.attributes['identifier'] = '../../Wudayn.storekit'
+scheme_path.open('w') { |out| scheme.write(out) }
+puts "Wired the local StoreKit catalog into the App scheme and #{target.name} test bundle"

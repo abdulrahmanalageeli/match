@@ -55,11 +55,26 @@ export async function runRelationship({branch,actors,people,mount,request}) {
   }
   async function signature(actor) {
     await chat(actor);
-    const checkbox=await until(actor+' signature checkbox',()=>find('.cm-agreement-sign input[type=checkbox]'));
-    const submit=find('.cm-agreement-submit');
-    check(submit?.disabled,actor+' could submit without signing');
-    checkbox.click();
-    await click(actor+' signs',()=>find('.cm-agreement-submit'));
+    const expectedStatus=actor==='female'?'none':'proposed';
+    const form=()=>find('.cm-agreement[data-agreement-status="'+expectedStatus+'"]');
+    await until(actor+' sees the current pact',form);
+    // A new proposal clears prior consent after render. Let the current view paint before signing it.
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    let consentTaps=0;
+    await click(actor+' signs',()=>{
+      const panel=form();
+      const checkbox=panel?.querySelector('.cm-agreement-sign input[type=checkbox]');
+      const submit=panel?.querySelector('.cm-agreement-submit');
+      if(!checkbox || !submit || checkbox.disabled)return;
+      if(!consentTaps)check(!checkbox.checked && submit.disabled,actor+' could submit without signing');
+      if(!checkbox.checked){
+        check(submit.disabled,actor+' could submit without signing');
+        check(consentTaps<2,actor+' consent repeatedly cleared on the current pact');
+        checkbox.click(); consentTaps++;
+        return;
+      }
+      return submit;
+    });
     await until(actor+' signature committed',async()=>(await state(actor,'marriage_agreement',id,'read',{}))[actor==='female'?'womanSignedAt':'manSignedAt']);
   }
   async function expiredDetails(actor) {

@@ -637,7 +637,7 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
   border-radius: 12px;
 }
 @media (max-width: 520px) {
-  .df-card-portrait > .df-portrait-media { aspect-ratio: 5 / 3; }
+  .df-card-portrait > .df-portrait-media:not([data-protected]) { aspect-ratio: 5 / 3; }
   .phone-app .cm-shell .df-discovery .df-portrait-identity .df-identity-line h2 {
     font-size: 1.25rem;
     font-weight: 600;

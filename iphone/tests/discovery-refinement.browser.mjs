@@ -40,6 +40,7 @@ if(location.search.includes('slowProfile')){
 }
 source.blockPerson=async()=>{throw Error('not part of fixture')};
 if (location.search.includes('protectedPhotos')) {
+ people[2].alias='لولو بنت عبدالرحمن العبدالله';
  people[0].portrait={id:'synthetic-portrait',path:'fixture',blur:0,revealed:true};
  people[1].publicAvatar={style:'hijab',skinTone:'tone_3'};
  source.portraitUrl=async()=>'/demo/portraits/reem-realistic-v2.webp';
@@ -210,7 +211,7 @@ try{
  }
  const rowFrame=async name=>page.getByRole('article',{name:'ملف '+name,exact:true}).locator('.dr-row-image').evaluate(node=>{
    const frame=getComputedStyle(node);
-   return [frame.paddingTop,frame.borderTopWidth,frame.borderRadius,frame.boxShadow,frame.backgroundImage];
+   return [node.offsetWidth,node.offsetHeight,frame.borderTopWidth,frame.borderRadius,frame.boxShadow];
  });
  await page.getByRole('article',{name:'ملف مها',exact:true}).locator('.dr-row-image b').waitFor();
  assert.deepEqual(await rowFrame('سارة'),await rowFrame('مها'),'photos and initials share the same portrait frame');
@@ -478,6 +479,8 @@ try{
    });
    assert.ok(art.width>=390,'the capture backing must render the bundled privacy artwork');
    const [photoBox,identityBox,headerBox]=await Promise.all([card.locator('.wd-private-portrait'),card.locator('.df-portrait-identity'),card.locator('.df-card-portrait')].map(el=>el.boundingBox()));
+   const mediaBox=await card.locator('.df-portrait-media').boundingBox();
+   for(const edge of ['x','y','width','height']) assert.ok(Math.abs(photoBox[edge]-mediaBox[edge])<1,'the protected portrait must match its reserved photo slot');
    assert.ok(Math.abs(photoBox.x+photoBox.width/2-headerBox.x-headerBox.width/2)<1,'privacy artwork must be centered');
    assert.ok(photoBox.y+photoBox.height<=identityBox.y+1,'portrait must leave the name and metadata readable');
    const sealBox=await card.locator('.df-member-heading .wd-member-badge').boundingBox();
@@ -498,11 +501,15 @@ try{
    await card.screenshot({path:resolve(output,'iphone-capture-card-'+width+'.png')});
  }
  async function verifyProtectedSources(kind,container){
-   for(const name of ['سارة','ريم','لولو']){
+   for(const name of ['سارة','ريم','لولو بنت عبدالرحمن العبدالله']){
      const label='الصورة الشخصية لـ '+name;
      const portrait=page.locator(container).getByRole('img',{name:label,exact:true});
      await portrait.scrollIntoViewIfNeeded();
      await page.waitForFunction(key=>window.__placedImages.has(key),kind+' '+label);
+     if(kind==='card') assert.ok(await portrait.evaluate(node=>{
+       const card=node.closest('.df-recommendation'), bottom=node.getBoundingClientRect().bottom;
+       return ['.df-identity-line h2','.df-card-copy'].every(selector=>card.querySelector(selector).getBoundingClientRect().top>=bottom-1);
+     }),'the name and content must sit below each native image');
    }
    assert.equal(await page.locator(container+' :is(img[src*="/portraits/"],.nf-avatar-portrait)').count(),0);
  }

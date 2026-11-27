@@ -435,7 +435,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
   const protectedDiscovery = nativePrivatePhoto();
   const timeline = person.marriageBasics?.marriageTimeline;
   return <>
-    <div className="df-portrait-media">
+    <div className="df-portrait-media" data-protected={protectedDiscovery || undefined}>
     {person.portrait ? <PortraitPhoto portrait={person.portrait} source={source} className="df-portrait-image" captionClassName={person.isDemo||protectedDiscovery?undefined:'df-photo-label df-live-caption'} alt={`الصورة الشخصية لـ ${person.alias}`} discovery={protectedDiscovery ? {name:person.alias} : undefined} /> : avatar ? <AvatarPortrait avatar={avatar} className="df-selected-avatar" discovery={protectedDiscovery ? {name:person.alias} : undefined} /> : photo && protectedDiscovery ? <DiscoveryPhoto src={photo} name={person.alias}/> : photo ? <img className="df-portrait-image" src={photo} width="1122" height="1402"
       loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async"
       alt="" onError={() => setFailedPhotoSrc(photo)} /> :

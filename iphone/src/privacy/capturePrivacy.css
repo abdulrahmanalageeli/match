@@ -24,10 +24,11 @@
   background: #32805b;
 }
 .df-portrait-media > .wd-private-portrait {
+  /* UIKit uses this exact box. Keep the protected image inside the photo slot. */
+  position: absolute;
+  inset: 0;
   width: 100%;
-  /* The lock is centered in the upper 69% of the square banner. Use the
-     standard recommendation photo ratio to frame the complete shackle. */
-  aspect-ratio: 1.45 / 1;
+  height: 100%;
   border-radius: 12px;
   background: #11070d url('/brand/wudayn-privacy-banner.webp') center top / cover no-repeat;
 }

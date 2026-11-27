@@ -92,3 +92,37 @@ test('compact results include the published reason without returning biography o
   assert.equal(response.summary,undefined);
   assert.equal(response.criteria,undefined);
 });
+
+test('only capable recommendation views request and receive marked close results',async()=>{
+  const cardsType='application/vnd.wudayn.search-cards+json';
+  const search=createLunaSearch({env:{},fetcher:async(url,request)=>{
+    const {options}=JSON.parse(request.body);
+    const rows=options?.includeCloseRecommendations?[{id:'near',alias:'ريم',recommendationKind:'close'}]:[];
+    return {ok:true,json:async()=>url.endsWith('reserve')?{}:rows};
+  }});
+  for(const [mode,closeRecommendations,include] of [['recommended',true,true],['recommended',false,false],['all',true,false]]){
+    const response=await search({query:'بنت مصرية',filters:{mode}},{authorization:'Bearer test',accept:cardsType,closeRecommendations});
+    assert.equal(response.options.includeCloseRecommendations,include||undefined);
+    assert.deepEqual(response.people.map(person=>person.recommendationKind),include?['close']:[]);
+  }
+});
+
+test('existing and updated apps receive compact Luna cards through the same route',async t=>{
+  const strict={id:'first',alias:'ريم',marriageBasics:{nationality:'مصري'}};
+  const close={...strict,id:'near',recommendationKind:'close'};
+  t.mock.method(globalThis,'fetch',async(url,request)=>{
+    const options=JSON.parse(request.body).options;
+    const value=url.endsWith('wudayn_luna_guard')?{status:'allowed'}:url.endsWith('reserve')?{}:options?.includeCloseRecommendations?[strict,close]:[strict];
+    return {ok:true,json:async()=>value};
+  });
+  const {default:handler}=await import('../api/luna-search.mjs?compact-contract');
+  for(const optIn of [false,true]){
+    const req={method:'POST',url:'/api/luna-search'+(optIn?'?closeRecommendations=1':''),body:{query:'بنت مصرية',filters:{mode:'recommended'}},
+      headers:{authorization:'Bearer test',accept:'application/vnd.wudayn.search-cards+json'}};
+    const res={setHeader(){},status(code){assert.equal(code,200);return this;},json(body){return body;}};
+    const result=await handler(req,res);
+    assert.deepEqual(result.people[0].matchReasons,['الجنسية: مصري']);
+    assert.equal(result.people.length,optIn?2:1);
+    if(optIn)assert.equal(result.people[1].recommendationKind,'close');
+  }
+});

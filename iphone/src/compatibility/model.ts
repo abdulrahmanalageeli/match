@@ -334,6 +334,37 @@ function currentPairDimensions(first: PairProfile, second: PairProfile) {
   return omitParenting ? dimensions.filter(topic => topic.id !== 'parenting_approach') : dimensions;
 }
 
+function meetsRecommendationRequirements(member: PairProfile, peer: PairProfile) {
+  if (!acceptsCriteria(member, peer)) return false;
+  const current = member.assessmentVersion === assessmentVersion;
+  const applicable = current ? currentPairDimensions(member, peer) : legacyCatalog.dimensions;
+  return (member.hardRequirements ?? []).every(id => {
+    const topic = applicable.find(item => item.id === id && item.hardAllowed);
+    if (!topic) return current && id === 'parenting_approach' && !applicable.some(item => item.id === id);
+    if (current && id === 'residence_plan') return true; // Feasible cities are checked for the pair.
+    return answerFits(member, peer, topic, answer(member, topic, 'partner'), answer(peer, topic, 'self'));
+  });
+}
+
+export function recommendationKind(first: PairProfile, second: PairProfile): 'strict' | 'close' | null {
+  if (first.id === second.id || first.gender === second.gender ||
+      ![first, second].every(p => ['man','woman'].includes(p.gender) && typeof p.city==='string' && p.city.trim() && Number.isInteger(p.age) && p.age >= 18 && p.age <= 110 &&
+        Number.isInteger(p.preferredMinAge) && Number.isInteger(p.preferredMaxAge)) ||
+      !(shareCity(first, second) || canShareCity(first, second))) return null;
+  const [woman, man] = first.gender === 'woman' ? [first, second] : [second, first];
+  if (woman.marriageBasics?.polygynyPreference === 'not_open' &&
+      (man.marriageBasics?.polygynyPreference !== 'not_open' || !['never_married','divorced','widowed'].includes(man.marriageBasics?.maritalStatus ?? ''))) return null;
+  let misses = 0;
+  for (const [member, peer] of [[first, second], [second, first]]) {
+    if (!meetsRecommendationRequirements(member, peer)) return null;
+    const ageGap = Math.max(0, member.preferredMinAge - peer.age, peer.age - member.preferredMaxAge);
+    if (ageGap > 2) return null;
+    const soft = preferredCriteria(member, peer, true);
+    misses += Number(ageGap > 0) + soft.different + soft.missing;
+  }
+  return misses === 0 ? 'strict' : misses === 1 ? 'close' : null;
+}
+
 export function comparePreferences(first: PairProfile, second: PairProfile) {
   const woman=first.gender==='woman'?first:second;
   const man=woman===first?second:first;

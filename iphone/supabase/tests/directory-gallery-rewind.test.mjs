@@ -71,7 +71,8 @@ test('directory, maximum two matches, mutual rewind, work preferences and scoped
   await decideJourney(call,man,ab,'step','propose',2);await decideJourney(call,outsider,ab,'step','accept',2);
   await call(man,'public.marriage_rewind_step($1,2,true)',[ab]);p=await call(outsider,'public.marriage_rewind_step($1,2,true)',[ab]);assert.equal(p.stage,1);assert(p.exclusive);
   const requiresAlignment=await add('woman','A',true);
-  assert(!(await call(requiresAlignment,'public.marriage_browse()')).some(member=>member.id===opposed.id),'an explicit work dealbreaker excludes an incompatible candidate');
+  assert((await call(requiresAlignment,'public.marriage_browse($1)',[{mode:'all',subjectId:opposed.id}])).some(member=>member.id===opposed.id));
+  assert.deepEqual(await call(requiresAlignment,'public.marriage_browse($1)',[{mode:'recommended',includeCloseRecommendations:true,subjectId:opposed.id}]),[],'an explicit work dealbreaker excludes even a close recommendation');
  }finally{await db.close();}
 });
 test('private pair rewind and gallery remain reciprocal and isolated',async()=>{

@@ -121,6 +121,7 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
                 <button type="button" className="luna-search-person" aria-busy={opening===person.id||undefined} disabled={opening!==null} onClick={()=>void openResult(person.id)}>
                   <PersonAvatar person={person} source={source} protectedDiscovery={nativePrivatePhoto()} showMembership={false}/>
                   <span className="luna-result-copy"><strong>{person.alias}</strong>
+                    {result.options.mode==='recommended'&&person.recommendationKind==='close'&&<span className="df-close-recommendation">ترشيح قريب</span>}
                     <small>{person.matchReasons?.length ? person.matchReasons.join(' · ') : 'الملف ضمن نتائج بحثك، لكن تفاصيله الظاهرة ما توضّح السبب.'}</small>
                   </span>{opening===person.id?<small role="status">جارٍ الفتح…</small>:<ChevronLeft size={16} aria-hidden="true"/>}
                 </button>

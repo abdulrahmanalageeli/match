@@ -19,7 +19,10 @@ import type { MarriageBasics, PartnerCriteria } from "../compatibility/marriage"
 import type { PublicAvatar } from "../compatibility/appearance";
 import { normalizeFamilyPhone } from './familyPhone';
 import { personalityQuestionsFor, partnerTraitQuestions } from "../compatibility/personality";
-import { describeFit, normalizeNationality, preferencePercentage, assessmentVersion, dimensionsForVersion, interests, rankPreferences, type MatchFit } from "../compatibility/model";
+import { describeFit, normalizeNationality, preferencePercentage, assessmentVersion, dimensionsForVersion, interests, rankPreferences, recommendationKind, type MatchFit } from "../compatibility/model";
+import { selectRecommendations } from './recommendations';
+export { selectRecommendations };
+import { demoLunaScore } from './demoLunaSearch';
 import { sharedBeenaStory, type SharedBeenaStory } from "../beena/model";
 import { createDemoReadiness, normalizeReadinessDraft, type ReadinessRequest } from '../readiness/model';
 import { boundedFamilyPayload, createDemoFamily, unwrapFamilyResult, type FamilyRequest } from '../family/model';
@@ -32,6 +35,7 @@ export type PublicPerson = {
   premium?: boolean;
   compatibilityLocked?: boolean;
   recommendationPercentage?: number | null;
+  recommendationKind?: 'close';
   manualVerifications?: ManualVerificationClaim[];
   isDemo?: boolean;
   eligible?: boolean;
@@ -413,7 +417,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     },
     noteDiscoveryBrowse: () => launchEvent('activity', 'discovery', userId),
     async discover(f) {
-      const options={ ...f, mode: f.mode ?? 'recommended', includeIneligible: f.mode === 'all' && !f.eligibleOnly };
+      const options={ ...f, mode: f.mode ?? 'recommended', ...(f.mode !== 'all' && {includeCloseRecommendations:true}), includeIneligible: f.mode === 'all' && !f.eligibleOnly };
       const cards = await timedRpc<PublicPerson[]>('marriage_browse', { options });
       rememberSupportDirectory(userId,options);
       return cards;
@@ -617,9 +621,9 @@ function validatePortraitReveal(blur: number, reveal?: { policy: PortraitRevealP
 }
 
 export function demoCommunity(viewer: () => Profile, seedConnections = true, simulationOptions: DemoSimulationOptions = {}): CommunitySource & { simulation: DemoSimulationController; ownsConnection: (id: string) => boolean; exclusiveConnection: () => string | null; retireOtherConnections: () => void } {
-  function demoAssessmentFor(person: (typeof examples)[number], member: Profile) {
+  function demoAssessmentFor(person: (typeof examples)[number], member: Profile, recommended = false) {
     const peer = member.assessmentVersion === assessmentVersion ? { ...person, ...person.currentAssessment } : person;
-    if (!simulationOptions.useAvailableTesterBasics) return peer;
+    if (recommended || !simulationOptions.useAvailableTesterBasics) return peer;
     // An optional fixture preference must not force a tester to supply an omitted personal detail.
     const partnerCriteria = { ...peer.partnerCriteria };
     if (!member.marriageBasics?.spokenLanguages?.length && partnerCriteria.sharedLanguage?.mode === 'prefer') delete partnerCriteria.sharedLanguage;
@@ -673,7 +677,6 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   // Fictional connections keep contact details in memory, outside the saved demo snapshot.
   const familyPhones = new Map<string, string>();
   const callPermissions = new Map<string, CallPermissionState>();
-  let weeklyPicks: string[] | undefined;
   let exclusiveId: string | null = null;
   const galleryPhotos: (GalleryPhoto & { url: string })[] = [];
   const storageKey = simulationOptions.storageKey ? `${simulationOptions.storageKey}:${viewer().gender}` : undefined;
@@ -731,10 +734,14 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     const last = list.findIndex((row) => row.id === readThrough.get(id));
     return list.slice(last + 1).filter((row) => !row.senderIsMe && !row.deletedAt).length;
   }
-  function candidates() {
+  function candidates(recommended = false) {
     const member = { ...viewer(), relocationCities, id: "demo-viewer" };
-    const people = examples.map(person => demoAssessmentFor(person, member));
-    return rankPreferences(member, people).map(({ person, ...fit }) => ({ ...card(person, fit), eligible: true }));
+    const people = examples.map(person => demoAssessmentFor(person, member, recommended));
+    return rankPreferences(member, people).flatMap(({ person, ...fit }) => {
+      const kind = recommended ? recommendationKind(member, person) : 'strict';
+      if (!kind) return [];
+      return [{ ...card(person, fit), eligible: true, ...(kind === 'close' && {recommendationKind:kind}) }];
+    });
   }
   function card(person: ReturnType<typeof demoAssessmentFor>, { reasons, fit }: ReturnType<typeof describeFit>): PublicPerson {
     // This function only receives the built-in fictional roster. Its profile
@@ -787,10 +794,6 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     const message = threadRows(id).find(row => row.attachment?.id === attachmentId && !row.deletedAt);
     if (!message?.attachment || !mediaFiles.has(attachmentId)) throw Error('الملف غير متاح.');
     return message;
-  }
-  function weekly() {
-    weeklyPicks ??= candidates().filter(p => !records.some(r => r.peer === p.id)).slice(0, 5).map(p => p.id);
-    return weeklyPicks;
   }
   function closeOtherConnections(keep: string | null, now: string) {
     let changed = false;
@@ -927,7 +930,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       if(activityRows.length>40)activityRows.splice(0,activityRows.length-40);
     },
     changed:notify,
-    reset(){records.splice(0);messages.clear();readThrough.clear();steps.clear();agreements.clear();familyPhones.clear();callPermissions.clear();typingPeople.clear();hiddenPeople.clear();blockedPeople.clear();interestedPeople.clear();activityRows.splice(0);celebrationsSeen.clear();exclusiveId=null;weeklyPicks=undefined;mediaFiles.clear();},
+    reset(){records.splice(0);messages.clear();readThrough.clear();steps.clear();agreements.clear();familyPhones.clear();callPermissions.clear();typingPeople.clear();hiddenPeople.clear();blockedPeople.clear();interestedPeople.clear();activityRows.splice(0);celebrationsSeen.clear();exclusiveId=null;mediaFiles.clear();},
   },simulationOptions,persistedSimulation);
   const profileReading = createProfileReading(id => {
     const member = viewer();
@@ -1113,18 +1116,20 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     },
     async discover(f) {
       if (exclusiveId) return [];
-      const options = candidates().filter(
+      const recommended = f.mode !== 'all';
+      let options = candidates(recommended).filter(
         (p) =>
-          (!f.subjectId || p.id===f.subjectId) && !hiddenPeople.has(p.id) && !blockedPeople.has(p.id) && matchesDiscoveryFilters(p,f) &&
+          !hiddenPeople.has(p.id) && !blockedPeople.has(p.id) && matchesDiscoveryFilters(p,f) &&
           !records.some((r) => r.peer === p.id && r.status === "closed" && !r.allowRematch) &&
-          (f.mode === "all" || (!records.some(r => r.peer === p.id) && weekly().includes(p.id))) &&
+          (!recommended || !records.some(r => r.peer === p.id)) &&
+          (!('luna' in f) || demoLunaScore(p,f)>=0) &&
           !f.work,
       );
-      const cursor = f.afterId
-        ? options.findIndex((p) => p.id === f.afterId) + 1
-        : 0;
       if(f.sort === "youngest") options.sort((a,b)=>a.age-b.age);
       if(f.sort === "oldest") options.sort((a,b)=>b.age-a.age);
+      if(recommended) options = selectRecommendations(options);
+      if(f.subjectId) options = options.filter(person => person.id === f.subjectId);
+      const cursor = f.afterId ? options.findIndex(p => p.id === f.afterId) + 1 : 0;
       return options.slice(f.offset ?? cursor, (f.offset ?? cursor) + 24);
     },
     async inbox() {

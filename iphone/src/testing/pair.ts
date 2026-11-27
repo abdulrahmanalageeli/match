@@ -1,4 +1,4 @@
-import { demoCommunity, demoPeople, demoProfile, matchesDiscoveryFilters, sanitizeMessage, searchMessageRows, type ActivityNotification, type CommunitySource, type Message, type PublicPerson, type RequestHistoryEntry, type SeriousnessAgreement } from '../community/data';
+import { demoCommunity, demoPeople, demoProfile, selectRecommendations, matchesDiscoveryFilters, sanitizeMessage, searchMessageRows, type ActivityNotification, type CommunitySource, type Message, type PublicPerson, type RequestHistoryEntry, type SeriousnessAgreement } from '../community/data';
 import { marriageProjectUrl, marriagePublishableKey } from '../deployment';
 import { assessmentVersion, describeFit, dimensionsForVersion, interests, preferencePercentage, type MatchFit } from '../compatibility/model';
 import { beenaRankMultiplier, compareBeena, type BeenaFit, type SharedBeenaStory } from '../beena/model';
@@ -9,6 +9,7 @@ import { normalizeReadinessDraft } from '../readiness/model';
 import { boundedFamilyPayload, unwrapFamilyResult } from '../family/model';
 import { requestAi, requestSimulationReply } from '../ai/client';
 import { manualVerificationSource } from '../verification/client';
+
 import type { ManualVerificationClaim } from '../verification/model';
 export type Actor='abdulrahman'|'reham';
 export type TestSession={actor:Actor;session:string;profile:Profile;profileRevision:string};
@@ -17,7 +18,7 @@ type PublicTestProfile=Partial<Profile>&{beenaStory?:SharedBeenaStory};
 const dimensions = dimensionsForVersion('marriage-v3');
 const unavailablePairFit:MatchFit={version:'marriage-v3',band:'insufficient',provisional:true,covered:0,total:dimensions.length,
  strengths:[],discussion:[],missing:dimensions.map(item=>item.id),assessmentComplete:false,percentage:null,beena:compareBeena()};
-type State={exclusiveId?:string;stepId?:string;pairFit?:MatchFit;manualVerifications?:Partial<Record<Actor,ManualVerificationClaim[]>>;beenaFit?:BeenaFit;onlineActors?:Partial<Record<Actor,boolean>>;interests?:Partial<Record<Actor,boolean>>;hiddenPeople?:Partial<Record<Actor,boolean>>;allowRematch?:boolean;rematchRequestedBy?:Actor;matchCelebration?:string;celebrationSeen?:Partial<Record<Actor,string>>;profileRevision:string;rewind?:{actor:Actor;stage:number};matchedAt?:string;journeyUpdatedAt?:string;exclusive?:boolean;exclusiveConsent?:Partial<Record<Actor,boolean>>;retiredFictional?:boolean;actor:Actor;matched:boolean;seriousness?:Omit<SeriousnessAgreement,'actor'>;messages:Row[];read:Partial<Record<Actor,string>>;delivered?:Partial<Record<Actor,string>>;callPermission?:{status:'none'|'pending'|'accepted'|'declined';invitedBy?:Actor};profiles:Partial<Record<Actor,PublicTestProfile>>;stage:number;agree:Partial<Record<Actor,boolean>>;call:(VoiceCall&{caller:Actor})|null};
+type State={exclusiveId?:string;stepId?:string;pairFit?:MatchFit;pairRecommendationKind?:'strict'|'close'|null;manualVerifications?:Partial<Record<Actor,ManualVerificationClaim[]>>;beenaFit?:BeenaFit;onlineActors?:Partial<Record<Actor,boolean>>;interests?:Partial<Record<Actor,boolean>>;hiddenPeople?:Partial<Record<Actor,boolean>>;allowRematch?:boolean;rematchRequestedBy?:Actor;matchCelebration?:string;celebrationSeen?:Partial<Record<Actor,string>>;profileRevision:string;rewind?:{actor:Actor;stage:number};matchedAt?:string;journeyUpdatedAt?:string;exclusive?:boolean;exclusiveConsent?:Partial<Record<Actor,boolean>>;retiredFictional?:boolean;actor:Actor;matched:boolean;seriousness?:Omit<SeriousnessAgreement,'actor'>;messages:Row[];read:Partial<Record<Actor,string>>;delivered?:Partial<Record<Actor,string>>;callPermission?:{status:'none'|'pending'|'accepted'|'declined';invitedBy?:Actor};profiles:Partial<Record<Actor,PublicTestProfile>>;stage:number;agree:Partial<Record<Actor,boolean>>;call:(VoiceCall&{caller:Actor})|null};
 export const testStorage='nisfayn-private-pair-v1';
 const endpoint=marriageProjectUrl+'/functions/v1/pair-test';
 export async function testRequest<T>(action:string,session='',payload:unknown={},login?:{actor:Actor;password:string}):Promise<T>{
@@ -51,12 +52,19 @@ function fictionalViewer(profile: Profile): Profile {
      describeFit({...profile,id:'private-tester'},comparable).fit.assessmentComplete) return profile;
 
  const fixture = demoPeople.find(person => person.gender === profile.gender)!;
+ const surveyAnswers:Record<string,string>={...fixture.currentAssessment.surveyAnswers,residence_plan:'B',...(profile.assessmentVersion===assessmentVersion&&profile.surveyAnswers)};
+ for(const topic of dimensionsForVersion(profile.assessmentVersion).filter(topic=>profile.hardRequirements?.includes(topic.id))){
+  const wanted=profile.surveyAnswers?.[topic.partnerId];
+  if(wanted)surveyAnswers[topic.partnerId]=wanted;
+  else delete surveyAnswers[topic.partnerId];
+ }
  return {
   ...demoProfile, ...fixture.currentAssessment,
-  displayName:profile.displayName, gender:profile.gender, age:32, preferredMinAge:18, preferredMaxAge:60,
-  surveyAnswers:{...fixture.currentAssessment.surveyAnswers,residence_plan:'B'},
-  partnerCriteria:fixture.partnerCriteria,
-  marriageBasics:{...fixture.marriageBasics,polygynyPreference:profile.gender==='man'?'not_open':'open_to_discussion'},
+  displayName:profile.displayName, gender:profile.gender, age:profile.age, city:profile.city,
+  preferredMinAge:profile.preferredMinAge, preferredMaxAge:profile.preferredMaxAge,
+  surveyAnswers,
+  partnerCriteria:profile.partnerCriteria??fixture.partnerCriteria, hardRequirements:profile.hardRequirements,
+  marriageBasics:{...fixture.marriageBasics,polygynyPreference:profile.gender==='man'?'not_open':'open_to_discussion',...profile.marriageBasics},
  };
 }
 export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(profile:Profile,revision:string)=>boolean){
@@ -218,13 +226,17 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
    const full=(await local.inbox()).filter(c=>c.status==='accepted').length+Number(s.matched)>=2;
    const partner=person(s);
    // Peer survey answers are private, so an active work filter cannot be verified.
-   const includePeer=(s.matched||s.allowRematch)&&!s.hiddenPeople?.[account.actor]&&!filters.work&&matchesDiscoveryFilters(partner,filters);
-   const people=[...(includePeer?[{...partner,connectionId:s.matched||s.rematchRequestedBy?'tester-pair':undefined,connectionStatus:s.matched?'accepted' as const:s.rematchRequestedBy?'pending' as const:undefined}]:[]),
-    ...await local.discover({...filters,offset:0,afterId:undefined})].map(p=>({...p,viewerAtCapacity:full}));
+   const recommended=filters.mode!=='all';
+   const canRecommend=s.allowRematch&&!s.matched&&!s.rematchRequestedBy&&Boolean(s.pairRecommendationKind);
+   const includePeer=(recommended?canRecommend:s.matched||s.allowRematch)&&!s.hiddenPeople?.[account.actor]&&!filters.work&&matchesDiscoveryFilters(partner,filters);
+   let people=[...(includePeer?[{...partner,...(recommended&&s.pairRecommendationKind==='close'&&{recommendationKind:'close' as const}),connectionId:s.matched||s.rematchRequestedBy?'tester-pair':undefined,connectionStatus:s.matched?'accepted' as const:s.rematchRequestedBy?'pending' as const:undefined}]:[]),
+    ...await local.discover({...filters,subjectId:undefined,offset:0,afterId:undefined})].map(p=>({...p,viewerAtCapacity:full}));
    const ranking = (person:PublicPerson) => (preferencePercentage(person.fit)??-1) *
     (person.fit?.version==='marriage-v4' ? 1 : beenaRankMultiplier(person.fit?.beena));
    people.sort(filters.sort==='youngest'?(a,b)=>a.age-b.age:filters.sort==='oldest'?(a,b)=>b.age-a.age:
     (a,b)=>ranking(b)-ranking(a));
+   if(recommended) people=selectRecommendations(people);
+   if(filters.subjectId) people=people.filter(row=>row.id===filters.subjectId);
    const offset=filters.offset??(filters.afterId?people.findIndex(p=>p.id===filters.afterId)+1:0);
    const page=people.slice(offset,offset+24);
    return page;

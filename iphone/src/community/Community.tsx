@@ -526,6 +526,7 @@ function PersonCard({
       <DiscoveryPortrait person={person} source={source} priority={priority} />
     </div>
     <div className="df-card-copy" id={descriptionId}>
+      {person.recommendationKind==='close' && <span className="df-close-recommendation" title="أحد تفضيلاتكما غير متحقق">ترشيح قريب <small>· أحد التفضيلات غير متحقق</small></span>}
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
       {personalLine && <p className="cm-person-bio" dir="auto">{personalLine}</p>}
       {person.interests.length>0&&<p className="df-card-interests">{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</p>}
@@ -1493,7 +1494,7 @@ export function Chat({
   const [replyNotice, setReplyNotice] = useState('');
   const [agreementSlot, setAgreementSlot] = useState<HTMLDivElement | null>(null);
   const [conversationAllowed, setConversationAllowed] = useState(!source.agreement);
-  const [journey, setJourney] = useChatJourney(source, connection.id, conversationAllowed && !thread.accessDenied);
+  const [journey, setJourney] = useChatJourney(source, connection.id, !thread.accessDenied);
   const exclusive = journey?.exclusive ?? connection.person.exclusive;
   const canDraft = thread.ready && !thread.accessDenied;
   const canSend = canDraft && conversationAllowed && thread.connectionState === 'online';
@@ -1818,7 +1819,7 @@ export function Chat({
       </ChatComposer>}
       <div className="cm-chat-plan" data-ready>
         {conversationAllowed && source.progress && <JourneySummary progress={journey} name={connection.person.alias} open={() => setGuide(true)}/>}
-        {agreementSlot && !thread.accessDenied && <ConversationAgreement peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch('pact')} onJourney={()=>setGuide('exclusive')} onFamilyContact={source.shareFamilyContact && source.familyContactAvailable?.(connection.id)!==false?()=>setEndMatch('share'):undefined} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
+        {agreementSlot && !thread.accessDenied && <ConversationAgreement peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} journeyStage={source.progress ? journey?.stage ?? null : undefined} openDetails={initialAgreement} onEnd={()=>setEndMatch('pact')} onJourney={()=>setGuide('exclusive')} onFamilyContact={source.shareFamilyContact && source.familyContactAvailable?.(connection.id)!==false?()=>setEndMatch('share'):undefined} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
         <button className="cm-end-visible" type="button" aria-label="إنهاء التعارف" onClick={()=>setEndMatch('general')}><span>إنهاء</span></button>
       </div>
       <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة للتفاعل أو الرد أو الحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>

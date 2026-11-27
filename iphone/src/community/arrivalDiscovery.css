@@ -74,6 +74,13 @@
 .phone-app .cm-shell .df-identity-line h2 { font-size: clamp(23px, 6vw, 27px); font-weight: 600; line-height: 1.45; text-shadow: none; letter-spacing: 0; }
 .phone-app .cm-shell .df-identity-meta { font-size: 14px; gap: 12px; color: #fff; }
 .phone-app .cm-shell .df-card-copy { padding: 20px 20px 0; }
+.df-close-recommendation {
+  display: inline-flex; align-items: baseline; gap: .35em; width: fit-content; max-width: 100%;
+  padding: 2px 9px; border-radius: 7px; background: var(--accent-soft, #f4ebee);
+  color: var(--accent, #60213b); font-size: .79rem; font-weight: 700; line-height: 1.7;
+}
+.df-card-copy > .df-close-recommendation { margin-block-end: 8px; }
+.df-close-recommendation small { font: inherit; font-weight: 450; }
 .phone-app .cm-shell .df-card-copy .cm-person-bio { color: var(--supporting-ink, #474247); font-size: 16px; font-weight: 400; line-height: 1.85; margin-bottom: 16px; }
 .phone-app .cm-shell .df-card-reason { color: var(--muted); font-size: 13px; padding-top: 4px; }
 .phone-app .cm-shell .df-card-reason svg { color: var(--accent); }

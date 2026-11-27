@@ -77,6 +77,33 @@ try {
  await page.screenshot({path:resolve(output,'expired-390.png'),animations:'disabled'});
  await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();
  await page.locator('[data-server-id="hello"]').waitFor();
+ for(const actor of ['reham','abdulrahman']){
+  await open(actor,'renew&exclusive&familyStage');
+  await page.getByRole('button',{name:'تفاصيل التواصل مع الأهل'}).click();
+  const details=page.locator('.cm-agreement-inline');
+  await details.getByText('اتفقتما على التواصل مع الأهل',{exact:true}).waitFor();
+  assert.equal(await details.getByRole('button',{name:'اقتراح التواصل العائلي'}).count(),0);
+  assert.equal(await details.getByRole('button',{name:'مشاركة رقم الأهل'}).count(),actor==='reham'?1:0);
+  assert.equal(await page.locator('a[href^="tel:"]').count(),0);
+ }
+ await open('abdulrahman','renew&exclusive&familyStage&sharedFamilyNumber');
+ await page.getByRole('button',{name:'تفاصيل التواصل مع الأهل'}).click();
+ const sharedDetails=page.locator('.cm-agreement-inline');
+ assert.equal(await sharedDetails.getByRole('button',{name:'اقتراح التواصل العائلي'}).count(),0);
+ assert.equal(await page.locator('a[href^="tel:"]').count(),0);
+ await sharedDetails.getByRole('button',{name:'عرض رقم الأهل'}).click();
+ await sharedDetails.locator('a[href="tel:+966500000001"]').waitFor();
+ await sharedDetails.getByRole('button',{name:'إخفاء الرقم'}).click();
+ await page.screenshot({path:resolve(output,'family-confirmed-390.png'),animations:'disabled'});
+ await open('reham','renew&familyStage&pendingFamily');
+ await page.getByRole('button',{name:'اختيار الخطوة التالية'}).click();
+ await page.locator('.cm-agreement-inline summary').click();
+ await page.getByRole('button',{name:'إلغاء طلب الميثاق السابق'}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'الموافقة على التواصل العائلي'}).count(),0);
+ await open('reham','exclusive&sharedFamilyNumber');
+ await page.getByRole('button',{name:'تفاصيل الميثاق والتعارف الحصري'}).click();
+ await page.getByRole('button',{name:'اقتراح التواصل العائلي'}).waitFor();
+ assert.equal(await page.locator('a[href^="tel:"]').count(),0);
  await open('abdulrahman','stalledAgreement');
  await page.locator('.cm-agreement-slot').getByRole('status',{name:'جارٍ تحميل ميثاق التعارف'}).waitFor();
  assert.equal(await page.locator('.cm-chat-plan .cm-agreement-pending').count(),0);

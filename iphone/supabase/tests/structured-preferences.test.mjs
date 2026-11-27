@@ -55,7 +55,7 @@ test('structured criteria roundtrip, weighting, missing facts, discovery and can
   assert.deepEqual(state.profile.partnerCriteria,criteria);
   const card=await rpc('marriage.member_card($1,$2)',[man.id,woman.id]);
   assert.equal(card.education,'بكالوريوس هندسة');assert.equal(card.occupation,'مهندسة مدنية');assert.equal(card.partnerCriteria,undefined);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true,'city aliases establish the same actual city');
+  assert.equal(await rpc('marriage.recommendation_distance($1,$2)',[man.id,woman.id]),0,'city aliases establish the same actual city');
   let preferred=(await sql('select * from marriage.preferred_criteria($1,$2)',[man.id,woman.id]))[0];
   assert.deepEqual(preferred,{score:1,covered:2,total:2});
   let fit=(await sql('select fit from marriage.pair_fit($1,$2)',[man.id,woman.id]))[0].fit;
@@ -87,10 +87,11 @@ test('structured criteria roundtrip, weighting, missing facts, discovery and can
 
   await db.query("insert into marriage.cities(label) values('مدينة أخرى داخل السعودية') on conflict(label) do nothing");
   await db.query("update marriage.profiles set city_id=(select id from marriage.cities where label='مدينة أخرى داخل السعودية') where member_id=any($1)",[[man.id,woman.id]]);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),false,'two unspecified cities do not establish a shared place to live');
+  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true,'saved residence choices do not close directory introductions');
+  assert.equal(await rpc('marriage.recommendation_distance($1,$2)',[man.id,woman.id]),null,'two unspecified cities do not establish a shared place to live');
   await db.query("update marriage.profiles set city_id=(select id from marriage.cities where label='الرياض') where member_id=$1",[man.id]);
   await db.query("update marriage.member_answers set option_code='B' where member_id=$1 and question_code='residence_plan'",[woman.id]);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true,'explicit relocation choices may establish a shared future city');
+  assert.equal(await rpc('marriage.recommendation_distance($1,$2)',[man.id,woman.id]),0,'explicit relocation choices may establish a shared future city');
 
   // Saving a profile from an older installed client preserves new-version answers.
   const upgraded=await add('woman',{hardRequirements:['housing_arrangement']});

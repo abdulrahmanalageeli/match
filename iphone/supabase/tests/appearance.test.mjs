@@ -34,7 +34,8 @@ function setup(db){
 test('appearance and avatar are independent opt-ins, checked public fields, reviewed on edit, and safely cleared',async()=>{
  const db=await createDatabase();try{
   const {add,call,save,approve,rpc}=setup(db),a=await add('man'),b=await add('woman',{marriageBasics:appearance,publicAvatar:avatar,partnerCriteria:{skinTone:{mode:'prefer',values:['tone_2']}}});
-  let card=(await call(a,'public.marriage_discover()')).find(p=>p.id===b.id);
+  const directory=()=>call(a,'public.marriage_browse($1)',[{mode:'all'}]);
+  let card=(await directory()).find(p=>p.id===b.id);
   assert.deepEqual(card.marriageBasics,appearance);assert.deepEqual(card.publicAvatar,avatar);
   for(const key of ['partnerCriteria','appearanceVersion','personalityAnswers','privatePhoto','photoUrl'])assert.equal(card[key],undefined);
   await asMember(db,a.id,a.sessionId,()=>assert.rejects(db.query('select * from marriage.member_public_avatars'),/permission denied/));
@@ -47,10 +48,10 @@ test('appearance and avatar are independent opt-ins, checked public fields, revi
    await db.query("select set_config('request.jwt.claims',jsonb_set(auth.jwt(),'{aal}','\"aal2\"')::text,false)");return rpc('public.marriage_admin_member($1)',[b.id]);
   });assert.deepEqual(review.marriageBasics,appearance);assert.deepEqual(review.publicAvatar,avatar);assert.equal(review.partnerCriteria,undefined);
   const changed=await save(b,{publicAvatar:{style:'niqab',skinTone:'tone_3'}});assert.equal(changed.user.applicationStatus,'pending');
-  assert(!(await call(a,'public.marriage_discover()')).some(p=>p.id===b.id));await approve(b);
+  assert(!(await directory()).some(p=>p.id===b.id));await approve(b);
   const cleared=await save(b,{marriageBasics:{},partnerCriteria:{},publicAvatar:null});assert.deepEqual(cleared.profile.marriageBasics,{});assert.equal(cleared.profile.publicAvatar,null);
   assert.equal((await db.query('select count(*)::int n from marriage.member_public_avatars where member_id=$1',[b.id])).rows[0].n,0);
-  await approve(b);card=(await call(a,'public.marriage_discover()')).find(p=>p.id===b.id);assert.equal(card.publicAvatar,null);assert.deepEqual(card.marriageBasics,{});
+  await approve(b);card=(await directory()).find(p=>p.id===b.id);assert.equal(card.publicAvatar,null);assert.deepEqual(card.marriageBasics,{});
  }finally{await db.close()}
 });
 
@@ -75,18 +76,21 @@ test('appearance requirements are symmetric exact choices; unknowns fail closed 
     const basics={...appearance,[key]:value};if(value===undefined)delete basics[key];
     await save(b,{marriageBasics:basics});await approve(b);
     const expected=value===match;
-    for(const ids of [[a.id,b.id],[b.id,a.id]])assert.equal((await db.query('select marriage.compatible($1,$2) ok',ids)).rows[0].ok,expected);
+    for(const ids of [[a.id,b.id],[b.id,a.id]]){
+     const result=(await db.query('select marriage.compatible($1,$2) as can_request, marriage.recommendation_distance($1,$2) as distance',ids)).rows[0];
+     assert.equal(result.can_request,true);assert.equal(result.distance,expected?0:null);
+    }
     assert.equal(comparePreferences({...a.profile,id:a.id},{...b.profile,id:b.id})!==null,expected);
    }
   }
   await save(a,{partnerCriteria:{dressStyle:{mode:'require',values:['uncovered']},dressFlexibility:{mode:'require',target:'open_to_discussion'}}});
   await save(b,{marriageBasics:{dressStyle:'niqab',dressFlexibility:'open_to_discussion'}});await approve(b);
-  assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,b.id])).rows[0].ok,false);
+  assert.equal((await db.query('select marriage.recommendation_distance($1,$2) as distance',[a.id,b.id])).rows[0].distance,null);
   await save(a,{partnerCriteria:{dressFlexibility:{mode:'require',target:'open_to_discussion'}}});
   await save(b,{marriageBasics:{dressFlexibility:'prefer_not_to_say'}});await approve(b);
-  assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,b.id])).rows[0].ok,false);
+  assert.equal((await db.query('select marriage.recommendation_distance($1,$2) as distance',[a.id,b.id])).rows[0].distance,null);
   await save(a,{partnerCriteria:{dressStyle:{mode:'any'},skinTone:{mode:'any'},dressFlexibility:{mode:'any'}}});
-  assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,b.id])).rows[0].ok,true);
+  assert.equal((await db.query('select marriage.recommendation_distance($1,$2) as distance',[a.id,b.id])).rows[0].distance,0);
  }finally{await db.close()}
 });
 
@@ -131,7 +135,10 @@ test('explicit openness to change is distinct from discussion and never assumes 
      const known=answer!==undefined&&answer!=='prefer_not_to_say';
      const matches=answer==='open_to_change'||target==='open_to_discussion'&&answer==='open_to_discussion';
      const expected=mode==='prefer'||matches;
-     for(const ids of [[a.id,b.id],[b.id,a.id]])assert.equal((await db.query('select marriage.compatible($1,$2) ok',ids)).rows[0].ok,expected);
+     for(const ids of [[a.id,b.id],[b.id,a.id]]){
+      const result=(await db.query('select marriage.compatible($1,$2) as can_request, marriage.recommendation_distance($1,$2) as distance',ids)).rows[0];
+      assert.equal(result.can_request,true);assert.equal(result.distance,matches?0:mode==='prefer'?1:null);
+     }
      assert.equal(comparePreferences({...a.profile,id:a.id},{...b.profile,id:b.id})!==null,expected);
      const fit=(await db.query('select fit from marriage.pair_fit($1,$2)',[a.id,b.id])).rows[0].fit;
      assert.deepEqual(fit,describeFit({...a.profile,id:a.id},{...b.profile,id:b.id}).fit);
@@ -141,7 +148,7 @@ test('explicit openness to change is distinct from discussion and never assumes 
   }
   await save(a,{partnerCriteria:{dressStyle:{mode:'require',values:['uncovered']},dressFlexibility:{mode:'require',target:'open_to_change'}}});
   await save(b,{marriageBasics:{dressStyle:'niqab',dressFlexibility:'open_to_change'}});await approve(b);
-  assert.equal((await db.query('select marriage.compatible($1,$2) ok',[a.id,b.id])).rows[0].ok,false);
+  assert.equal((await db.query('select marriage.recommendation_distance($1,$2) as distance',[a.id,b.id])).rows[0].distance,null);
   assert.equal((await db.query('select dress_style from marriage.member_basics where member_id=$1',[b.id])).rows[0].dress_style,'niqab');
  }finally{await db.close()}
 });

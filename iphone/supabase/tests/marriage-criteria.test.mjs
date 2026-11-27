@@ -43,7 +43,8 @@ function setup(db){
 test('public basics are opt-in, reviewed and exportable; private criteria/personality stay private and older clients preserve them',async()=>{
  const db=await createDatabase();try{
   const {add,call,save,approve}=setup(db),a=await add('woman',{...legacyAssessmentFields,personalityVersion:'personality-v1'}),b=await add('man',{...legacyAssessmentFields,marriageBasics:basics,partnerCriteria:{height:{mode:'prefer',min:160}},personalityVersion:'personality-v1',personalityAnswers:personality()});
-  const cards=await call(a,'public.marriage_discover()'),card=cards.find(p=>p.id===b.id);
+  const directory=()=>call(a,'public.marriage_browse($1)',[{mode:'all'}]);
+  const card=(await directory()).find(p=>p.id===b.id);
   assert.deepEqual(card.marriageBasics,basics);
   for(const key of ['partnerCriteria','personalityAnswers','personalityVersion','surveyAnswers','contact'])assert.equal(card[key],undefined);
   assert.equal(card.fit.personality.percentage,null);
@@ -55,7 +56,7 @@ test('public basics are opt-in, reviewed and exportable; private criteria/person
   assert.deepEqual((await call(b,'public.marriage_personal_data()')).profile.partnerCriteria,b.profile.partnerCriteria);
   assert.equal((await save(b,{partnerCriteria:{smoking:{mode:'require',target:'never'}}})).user.applicationStatus,'approved');
   assert.equal((await save(b,{marriageBasics:{...basics,heightCm:180}})).user.applicationStatus,'pending');
-  assert(!(await call(a,'public.marriage_discover()')).some(p=>p.id===b.id));
+  assert(!(await directory()).some(p=>p.id===b.id));
   await approve(b);
   // Clear self-disclosed basics without leaving a previously published value behind.
   const cleared=await save(b,{marriageBasics:{}});assert.deepEqual(cleared.profile.marriageBasics,{});

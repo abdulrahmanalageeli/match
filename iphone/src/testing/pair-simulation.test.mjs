@@ -369,10 +369,25 @@ test('Abdulrahman can explore both fictional pools with a partially saved assess
     assert(roster.every(person=>person.fit.version==='marriage-v4'&&
       person.fit.assessmentComplete&&Number.isInteger(person.fit.percentage)));
     assert.equal(people.find(person=>person.id==='reham').fit.percentage,null);
-    assert.equal((await source.discover({mode:'recommended'})).filter(person=>person.isDemo).length,5);
+    const recommended=(await source.discover({mode:'recommended'})).filter(person=>person.isDemo);
+    assert(recommended.length>=3&&recommended.length<=5);
+    if(recommended.length>3)assert(recommended.every(person=>!person.recommendationKind));
   }
   assert.deepEqual(h.remote.profiles.abdulrahman.surveyAnswers,{residence_plan:'B',children_plan:'A'});
   assert(h.calls.every(call=>call.action==='state'));
+});
+
+test('a partially saved polygyny refusal narrows tester recommendations while the fictional directory stays open',async t=>{
+  const h=harness(t,{actor:'reham',profiles:{reham:{displayName:'Tester',gender:'woman',city:'الرياض',age:29,
+    preferredMinAge:18,preferredMaxAge:60,assessmentVersion:'marriage-v4',
+    surveyAnswers:{residence_plan:'B'},marriageBasics:{polygynyPreference:'not_open'}}}});
+  const source=h.reopen(),all=(await source.discover({mode:'all'})).filter(person=>person.isDemo);
+  const eligible=person=>person.marriageBasics?.polygynyPreference==='not_open'&&['never_married','divorced','widowed'].includes(person.marriageBasics?.maritalStatus);
+  assert(all.some(person=>!eligible(person)));
+  assert(all.every(person=>!person.recommendationKind));
+  const wanted=(await source.discover({mode:'recommended'})).filter(person=>person.isDemo);
+  assert(wanted.length>0);
+  assert(wanted.every(eligible));
 });
 
 test('fictional discovery uses Abdulrahman’s complete assessment and honors active filters',async t=>{

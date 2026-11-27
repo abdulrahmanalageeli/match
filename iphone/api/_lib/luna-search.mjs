@@ -138,9 +138,12 @@ export function createLunaSearch({env=process.env,fetcher=fetch,clientFactory=op
     if (!Object.keys(lunaFields).length && !plan.criteria.length) {
       throw new AIError(422,'invalid','ما قدرت أحدد وصفًا أبحث عنه في الملفات. جرّب صفة أو عبارة تتوقع أن يذكرها العضو.');
     }
-    const options={mode:'all',...filters,lunaFields,luna:plan.criteria,offset:0};
+    const cardsType='application/vnd.wudayn.search-cards+json';
+    const compact=headers.accept===cardsType;
+    const supportsClose=compact&&headers.closeRecommendations===true;
+    const options={mode:'all',...filters,...(supportsClose&&filters.mode==='recommended'&&{includeCloseRecommendations:true}),lunaFields,luna:plan.criteria,offset:0};
     const people=await rpc('marriage_browse',{options});
-    if (headers.accept === 'application/vnd.wudayn.search-cards+json') {
+    if (compact) {
       return {options,people:people.map(person => lunaResultCard(person, options))};
     }
     return {options,summary:plan.summary,criteria:plan.criteria.map(({label,kind})=>({label,kind})),people};

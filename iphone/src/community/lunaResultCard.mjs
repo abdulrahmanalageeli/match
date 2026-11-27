@@ -79,6 +79,6 @@ export function lunaResultCard(person, {luna, lunaFields}) {
     if (value != null) add({field:field === 'minAge' || field === 'maxAge' ? 'age' : field,kind:'must',terms:[String(value)]});
   }
   const {id,alias,portrait,publicAvatar} = person;
-  return {id,alias,portrait,publicAvatar, ...(person.isDemo ? {isDemo:true} : {}),
+  return {id,alias,portrait,publicAvatar, ...(person.recommendationKind==='close' && {recommendationKind:'close'}), ...(person.isDemo ? {isDemo:true} : {}),
     ...(person.isDemo && person.demoPhoto?.startsWith('/demo/portraits/') ? {demoPhoto:person.demoPhoto} : {}), matchReasons:[...reasons]};
 }

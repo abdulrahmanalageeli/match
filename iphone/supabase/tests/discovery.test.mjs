@@ -9,7 +9,7 @@ import { createDatabase, addUser, asMember, asService } from "./harness.mjs";
 
 // Run the actual phone-side matching reference with Node's test runner.
 const catalogUrl=new URL("../../src/compatibility/catalog-v3.json",import.meta.url);
-const {rankPreferences,comparePreferences,describeFit}=await import(new URL("../../src/compatibility/model.ts",import.meta.url));
+const {rankPreferences,comparePreferences,describeFit,recommendationKind}=await import(new URL("../../src/compatibility/model.ts",import.meta.url));
 
 function setup(db) {
   const rpc = async (expression, args=[]) =>
@@ -341,7 +341,9 @@ test("legacy full assessment matches the phone score in both directions and reta
       members.push({profile,user:await add("man",profile)});
     }
     const fullViewer={...aProfile,id:a.id};
-    const expected=rankPreferences(fullViewer,members.map(({profile,user})=>({...profile,id:user.id})));
+    // Installed clients using the legacy feed receive strict recommendations only.
+    const expected=rankPreferences(fullViewer,members.map(({profile,user})=>({...profile,id:user.id})))
+      .filter(({person})=>recommendationKind(fullViewer,person)==='strict');
     const shown=await call(a,"public.marriage_discover()");
     assert.deepEqual(shown.map(p=>p.id),expected.slice(0,5).map(p=>p.person.id));
     assert.deepEqual(shown.map(p=>p.fit.percentage),expected.slice(0,5).map(p=>p.fit.percentage));

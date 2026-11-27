@@ -212,6 +212,7 @@ test('paired discovery honors actual interests, work filters and combined orderi
 test('verified member testers can use the same bot workflow in either discovery pool',async()=>{
   const code=(await compile('../src/community/testingDiscovery.ts'))
     .replace("'./data'",JSON.stringify(dataUrl))
+    .replace("'./recommendations'",JSON.stringify(new URL('../src/community/recommendations.ts',import.meta.url).href))
     .replace("'./lunaResultCard.mjs'",JSON.stringify(new URL('../src/community/lunaResultCard.mjs',import.meta.url).href))
     .replace("'./demoLunaSearch'",JSON.stringify(new URL('../src/community/demoLunaSearch.ts',import.meta.url).href));
   const {withTestingDiscovery}=await import(url(code));

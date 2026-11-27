@@ -19,9 +19,11 @@ test('discovery respects both members across directory, Luna and requests',async
  const answer=(u,question,code)=>db.query('insert into marriage.member_answers values($1,$2,$3) on conflict(member_id,question_code) do update set option_code=excluded.option_code',[u.id,question,code]);
  const hard=(u,dimension)=>db.query('insert into marriage.fit_hard_requirements(member_id,dimension) values($1,$2)',[u.id,dimension]);
  const browse=(u,options)=>call(u,'public.marriage_browse($1)',[{mode:'all',...options}]);
- async function paired(expected){
+ async function paired(expected, recommended=expected){
    for(const [u,peer] of [[man,woman],[woman,man]]){
-     for(const options of [{},{luna:[]},{mode:'recommended',luna:[]}]) assert.equal((await browse(u,options)).some(p=>p.id===peer.id),expected);
+     for(const options of [{},{luna:[]}]) assert.equal((await browse(u,options)).some(p=>p.id===peer.id),expected);
+     const cards=await browse(u,{mode:'recommended',luna:[],includeCloseRecommendations:true});
+     assert.equal(cards.some(p=>p.id===peer.id),recommended);
    }
  }
  async function scenario(name,fn){
@@ -32,7 +34,7 @@ test('discovery respects both members across directory, Luna and requests',async
     await db.query('update marriage.preferences set min_age=40,max_age=50 where member_id=$1',[woman.id]);
     await db.exec("insert into marriage.cities(label) values('جدة') on conflict do nothing");
     await db.query("update marriage.profiles set city_id=(select id from marriage.cities where label='جدة') where member_id=$1",[woman.id]);
-    await paired(true);
+    await paired(true,false);
     const [card]=await browse(man,{eligibleOnly:true});
     assert.equal(card.eligible,true);
     const id=await call(man,'public.marriage_request($1)',[woman.id]);
@@ -74,25 +76,110 @@ test('discovery respects both members across directory, Luna and requests',async
   });
   await scenario('10. Matching only one person’s hard requirements allows discovery or a new request',async()=>{
     for(const u of [man,woman]){await answer(u,'partner_children_plan','A');await hard(u,'children_plan');}
-    await answer(woman,'children_plan','A');await answer(man,'children_plan','B');await paired(true);
+    await answer(woman,'children_plan','A');await answer(man,'children_plan','B');await paired(true,false);
     assert.ok(await call(man,'public.marriage_request($1)',[woman.id]));
   });
-  await scenario('Polygyny preferences do not prevent discovery',async()=>{
+  await scenario('Refusing polygyny restricts recommendations in both directions, including when no strict alternatives exist',async()=>{
     await paired(true);
     for(const [status,intent] of [['married','not_open'],['never_married','open'],['divorced','open_to_discussion'],['widowed','prefer_not_to_say'],['never_married',null],[null,'not_open']]){
       await db.query('update marriage.member_basics set marital_status=$2,polygyny_preference=$3 where member_id=$1',[man.id,status,intent]);
-      await paired(true);
+      await paired(true,false);
     }
     await db.query("update marriage.member_basics set marital_status='divorced',polygyny_preference='not_open' where member_id=$1",[man.id]);await paired(true);
   });
   await scenario('Saved physical and lifestyle requirements allow discovery in either direction',async()=>{
     await db.query("insert into marriage.partner_criteria(member_id,criterion,rule) values($1,'height',$2)",[woman.id,{mode:'require',min:175}]);
-    await paired(true);
+    await paired(true,false);
     await db.query('update marriage.member_basics set height_cm=180 where member_id=$1',[man.id]);
     assert.equal((await browse(man,{luna:[]})).length,1);
     await db.query("insert into marriage.partner_criteria(member_id,criterion,rule) values($1,'smoking',$2)",[man.id,{mode:'require',target:'never'}]);
     await db.query("update marriage.member_basics set smoking='vape' where member_id=$1",[woman.id]);
-    await paired(true);
+    await paired(true,false);
+  });
+  await scenario('Only new clients get labeled close recommendations to fill the first three slots',async()=>{
+    const close=await Promise.all([member('woman'),member('woman'),member('woman')]);
+    for(const [i,p] of close.entries()) await db.query('update marriage.profiles set age=$2 where member_id=$1',[p.id,41+i%2]);
+    const far=await member('woman');
+    await db.query('update marriage.profiles set age=43 where member_id=$1',[far.id]);
+    const options={mode:'recommended',includeCloseRecommendations:true,sort:'oldest'};
+    const cards=()=>browse(man,options);
+    const one=await cards();
+    assert.equal(one.length,3);
+    assert.equal(one[0].id,woman.id);
+    assert.equal(one[0].recommendationKind,undefined);
+    assert(one.slice(1).every(c=>c.recommendationKind==='close' && close.some(w=>w.id===c.id)));
+    const ids=rows=>rows.map(card=>card.id);
+    assert.deepEqual(ids(await browse(man,{mode:'recommended'})),[woman.id]);
+    assert.deepEqual(ids(await call(man,'public.marriage_discover()')),[woman.id]);
+    assert.deepEqual(ids(await browse(man,{...options,afterId:one[0].id})),ids(one.slice(1)));
+    assert.deepEqual(ids(await browse(man,{...options,offset:2})),ids(one.slice(2)));
+    const omitted=close.find(w=>!ids(one).includes(w.id));
+    assert.deepEqual(await browse(man,{...options,subjectId:omitted.id}),[]);
+    const all=await browse(man,{includeCloseRecommendations:true});
+    assert(all.some(c=>c.id===far.id) && all.every(c=>c.recommendationKind===undefined));
+    assert.equal((await browse(man,{...options,maxAge:40})).length,1);
+    // The old weekly allowance ledger above now contains the original members.
+    // New strict candidates still displace soft matches without rewriting that ledger.
+    const second=await member('woman');
+    const two=await cards();
+    assert.equal(two.filter(c=>c.recommendationKind==='close').length,1);
+    assert.deepEqual(ids(two.slice(0,2)).sort(),[woman.id,second.id].sort());
+    await member('woman');
+    const three=await cards();
+    assert.equal(three.length,3);assert(three.every(c=>!c.recommendationKind));
+    const filtered=await browse(man,{...options,minAge:41});
+    assert.equal(filtered.length,3);assert(filtered.every(c=>c.recommendationKind==='close' && c.age>=41 && c.age<=42));
+    for(let i=0;i<3;i++)await member('woman');
+    const five=await cards();
+    assert.equal(five.length,5);assert(five.every(c=>!c.recommendationKind));
+  });
+  await scenario('The default top five keep their weekly slots and the same capped free score allowance',async()=>{
+    await db.query('delete from marriage.admin_membership_grants where member_id=$1',[man.id]);
+    for(let i=0;i<6;i++)await member('woman');
+    const options={mode:'recommended',includeCloseRecommendations:true};
+    const displayed=await browse(man,options);
+    const roster=(await db.query('select candidate_id from marriage.weekly_candidates where member_id=$1 and week_start=marriage.current_week() order by slot',[man.id])).rows;
+    assert.equal(displayed.length,5);
+    assert.deepEqual(displayed.map(row=>row.id),roster.map(row=>row.candidate_id));
+    const revealed=displayed.filter(row=>'recommendationPercentage' in row).map(row=>row.id);
+    assert.equal(revealed.length,3);
+    const additional=await member('woman');
+    const next=await browse(man,options);
+    assert.deepEqual(next.map(row=>row.id),displayed.map(row=>row.id));
+    assert.deepEqual(next.filter(row=>'recommendationPercentage' in row).map(row=>row.id),revealed);
+    assert.deepEqual(await browse(man,{...options,subjectId:additional.id}),[]);
+  });
+  await scenario('One uncertain optional preference may fill a slot but requirements, multiple misses and boundaries never do',async()=>{
+    const recommend=()=>browse(man,{mode:'recommended',includeCloseRecommendations:true});
+    await db.query("insert into marriage.partner_criteria values($1,'height',$2)",[man.id,{mode:'prefer',min:175}]);
+    assert.equal((await recommend())[0].recommendationKind,'close');
+    await db.query("update marriage.profiles set age=41 where member_id=$1",[woman.id]);
+    assert.deepEqual(await recommend(),[]);
+    await db.query("update marriage.profiles set age=29 where member_id=$1",[woman.id]);
+    await db.query("update marriage.partner_criteria set rule=$2 where member_id=$1",[man.id,{mode:'require',min:175}]);
+    assert.deepEqual(await recommend(),[]);
+    await db.query('update marriage.member_basics set height_cm=180 where member_id=$1',[woman.id]);
+    assert.equal((await recommend())[0].recommendationKind,undefined);
+    await hard(woman,'children_plan');await answer(woman,'partner_children_plan','A');
+    assert.deepEqual(await recommend(),[]);
+    await answer(man,'children_plan','A');
+    assert.equal((await recommend())[0].id,woman.id);
+    await db.query('insert into marriage.blocks(member_id,blocked_id) values($1,$2)',[woman.id,man.id]);
+    assert.deepEqual(await recommend(),[]);
+    assert.equal(await scalar("has_function_privilege('authenticated','marriage.recommendation_distance(uuid,uuid)','execute')"),false);
+  });
+  await scenario('Questionnaire dealbreakers use the member’s applicable assessment version in mixed-version pairs',async()=>{
+    await db.query("insert into marriage.member_assessment values($1,'marriage-v4'),($2,'marriage-v3')",[man.id,woman.id]);
+    await hard(man,'social_boundaries');await answer(man,'partner_social_boundaries','A');await answer(woman,'social_boundaries','A');
+    const distance=()=>scalar('marriage.recommendation_distance($1,$2)',[man.id,woman.id]);
+    assert.equal(await distance(),null,'a legacy peer could not have answered this current topic');
+    await db.query("update marriage.member_assessment set version='marriage-v4' where member_id=$1",[woman.id]);
+    assert.equal(await distance(),0);
+    await hard(man,'public_event_attendance');await answer(man,'partner_public_event_attendance','A');await answer(woman,'public_event_attendance','A');
+    assert.equal(await distance(),null,'retired answers cannot silently fulfill a current member’s dealbreaker');
+    await db.query("delete from marriage.fit_hard_requirements where member_id=$1 and dimension='social_boundaries'",[man.id]);
+    await db.query("update marriage.member_assessment set version='marriage-v3' where member_id=$1",[man.id]);
+    assert.equal(await distance(),0,'historical members retain their declared dealbreakers');
   });
   await scenario('A timed-out invitation permits a new request; a later decline still prevents another',async()=>{
     const first=await call(man,'public.marriage_request($1)',[woman.id]);

@@ -55,7 +55,7 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
     if (a?.status === 'proposed' && a.actor === 'abdulrahman' && !a.manSignedAt) {
       return conversation(c, 'agreement', 'اتفاقكما بانتظارك', `${c.person.alias} اقترحت مدة التعارف. راجع الشروط والمدة المقترحة.`, 'مراجعة شروط التعارف', true);
     }
-    if (a?.status === 'accepted' && a.familyAgreed?.[a.actor === 'reham' ? 'abdulrahman' : 'reham'] && !a.familyAgreed?.[a.actor]) {
+    if (p?.stage !== 2 && a?.status === 'accepted' && a.familyAgreed?.[a.actor === 'reham' ? 'abdulrahman' : 'reham'] && !a.familyAgreed?.[a.actor]) {
       return conversation(c, 'agreement', 'اقتراح للتواصل العائلي', `اقتراح من ${c.person.alias} للتواصل مع الأهل. القرار بموافقتكما معًا.`, 'مراجعة الاقتراح', true);
     }
     if (p?.rewindPeer && !p.rewindMine) {

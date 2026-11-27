@@ -31,7 +31,8 @@ test("pilot expiry, two-party progression, capacity and private access work thro
     for (let i = 0; i < 5; i++) peers.push(await add("man"));
     await db.query("insert into marriage.cities(label) values ('جدة') on conflict do nothing");
     await db.query("update marriage.profiles set city_id=(select id from marriage.cities where label='جدة') where member_id=$1", [peers[0].id]);
-    const cityFit = async () => (await db.query("select marriage.compatible($1,$2) as ok", [member.id,peers[0].id])).rows[0].ok;
+    const cityFit = async () => (await db.query("select marriage.recommendation_distance($1,$2)=0 as ok", [member.id,peers[0].id])).rows[0].ok === true;
+    assert.equal((await db.query("select marriage.compatible($1,$2) as can_request", [member.id,peers[0].id])).rows[0].can_request,true);
     assert.equal(await cityFit(), false);
     await db.query("insert into marriage.member_answers(member_id,question_code,option_code) values($1,'residence_plan','A'),($2,'residence_plan','B')", [member.id,peers[0].id]);
     assert.equal(await cityFit(), true);

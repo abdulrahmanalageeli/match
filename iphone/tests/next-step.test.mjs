@@ -75,6 +75,13 @@ test('notification empty copy explains each category rather than treating read m
 });
 
 
+test('a pending pact proposal does not ask again once both members reach the family stage', () => {
+  const pact = {status:'accepted', actor:'abdulrahman', familyAgreed:{reham:true}};
+  const current = stage => snapshot([match], [['a',pact]], [['a',{stage,exclusive:true}]]);
+  assert.equal(chooseNextStep(current(1)).kind, 'agreement');
+  assert.equal(chooseNextStep(current(2)).kind, 'capacity');
+});
+
 test('incoming extension remains actionable even after agreeing to the family step', () => {
   const agreement = { status: 'expired', actor: 'reham', familyAgreed: { reham: true }, extension: { id: 'extension', actor: 'abdulrahman', days: 7 } };
   const result = chooseNextStep(snapshot([match], [['a', agreement]]), assessment);

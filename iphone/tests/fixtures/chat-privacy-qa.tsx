@@ -46,6 +46,9 @@ let agreement: SeriousnessAgreement = {
  womanSignedAt:params.has('agreement')&&actor==='reham'?undefined:time(10),
  manSignedAt:params.has('agreement')?undefined:time(9),
  deadline:params.has('agreement')?undefined:params.has('renew')?time(60):new Date(Date.now()+14*86400000).toISOString(),
+ exclusive:params.has('exclusive'),
+ hasFamilyContact:params.has('sharedFamilyNumber'),
+ ...(params.has('pendingFamily') && {familyProposalId:'previous-family-request',familyAgreed:{[peer]:true}}),
 };
 let failNextSend = params.has('interrupt');
 const source:CommunitySource = {...base,
@@ -66,7 +69,8 @@ const source:CommunitySource = {...base,
  requestCallPermission:async()=>{await new Promise(resolve=>setTimeout(resolve,600));permission={status:'pending',direction:'outgoing'};return permission;},
  setTyping:async()=>{},typingState:async()=>false,
  reactToMessage:async(_room,id,emoji)=>{const rows=read(),row=rows.find(item=>item.id===id);if(!row||row.deletedAt)throw Error('غير متاحة');row.reactions=emoji?[{emoji,count:1,mine:true}]:[];write(rows);return row.reactions;},
- progress:async()=>({stage:0,mine:false,peer:false}),agreement:async()=>params.has('stalledAgreement')?new Promise<SeriousnessAgreement>(()=>{}):({...agreement}),
+ progress:async()=>({stage:params.has('familyStage')?2:0,mine:false,peer:false,exclusive:params.has('exclusive')}),agreement:async()=>params.has('stalledAgreement')?new Promise<SeriousnessAgreement>(()=>{}):({...agreement}),
+ ...(params.has('sharedFamilyNumber') && {familyContact:async()=>'+966500000001'}),
  agree:async(_id,action,payload)=>{
   if(action==='propose')agreement={...agreement,status:'proposed',days:payload.days,womanSignedAt:new Date().toISOString()};
   if(action==='accept')agreement={...agreement,status:'accepted',manSignedAt:new Date().toISOString(),deadline:new Date(Date.now()+agreement.days!*86400000).toISOString()};

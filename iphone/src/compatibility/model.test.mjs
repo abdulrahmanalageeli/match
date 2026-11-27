@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { comparePreferences, describeFit, dimensionsForVersion, rankPreferences } from "./model.ts";
+import { comparePreferences, describeFit, dimensionsForVersion, rankPreferences, recommendationKind } from "./model.ts";
 const dimensions = dimensionsForVersion("marriage-v3");
 import { validPartnerCriteria, validPartnerCriteriaDraft } from './marriage.ts';
 
@@ -146,8 +146,23 @@ test("bilateral signals precede shared hobbies, stable ties ignore input and dis
   const tied = { ...sharedOnly, id: "d" };
   const excluded = { ...b, id: "e", preferredMinAge: 32 };
   const candidates = [excluded, tied, b, sharedOnly];
-  assert.deepEqual(rankPreferences(a, candidates).map(x => x.person.id), ["b", "c", "d"]);
-  assert.deepEqual(rankPreferences(a, candidates.reverse()).map(x => x.person.id), ["b", "c", "d"]);
+  assert.deepEqual(rankPreferences(a, candidates).map(x => x.person.id), ["b", "e", "c", "d"]);
+  assert.deepEqual(rankPreferences(a, candidates.reverse()).map(x => x.person.id), ["b", "e", "c", "d"]);
+  assert.equal(recommendationKind(a,excluded),null);
+});
+
+test("recommendations permit one ordinary near miss and preserve reciprocal boundaries", () => {
+  const woman = {...a,marriageBasics:{polygynyPreference:'not_open'},partnerCriteria:{},hardRequirements:[]};
+  const man = {...b,marriageBasics:{maritalStatus:'divorced',polygynyPreference:'not_open',heightCm:174},partnerCriteria:{},hardRequirements:[]};
+  assert.equal(recommendationKind(woman,man),'strict');
+  const shorterThanPreferred = {...woman,partnerCriteria:{height:{mode:'prefer',min:175}}};
+  assert.equal(recommendationKind(shorterThanPreferred,man),'close');
+  assert.equal(recommendationKind(woman,{...man,preferredMinAge:woman.age+2}),'close');
+  assert.equal(recommendationKind(woman,{...man,preferredMinAge:woman.age+3}),null);
+  assert.equal(recommendationKind(shorterThanPreferred,{...man,preferredMinAge:woman.age+1}),null);
+  assert.equal(recommendationKind({...woman,partnerCriteria:{height:{mode:'require',min:175}}},man),null);
+  assert.equal(recommendationKind(woman,{...man,marriageBasics:{...man.marriageBasics,maritalStatus:'married'}}),null);
+  assert.equal(recommendationKind({...man,marriageBasics:{...man.marriageBasics,polygynyPreference:'open'}},woman),null);
 });
 
 test("a hard preference requires an explicit counterpart answer; a shared city can include a partner who stays", () => {

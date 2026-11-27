@@ -31,6 +31,19 @@ function state(actor = 'reham', publish = false) {
 const privateKeys = ['surveyAnswers', 'personalityAnswers', 'partnerCriteria', 'hardRequirements', 'priorityCategories', 'contact',
   'signupConsents', 'signupConsentRecordedAt', 'preferredMinAge', 'preferredMaxAge', 'beena', 'unknownPrivateField'];
 
+test('private rematch recommendations use both saved profiles before any peer details are redacted',()=>{
+  const raw=state();
+  for (const p of Object.values(raw.profiles)) {p.hardRequirements=[];p.partnerCriteria={};}
+  raw.profiles.reham.marriageBasics.polygynyPreference='not_open';
+  raw.profiles.abdulrahman.marriageBasics.polygynyPreference='not_open';
+  assert.equal(projectPairState(raw).pairRecommendationKind,'strict');
+  raw.profiles.abdulrahman.preferredMinAge=raw.profiles.reham.age+1;
+  assert.equal(projectPairState(raw).pairRecommendationKind,'close');
+  delete raw.profiles.abdulrahman.marriageBasics.polygynyPreference;
+  assert.equal(projectPairState(raw).pairRecommendationKind,null);
+  assert.equal(projectPairState(raw).profiles.abdulrahman.preferredMinAge,undefined);
+});
+
 test('edge scores unchanged stored answers and never emits private peer fields, in either direction', () => {
   for (const actor of ['reham', 'abdulrahman']) for (const publish of [false, true]) {
     const raw = state(actor, publish), before = structuredClone(raw), peer = actor === 'reham' ? 'abdulrahman' : 'reham';

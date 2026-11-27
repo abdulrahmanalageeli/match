@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import ts from 'typescript';
 import {readFileSync} from 'node:fs';
 import {demoLunaScore} from '../src/community/demoLunaSearch.ts';
+import {selectRecommendations} from '../src/community/recommendations.ts';
 import {lunaResultCard} from '../src/community/lunaResultCard.mjs';
 const fixtures=Array.from({length:15},(_,i)=>({id:'sample-'+i,online:true}));
 const code=ts.transpileModule(readFileSync(new URL('../src/community/testingDiscovery.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
@@ -11,10 +12,24 @@ const local={discover:async()=>fixtures,inbox:async()=>localRows,ownsConnection:
 function loadTestingModule(samples){
   samples={inbox:async()=>[],exclusiveConnection:()=>null,...samples};
   const module={};
-  new Function('require','exports',code)(name=>name==='./demoLunaSearch'?{demoLunaScore}:name==='./lunaResultCard.mjs'?{lunaResultCard}:{demoCommunity:()=>samples,demoPeople:fixtures},module);
+  new Function('require','exports',code)(name=>name==='./demoLunaSearch'?{demoLunaScore}:name==='./recommendations'?{selectRecommendations}:name==='./lunaResultCard.mjs'?{lunaResultCard}:{demoCommunity:()=>samples,demoPeople:fixtures},module);
   return {withTestingDiscovery:(real,...args)=>module.withTestingDiscovery({inbox:async()=>[],...real},...args)};
 }
 const exports=loadTestingModule(local);
+
+test('verified tester recommendations top up once across both sources and recheck subject lookups',async()=>{
+  const close=id=>({id,recommendationKind:'close'});
+  const live=[{id:'live-strict'},close('live-near')];
+  const samples=[{id:'demo-strict'},close('demo-near')];
+  const source=loadTestingModule({discover:async()=>samples}).withTestingDiscovery({discover:async()=>live},()=>({}));
+  const discover=filters=>source.discover({mode:'recommended',...filters});
+  assert.deepEqual((await discover({})).map(p=>p.id),['live-strict','demo-strict','live-near']);
+  assert.deepEqual(await discover({subjectId:'demo-near'}),[]);
+  assert.deepEqual((await discover({afterId:'demo-strict'})).map(p=>p.id),['live-near']);
+  samples.push({id:'third-strict'});
+  assert.deepEqual((await discover({})).map(p=>p.id),['live-strict','demo-strict','third-strict']);
+  assert.deepEqual(await discover({subjectId:'live-near'}),[]);
+});
 
 test('Luna searches eligible tester cards before pagination and refreshes with the same plan',async()=>{
   const cards=Array.from({length:29},(_,index)=>({id:'demo-'+index,alias:index>=25?'نورة':'سارة',age:27,eligible:index!==27}));

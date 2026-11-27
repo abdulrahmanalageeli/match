@@ -141,7 +141,7 @@ export function MarriageBasicsFields({ value = {}, gender, onChange, sensitiveAl
       {family.askWifeCount && (show('currentWives') || show('maritalStatus')) && <div className="nf-family-disclosure"><label>عدد الزوجات حاليًا<select value={value.currentWives ?? ""} onChange={event => change({ currentWives: event.target.value ? Number(event.target.value) as MarriageBasics['currentWives'] : undefined })}><option value="">اختر العدد</option>{([1,2,3,4] as const).map(count=><option key={count} value={count}>{count === 1 ? "زوجة واحدة" : count === 2 ? "زوجتان" : count === 3 ? "ثلاث زوجات" : "أربع زوجات"}</option>)}</select></label><small>يظهر عدد الزوجات في ملفك.</small></div>}
       {!eligibilityOnly && <>
       {show('polygynyPreference') && <Choices title={gender === "woman" ? "موقفي من الزواج برجل متزوج أو التعدد لاحقًا" : "موقفي من التعدد مستقبلًا"} required={required} value={value.polygynyPreference} labels={pluralMarriageLabels} onChange={polygynyPreference => change({ polygynyPreference })} />}
-      {gender==='woman' && value.polygynyPreference==='not_open' && <small>ستقتصر الترشيحات الجديدة على رجل غير متزوج صرّح بأنه لا يرغب في التعدد مستقبلًا.</small>}
+      {gender==='woman' && value.polygynyPreference==='not_open' && <small>في «ترشيحات لك» يظهر فقط من لا زوجة له وصرّح بأنه لا يرغب في التعدد. يبقى «جميع الملفات» وطلبات التعارف أوسع.</small>}
       </>}
     </Group>
     <Group activeSection={activeSection} title="الأبناء والعادات" note="تفاصيل من حياتك اليومية" icon={Home} open={reveal === "الأبناء والعادات"} summary={[value.childrenCount !== undefined && (value.childrenCount ? `${arabicNumber(value.childrenCount)} أبناء` : 'دون أبناء'), value.smoking && smokingLabels[value.smoking]].filter(Boolean).join(' · ')}>
@@ -185,7 +185,7 @@ export function PartnerCriteriaFields({ confirmedKeys = [], reviewing = false, f
 
   return <CriteriaFeedback.Provider value={feedback ?? null}><div className="nf-marriage-fields nf-criteria-form" data-field="partnerCriteria" tabIndex={-1}>
     {required && !reviewing && saved.size > 0 && <button type="button" className="f-link" aria-expanded={showSaved} onClick={()=>setShowSaved(!showSaved)}>{showSaved?'عرض المتبقي فقط':'مراجعة المعايير المحفوظة'}</button>}
-    <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>تفضيلاتك خاصة بك.</strong><span>«أفضل» يؤثر في الترتيب. «شرط أساسي» يعبّر عمّا تتمسّك به عند اختيار الشريك. القرار لك عند وصول الطلب.</span></p></div>
+    <div className="nf-detail-intro"><LockKeyhole size={19} strokeWidth={1.5} aria-hidden="true"/><p><strong>تفضيلاتك خاصة بك.</strong><span>ترشيحاتك تراعي شروطك الأساسية دائمًا. إذا قلّت عن ثلاثة، قد يظهر «ترشيح قريب» يختلف في تفضيل واحد. ويمكنك تصفّح بقية الملفات واختيار الطلبات التي تقبلها.</span></p></div>
     {required && remaining.length > 0 && <button type="button" className="f-link" onClick={() => {
       const next = { ...value };
       for (const key of remaining) next[key] = { mode: 'any' };

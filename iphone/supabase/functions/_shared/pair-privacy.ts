@@ -1,4 +1,4 @@
-import { describeFit } from '../../../src/compatibility/model.ts';
+import { describeFit, recommendationKind } from '../../../src/compatibility/model.ts';
 import { compareBeena } from '../../../src/beena/model.ts';
 
 type RecordValue = Record<string, unknown>;
@@ -49,8 +49,9 @@ export function projectPairState<T>(value: T): T {
   const other = record(value.profiles[peer]) ? value.profiles[peer] : {};
   type ScoringProfile = Parameters<typeof describeFit>[0];
   // describeFit reads optional assessments; it does not require demographic defaults.
-  const fit = describeFit({ ...own, id: actor, beena: null } as ScoringProfile,
-    { ...other, id: peer, beena: null } as ScoringProfile).fit;
+  const viewer = { ...own, id: actor, beena: null } as ScoringProfile;
+  const partner = { ...other, id: peer, beena: null } as ScoringProfile;
+  const fit = describeFit(viewer, partner).fit;
   // The SQL wrapper computes Beena before withholding the peer's private answers.
   fit.beena = record(value.beenaFit) ? value.beenaFit as unknown as ReturnType<typeof compareBeena> : compareBeena();
   const { sensitivePublication, ...state } = value;
@@ -58,6 +59,6 @@ export function projectPairState<T>(value: T): T {
   if (Object.hasOwn(value.profiles, actor)) profiles[actor] = value.profiles[actor];
   if (Object.hasOwn(value.profiles, peer)) profiles[peer] = peerProfile(value.profiles[peer],
     record(sensitivePublication) && sensitivePublication[peer] === true);
-  return { ...state, pairFit: fit, profiles,
+  return { ...state, pairFit: fit, pairRecommendationKind:recommendationKind(viewer, partner), profiles,
     ...(Array.isArray(state.messages) ? { messages: state.messages.map(message => messageReactions(message, actor)) } : {}) } as T;
 }

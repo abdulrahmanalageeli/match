@@ -6,11 +6,13 @@ export function Sheet({
   onClose,
   children,
   className,
+  dismissDisabled = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   className?: string;
+  dismissDisabled?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const exit = useRef<Animation | null>(null);
@@ -24,7 +26,7 @@ export function Sheet({
   }, []);
   function dismiss() {
     const dialog = ref.current;
-    if (exit.current) return;
+    if (dismissDisabled || exit.current) return;
     if (!dialog?.animate || document.hidden || document.documentElement.dataset.nfMotion === 'reduced' ||
         window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       close.current();
@@ -55,7 +57,7 @@ export function Sheet({
     >
       <header>
         <h2>{title}</h2>
-        <button className="icon-btn" onClick={dismiss} aria-label="إغلاق">
+        <button className="icon-btn" onClick={dismiss} disabled={dismissDisabled} aria-label="إغلاق">
           <X />
         </button>
       </header>

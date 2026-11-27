@@ -1,5 +1,5 @@
-.flow-frame.wd-gift-page { background:#f7f4ef; color:#352732; min-height:100dvh }
-.wd-gift-page .flow-header { background:#f7f4ef; border-color:#e5dcd6; color:#492c3b }
+.flow-frame.wd-gift-page { background:var(--nf-edge-top, #f7f4ef); color:#352732; min-height:100dvh }
+.wd-gift-page .flow-header { background:transparent; border-color:#e5dcd6; color:#492c3b }
 .wd-gift-page .flow-body { width:min(100%, 38rem); box-sizing:border-box; margin-inline:auto; padding:18px clamp(16px,5vw,28px) max(30px,env(safe-area-inset-bottom)) }
 @media (max-width: 520px) {
   .wd-gift-page .flow-body { padding-inline: 0; }

@@ -1,8 +1,32 @@
 .wd-membership-topline{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
-.wd-paywall-gift,.wd-directory-gift{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:99px;font:inherit;cursor:pointer}
+.wd-paywall-gift{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:99px;font:inherit;cursor:pointer}
 .wd-paywall-gift{min-height:36px;padding:5px 12px;border:1px solid #dbb7c24a;color:#fff6ed;background:#ffffff0a;font-size:.82rem}
-.wd-paywall-gift b{font-size:.73rem}.phone-app .wd-directory-gift{position:relative;width:34px;height:34px;background:#f5eeeb;color:#60263d;border:1px solid #d9c6ca}
-.wd-directory-gift i{position:absolute;top:0;inset-inline-end:0;width:7px;height:7px;background:#851f4a;border:1px solid white;border-radius:50%}
+.wd-paywall-gift b{font-size:.73rem}
+.phone-app .wd-directory-gift {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: .8125rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.wd-gift-glyph { display: inline-flex; position: relative; }
+.wd-gift-glyph i { position: absolute; top: -2px; inset-inline-end: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1.5px var(--paper, white); }
+.phone-app .wd-directory-gift:active { background: var(--blush); }
+.wd-directory-gift:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (max-width: 359px) {
+  .phone-app .wd-discovery-membership:has(.wd-directory-gift) { gap: 3px; }
+  .wd-discovery-membership:has(.wd-directory-gift) :is(.wd-gift-label, .wd-tier-prefix, .wd-membership-entry > svg) { display: none; }
+}
 @font-face{font-family:'Lateef';src:url('/fonts/Lateef-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
 .wd-member-badge{display:inline-flex;vertical-align:-.18em;align-items:center;justify-content:center;flex:0 0 19px;width:19px;height:19px;margin-inline:5px 1px;line-height:1;isolation:isolate}
 .phone-app .st-member-avatar,.phone-app .nf-person-avatar{position:relative;overflow:visible!important}

@@ -21,7 +21,7 @@ const bundle=await build({absWorkingDir:root,stdin:{loader:'tsx',resolveDir:root
  // Bundle the actual Frame shell without the unrelated native welcome animation.
  b.onLoad({filter:/[\\/]Screens\.tsx$/},async ({path})=>{
    const shell=(await readFile(path,'utf8')).split('export function Frame(')[1].split('export { Welcome }')[0];
-   return {contents:"import {ArrowRight} from './BrandIcons';import {Brand} from './Brand';export function Frame("+shell,loader:'tsx'};
+   return {contents:"import {useLayoutEffect} from 'react';import {ArrowRight} from './BrandIcons';import {Brand} from './Brand';export function Frame("+shell,loader:'tsx'};
  });
  b.onResolve({filter:/^\.\.\/(billing|cloud)$/},a=>{
  if(a.importer.endsWith('GiftMembership.tsx'))return{path:a.path,namespace:'gift-services'};
@@ -85,7 +85,7 @@ try{
  const buy=page.getByRole('button',{name:/إهداء ٣٠ يومًا/});await buy.waitFor();
  assert.match(await buy.innerText(),/١٩٩٫٩٩/);
  await page.screenshot({path:resolve(output,'gift-checkout-402.png')});
- purchase='CANCELLED';await buy.click();await page.getByText(/أُغلق الدفع/).waitFor();
+ purchase='CANCELLED';await buy.click();await page.getByText('ما اكتمل الدفع. تقدر ترجع للهدية لاحقًا.',{exact:true}).waitFor();
  purchase='OFFER_CHANGED';await buy.click();await page.getByRole('alert').filter({hasText:'تغيّر السعر'}).waitFor();
  purchase='OFFER_UNAVAILABLE';await buy.click();await page.getByRole('alert').filter({hasText:'تعذّر تأكيد سعر الهدية'}).waitFor();
  assert.equal(calls.filter(c=>c.name==='wudayn_release_gift_checkout').length,3);

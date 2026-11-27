@@ -7,7 +7,7 @@ import type {Profile} from '../types';
 export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, testingOwnerId?:string, tier:()=> 'free'|'premium'|'seriousness'=()=> 'free', generateReading?:import('./simulation').DemoSimulationOptions['generateReading']):CommunitySource {
   let liveExclusive = true;
   const samples=demoCommunity(viewer,false,{membershipTier:tier,interactiveJourney:Boolean(testingOwnerId),useAvailableTesterBasics:Boolean(testingOwnerId),generateReading,canAct:()=>Boolean(testingOwnerId)&&!liveExclusive,storageKey:testingOwnerId?`wudayn-owner-demo-${testingOwnerId}`:undefined});
-  const localConnection=async(id:string)=>Boolean(testingOwnerId)&&(await samples.inbox()).some(row=>row.id===id);
+  const localConnection=(id:string)=>Boolean(testingOwnerId)&&samples.ownsConnection(id);
   let watchers=0;
   const sampleIds=new Set(demoPeople.map(person=>person.id));
   const sampleOnly=()=>Promise.reject(new Error('هذا ملف توضيحي للتجربة. يمكنك إرسال طلب تعارف إلى الأعضاء الحقيقيين.'));
@@ -89,7 +89,12 @@ export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, te
     }),
     demoInteractions:testingOwnerId?samples:undefined,
     inbox: readConnections,
-    async act(id,action,reason,allowRematch){if(action==='accept') await requireDiscovery();return (await localConnection(id)?samples:real).act(id,action,reason,allowRematch);},
+    async act(id,action,reason,allowRematch){if(action==='accept') await requireDiscovery();return (localConnection(id)?samples:real).act(id,action,reason,allowRematch);},
+    agreement: real.agreement && (id => (localConnection(id) ? samples : real).agreement!(id)),
+    familyContact: real.familyContact && (id => (localConnection(id) ? samples : real).familyContact!(id)),
+    closeIntroduction: real.closeIntroduction && ((id, choice) => (localConnection(id) ? samples : real).closeIntroduction!(id, choice)),
+    shareFamilyContact: real.shareFamilyContact && ((id, phone, options) => (localConnection(id) ? samples : real).shareFamilyContact!(id, phone, options)),
+    requestHistoryItem: real.requestHistoryItem && (id => (localConnection(id) ? samples : real).requestHistoryItem!(id)),
     async notifications(){
       const [members,local]=await Promise.all([real.notifications?.()??[],testingOwnerId?samples.notifications?.()??[]:[]]);
       return [...members,...local].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));

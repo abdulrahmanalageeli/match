@@ -34,7 +34,7 @@ function mount(initialProgress = {}) {
     return modules.get(name);
   } });
   return {
-    calls, updates: [], render() { let tree, passes = 0; do { dirty = false; cursor = 0; tree = exports.ConversationGuide({ source, connection: { id: 'match' }, onProgress: next => this.updates.push(next), close() {}, closed() {}, choose() {}, hasDraft: false, openInsights() {}, openFamily() {}, onCompletion() {} }); for (const fn of effects.splice(0)) fn(); if (++passes > 20) throw Error('unstable render'); } while (dirty); return tree; },
+    calls, updates: [], render() { let tree, passes = 0; do { dirty = false; cursor = 0; tree = exports.ConversationGuide({ source, connection: { id: 'match' }, onProgress: next => this.updates.push(next), close() {}, onEnd:()=>calls.push(['open-end-confirmation']), choose() {}, hasDraft: false, openInsights() {}, openFamily() {}, onCompletion() {} }); for (const fn of effects.splice(0)) fn(); if (++passes > 20) throw Error('unstable render'); } while (dirty); return tree; },
     close() { for (const hook of hooks) hook?.cleanup?.(); },
   };
 }
@@ -74,7 +74,6 @@ test('rewind consequences precede a proposal and ending stays visible behind a s
   button(tree, 'اقتراح العودة إلى التعارف الأول').props.onClick(); await settle();
   assert.deepEqual(m.calls[0], ['rewind', 'match', 1, true]);
   tree = m.render(); button(tree, 'إنهاء التعارف').props.onClick(); tree = m.render();
-  assert(button(tree, 'تأكيد إنهاء التعارف'));
-  assert(nodes(tree).some(node => node.type?.name === 'RematchChoice'));
+  assert.deepEqual(m.calls.at(-1),['open-end-confirmation']);
   assert(!m.calls.some(call => call[0] === 'act')); m.close();
 });

@@ -74,12 +74,19 @@ try {
     window.dispatchEvent(new Event('wudayn:privacy-visible'));
   });
   assert.equal(await sender.locator('.cm-chat-capture-notice [role=alert]').count(),0);
+  assert.equal(await sender.locator('.cm-chat-capture-event').count(),0,'covered or unrelated captures stay out of chat');
   const event=await sender.evaluate(()=>window.__emitCapture());
+  const ownNotice=sender.locator('.cm-chat-capture-event');
+  await ownNotice.getByText('لقطة شاشة منك',{exact:true}).waitFor();
+  const capturedAt=await ownNotice.locator('time').getAttribute('datetime');
   const retry=sender.getByRole('button',{name:'إعادة المحاولة',exact:true});
   await retry.waitFor();
   assert.equal(await peer.locator('[data-kind=screenshot]').count(),0);
   await retry.click();
   await retry.waitFor({state:'hidden'});
+  assert.equal(await ownNotice.count(),1,'retry keeps one sender receipt');
+  assert.equal(await ownNotice.locator('time').getAttribute('datetime'),capturedAt,'retry preserves capture time');
+  assert.equal(await sender.evaluate(()=>window.__glows),0,'the native glow is for incoming notices');
   const entry=peer.locator('button[data-kind=screenshot]');
   await peer.bringToFront();
   await entry.waitFor({timeout:15000});
@@ -95,6 +102,7 @@ try {
   await sender.getByRole('button',{name:'فتح المحادثة مع عضو ثانٍ'}).click();
   await sender.waitForFunction(previous=>window.__visibleChat&&window.__visibleChat!==previous,old);
   await sender.evaluate(previous=>window.__emitCapture(previous),old);
+  assert.equal(await sender.locator('.cm-chat-capture-event').count(),0,'a receipt stays in its own conversation');
   const stored=await sender.evaluate(()=>JSON.parse(localStorage.getItem('nisfayn-local-chat-privacy-qa-notice-captures')||'[]'));
   assert.deepEqual(stored.map(row=>[row.requestId,row.id]),[['local-privacy-qa',event]]);
   const nativePeer=await context.newPage();
@@ -134,5 +142,5 @@ try {
   await receive(peer);
   assert.equal(await peer.evaluate(()=>window.__glows),0,'a browser receives the notice without native feedback');
   assert.deepEqual(errors,[]);
-  console.log('Verified screenshot routing, retry, peer notifications, iOS-only live glow, modal/replay suppression, and layout at 320, 390 and 430px.');
+  console.log('Verified both in-chat receipts, retry without duplication, exact chat routing, peer-only iOS glow, modal/replay suppression, and layout at 320, 390 and 430px.');
 } finally {await browser.close();await server.close();}

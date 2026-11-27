@@ -37,6 +37,7 @@ export type DemoSimulationController = {
 export type SimulationRecord = {
   id: string; peer: string; direction: 'incoming' | 'outgoing'; status: 'pending' | 'accepted' | 'closed';
   createdAt: string; updatedAt: string; allowRematch?: boolean; celebrationKey?: string;
+  closureContext?: import('./data').IntroductionClosure['context'];
 };
 type World = {
   people(): PublicPerson[];

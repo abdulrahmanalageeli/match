@@ -15,7 +15,7 @@
 .cm-library-tabs { display: flex; gap: 2px; margin-inline: 20px; padding: 0; border-bottom: 1px solid var(--line); }
 .cm-library-tabs > button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; flex: 1; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); background: transparent; font: inherit; font-size: .77rem; }
 .cm-library-tabs > button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--accent); font-weight: var(--font-weight-heading); }
-.cm-library-results { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 17px 20px; scrollbar-width: thin; scrollbar-color: #b898a155 transparent; }
+.cm-library-results { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 17px 20px; scrollbar-width: thin; }
 .cm-library-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .cm-library-card { min-width: 0; overflow: hidden; background: transparent; }
 .cm-library-card.audio, .cm-library-card.text { grid-column: 1 / -1; padding: 5px 0; border-bottom: 1px solid var(--line); }

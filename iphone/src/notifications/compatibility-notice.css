@@ -10,7 +10,7 @@
   margin: auto auto max(14px, var(--nf-safe-bottom)); padding: 0; overflow-x: hidden;
   border: 1px solid #e5e2de; border-radius: 18px; background: #fff; color: #242326;
   box-shadow: 0 24px 100px #32121e35; font: inherit; text-align: start;
-  overscroll-behavior: contain; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c9c4c1 transparent;
+  overscroll-behavior: contain; overflow-y: auto; scrollbar-width: thin;
 }
 .nf-compatibility-change-sheet::backdrop { background: #2c122339; backdrop-filter: blur(7px); }
 .nf-compatibility-change-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px 0; }

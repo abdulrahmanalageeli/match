@@ -38,6 +38,14 @@ export function Frame({
   className?: string;
   headerAction?: ReactNode;
 }) {
+  useLayoutEffect(() => {
+    const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--nf-edge-top').trim();
+    if (!theme || !color) return;
+    const previous = theme.content;
+    theme.content = color;
+    return () => { theme.content = previous; };
+  }, [className]);
   return (
     <main className={`flow-frame ${className}`.trim()} dir="rtl">
       <header className="flow-header">

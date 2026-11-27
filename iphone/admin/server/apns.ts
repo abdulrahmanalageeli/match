@@ -1,10 +1,10 @@
 import { connect, constants, type ClientHttp2Session, type ClientHttp2Stream } from 'node:http2';
 import { createPrivateKey, sign, type KeyObject } from 'node:crypto';
 
-import { isUpdateEvent, updateEvents, type UpdateEvent } from './updateEvents.js';
+import { introductionClosureCopy, isUpdateEvent, updateEvents, type IntroductionClosureContext, type UpdateEvent } from './updateEvents.js';
 
 export type PushKind = 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication' | 'update';
-export type PushDetails={event?:UpdateEvent;target?:string; analysisPhase?:'requested'|'shared';preview:'private'|'event'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number;scope?:string;launch?:boolean;passive?:boolean;sound?:boolean;receipt?:{job:string;proof:string}};
+export type PushDetails={event?:UpdateEvent;target?:string;closureContext?:IntroductionClosureContext;hasFamilyContact?:boolean; analysisPhase?:'requested'|'shared';preview:'private'|'event'|'name'|'content';sender?:string;body?:string;messageId?:string;roomId?:string;badge:number;scope?:string;launch?:boolean;passive?:boolean;sound?:boolean;receipt?:{job:string;proof:string}};
 export type PushJob = { id: string; leaseId: string; requestId: string; kind: PushKind; token: string; environment: 'sandbox' | 'production'; expiresAt: string;details?:PushDetails };
 export type ApnsConfig = { teamId: string; keyId: string; privateKey: string; topic: string; environment: 'sandbox' | 'production' };
 export type DeliveryResult = 'sent' | 'invalid' | 'retry' | 'failed';
@@ -21,7 +21,8 @@ export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>
     mutual: 'صار بينكم قبول. افتح وُدَين لمتابعة التعارف.',
     message: 'وصلتك رسالة في وُدَين.',
   };
-  const target = job.requestId || job.details?.target;
+  const target = job.kind === 'update' && job.details?.event === 'introduction:closed'
+    ? job.details.target || job.requestId : job.requestId || job.details?.target;
   if (!copy[job.kind] || !target || !/^[0-9a-f-]{36}$/i.test(target)) throw new Error('Invalid push event');
   const clean=(value:string,limit:number)=>value.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g,' ').trim().slice(0,limit);
   const details=job.details;
@@ -31,10 +32,12 @@ export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>
   const discreet = !details || !['event','name','content'].includes(details.preview);
   const event = job.kind === 'update' && isUpdateEvent(details?.event) ? details.event : undefined;
   const style = event ? updateEvents[event] : undefined;
+  const closure = !discreet && event === 'introduction:closed' && details?.closureContext
+    ? introductionClosureCopy(details.closureContext, details.hasFamilyContact === true) : undefined;
   const passive = job.kind === 'reminder' || details?.passive === true || style?.[2] === 'silent' || details?.analysisPhase === 'shared';
   const sound = style?.[2] || (job.kind === 'message' ? 'message' : job.kind === 'analysis' ? 'account' : job.kind === 'mutual' ? 'celebration' : job.kind === 'request' || job.kind === 'family' ? 'step' : null);
   const body=job.kind==='publication' && details?.launch === true ? 'انطلق وُدَين. افتح التطبيق وشوف الجديد.' : discreet ? 'إشعار جديد' : details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160): style?.[0] ?? (details?.analysisPhase === 'shared' ? 'قراءة لونا جاهزة' : details?.analysisPhase === 'requested' ? 'وصلتك دعوة لمراجعة التوافق مع لونا' : copy[job.kind]);
-  return { aps: { alert: { title, body }, ...(passive ? {'interruption-level':'passive'} : {}), ...(!passive && details?.sound !== false ? {sound:!discreet && sound ? `wudayn-${sound}.wav` : 'default'} : {}), 'thread-id':target,
+  return { aps: { alert: closure ?? { title, body }, ...(passive ? {'interruption-level':'passive'} : {}), ...(!passive && details?.sound !== false ? {sound:!discreet && sound ? `wudayn-${sound}.wav` : 'default'} : {}), 'thread-id':target,
     ...(details?{badge:Math.max(0,Math.min(999,Math.floor(details.badge)||0))}:{}),
     ...(receipt ? {'mutable-content':1} : {}),
     ...(!discreet && job.kind==='message'?{category:'NISFAYN_MESSAGE'}:{}) }, requestId: target, kind: job.kind,

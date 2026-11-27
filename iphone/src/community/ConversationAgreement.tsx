@@ -1,25 +1,33 @@
 import memberAr, { durationLabel } from '../member-copy.ts';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarDays, CalendarHeart, Check, ChevronLeft, Clock3, Feather, HeartHandshake, LockKeyhole, ShieldCheck, Users, X } from "../BrandIcons";
+import { CalendarDays, CalendarHeart, Check, ChevronDown, ChevronLeft, Clock3, Feather, HeartHandshake, LockKeyhole, LogOut, Phone, ShieldCheck, Users, X } from "../BrandIcons";
 import type { CommunitySource, SeriousnessAgreement } from './data';
 import './conversation-agreement.css';
 import { HelpButton } from '../help/HelpCenter';
 import { SuccessNotice } from './SuccessNotice';
+import { FamilyContactReveal } from './FamilyContact';
 const deadlineFormat=new Intl.DateTimeFormat('ar-SA',{day:'numeric',month:'long',year:'numeric',numberingSystem:'arab',calendar:'gregory',hour:'numeric',minute:'2-digit'});
 const shortDeadlineFormat=new Intl.DateTimeFormat('ar-SA',{day:'numeric',month:'long',numberingSystem:'arab',calendar:'gregory'});
 const daysFormat=new Intl.NumberFormat('ar-SA',{numberingSystem:'arab'});
+const signedExclusive=(pact:SeriousnessAgreement)=>Boolean(pact.exclusive && pact.womanSignedAt && pact.manSignedAt);
 
-export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,openDetails,hasHistory,noticeSlot,peerAlias}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;openDetails?:boolean|number;hasHistory?:boolean;noticeSlot?:HTMLElement|null;peerAlias?:string}){
+export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,onFamilyContact,openDetails,hasHistory,noticeSlot,peerAlias}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;onFamilyContact?:()=>void;openDetails?:boolean|number;hasHistory?:boolean;noticeSlot?:HTMLElement|null;peerAlias?:string}){
  const [agreement,setAgreement]=useState<SeriousnessAgreement|null>(null),[days,setDays]=useState(14),[signed,setSigned]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[expanded,setExpanded]=useState(false);
  const [loadError,setLoadError]=useState(false),[retry,setRetry]=useState(0);
+ const [signature,setSignature]=useState<{requestId:string;name?:string;revision:number}|null>(null);
+ useEffect(()=>{
+   if(!signature)return;
+   const timer=setTimeout(()=>setSignature(null),3400);
+   return ()=>clearTimeout(timer);
+ },[signature]);
  const revision=useRef(0),saving=useRef(false);
  const applyAgreement=useCallback((next:SeriousnessAgreement)=>{
-   const expired=next.status==='accepted' && next.deadline && Date.parse(next.deadline)<=Date.now();
+   const expired=!signedExclusive(next) && next.status==='accepted' && next.deadline && Date.parse(next.deadline)<=Date.now();
    const current=expired?{...next,status:'expired' as const}:next;
    setAgreement(current);
    setLoadError(false);
-   onAllowed(current.status==='accepted'||current.status==='family');
+   onAllowed(current.status==='accepted'||current.status==='family'||(current.status==='expired'&&signedExclusive(current)));
  },[onAllowed]);
  useEffect(()=>{
    const read=source.agreement;
@@ -68,7 +76,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
  useEffect(()=>{if(openDetails)setExpanded(true);},[openDetails]);
  useEffect(()=>{setSigned(false);if(agreement?.days)setDays(agreement.days);},[agreement?.proposalId,agreement?.days]);
  useEffect(()=>{
-   if(agreement?.status!=='accepted'||!agreement.deadline)return;
+   if(agreement?.status!=='accepted'||signedExclusive(agreement)||!agreement.deadline)return;
    const deadline=Date.parse(agreement.deadline);
    let timer:ReturnType<typeof setTimeout>;
    function check(){
@@ -80,7 +88,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
    }
    check();document.addEventListener('visibilitychange',check);
    return ()=>{clearTimeout(timer);document.removeEventListener('visibilitychange',check);};
- },[agreement?.deadline,agreement?.status,onAllowed]);
+ },[agreement?.deadline,agreement?.status,agreement?.exclusive,onAllowed]);
  async function submit(action:'propose'|'accept'|'family_propose'|'family_accept'|'family_clear'|'extend'|'extension_accept'){
   if(!source.agree||saving.current)return;
   saving.current=true;
@@ -89,7 +97,10 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
   try{
     const payload=action==='extend'?{days:7}:action==='extension_accept'?{proposalId:agreement?.extension?.id}:action==='propose'?{days,signed}:action==='accept'?{proposalId:agreement?.proposalId,signed}:{confirmed:true,proposalId:agreement?.familyProposalId};
     const next=await source.agree(requestId,action,payload);
-    if(version===revision.current)applyAgreement(next);
+    if(version===revision.current){
+      applyAgreement(next);
+      if(action==='propose'||action==='accept')setSignature({requestId,name:next.mineName||agreement?.mineName,revision:version});
+    }
   }catch(e){
     if(version===revision.current)setError(e instanceof Error?e.message:'تعذّر حفظ الاتفاق.');
   }finally{saving.current=false;setBusy(false);}
@@ -106,12 +117,18 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
  }
  const remaining=agreement.deadline?Date.parse(agreement.deadline)-Date.now():null;
  const dueSoon=remaining!==null&&remaining>0&&remaining<=86400000;
- const allowed=agreement.status==='accepted'||agreement.status==='family',woman=agreement.actor==='reham';
+ const allowed=agreement.status==='accepted'||agreement.status==='family'||(agreement.status==='expired'&&signedExclusive(agreement)),woman=agreement.actor==='reham';
  const myName=agreement.mineName,peerName=agreement.peerName||peerAlias||(woman?'شريكك':'شريكتك');
  const womanName=woman?(myName||'أنتِ'):peerName,manName=woman?peerName:(myName||'أنت');
  const date=agreement.deadline?deadlineFormat.format(new Date(agreement.deadline)):'';
  const mine=agreement.familyAgreed?.[agreement.actor],peer=agreement.familyAgreed?.[woman?'abdulrahman':'reham'];
  const expired=agreement.status==='expired';
+ const shareContact=woman && agreement.womanSignedAt && agreement.manSignedAt && remaining!==null && remaining<=0
+   && !agreement.hasFamilyContact && onFamilyContact
+   ? expired&&!allowed
+     ? <button type="button" className="cm-expiry-link" onClick={onFamilyContact}><Phone size={17} aria-hidden="true"/>مشاركة رقم الأهل<ChevronLeft size={15} aria-hidden="true"/></button>
+     : <button type="button" className="btn-secondary" onClick={onFamilyContact}><Users size={16}/> مشاركة رقم الأهل</button>
+   : null;
  const proposed=agreement.status==='proposed';
  const title=expired?'انتهت مدة ميثاق التعارف':proposed
    ? woman?'أرسلتِ ميثاق التعارف':`أرسلت ${peerName} ميثاق التعارف`
@@ -124,7 +141,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
    peer && !mine && 'وصلك طلب للتواصل العائلي.',
  ].filter(Boolean).join(' ');
  const description=expired
-   ? decisions || 'حان وقت القرار معًا: الخطوة التالية في مسار التعارف أو إنهاء التعارف باحترام.'
+   ? ['الخطوة الجاية هي التعارف الحصري، إذا وافقتوا عليه أنتم الاثنين.',decisions].filter(Boolean).join(' ')
    : proposed ? `المدة المقترحة: ${durationLabel(agreement.days)}.`
    : woman?'اختاري المدة ووقّعي الميثاق ليراجعه الطرف الآخر.':`سيظهر الميثاق هنا بعد أن تحدد ${peerName} مدة التعارف وتوقّع عليه.`;
  function decisionNotice(heading:string,body:string,action:string){
@@ -140,40 +157,67 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
    {(mine||peer||agreement.status==='family') && <button className="btn-secondary" disabled={busy} onClick={()=>void submit('family_clear')}>{mine||agreement.status==='family'?'سحب موافقتي على التواصل العائلي':'رفض طلب التواصل العائلي'}</button>}
    {mine && !peer && <p>بانتظار قرار الطرف الآخر.</p>}
  </>;
- if(allowed&&!agreement.womanSignedAt&&!agreement.deadline)return null;
- if(allowed)return <div className="cm-agreement-summary">
-  {agreement.status==='accepted' && decisions ? !expanded && decisionNotice('خطوتكما التالية',decisions,'مراجعة الطلب') : <button onClick={()=>setExpanded(value=>!value)} aria-expanded={expanded} data-due-soon={dueSoon || undefined} aria-label={agreement.status==='family'?'تفاصيل التواصل مع الأهل':`تفاصيل اتفاقكما حتى ${date}`}><CalendarDays size={15}/><span>{agreement.status==='family'?'التواصل مع الأهل':agreement.deadline ? `${dueSoon?'موعدكما':'حتى'} ${shortDeadlineFormat.format(new Date(agreement.deadline))}` : 'تفاصيل الاتفاق'}</span></button>}
+ function withUpdates(content:ReactNode) {
+   const receipt=signature?.requestId===requestId && <div key={signature.revision} className="cm-ink-receipt" role="status">
+     <div className="cm-signature-copy">
+       {signature.name && <bdi dir="auto">{signature.name}</bdi>}
+       <span>تم توقيع الميثاق</span>
+     </div>
+     <span className="cm-signature-seal" aria-hidden="true"/>
+   </div>;
+   const updates=(receipt||agreement?.hasFamilyContact) && <>{receipt}{agreement?.hasFamilyContact && <FamilyContactReveal source={source} requestId={requestId}/>}</>;
+   return <>{updates && (noticeSlot?createPortal(updates,noticeSlot):updates)}{content}</>;
+ }
+ const nextStep=<div className="cm-agreement-next">
+   <LockKeyhole size={17} aria-hidden="true"/>
+   <div><h3>بعد المدة · التعارف الحصري</h3>
+     <p>إذا وافقتوا عليها أنتم الاثنين، يختفي ملف كل واحد منكم من الاكتشاف وتتوقف الترشيحات والطلبات الجديدة. تُغلق المحادثات والطلبات الأخرى وتظهر شارة «تعارف حصري» بجانب اسميكم.</p>
+   </div>
+ </div>;
+ if(allowed&&!agreement.womanSignedAt&&!agreement.deadline)return withUpdates(null);
+ if(allowed)return withUpdates(<div className="cm-agreement-summary">
+  {agreement.status==='accepted' && decisions ? !expanded && decisionNotice('خطوتكما التالية',decisions,'مراجعة الطلب') : <button onClick={()=>setExpanded(value=>!value)} aria-expanded={expanded} data-due-soon={!agreement.exclusive&&dueSoon || undefined} aria-label={agreement.status==='family'?'تفاصيل التواصل مع الأهل':agreement.exclusive?'تفاصيل الميثاق والتعارف الحصري':`تفاصيل اتفاقكما حتى ${date}`}><CalendarDays size={15}/><span>{agreement.status==='family'?'التواصل مع الأهل':agreement.exclusive?'الميثاق':agreement.deadline ? `${dueSoon?'موعدكما':'حتى'} ${shortDeadlineFormat.format(new Date(agreement.deadline))}` : 'تفاصيل الاتفاق'}</span></button>}
   {expanded&&<AgreementDetails host={noticeSlot} close={()=>setExpanded(false)}>
     <span className="cm-agreement-mark"><CalendarDays size={25}/></span>
     <h2>{memberAr.agreementTitle}</h2>
-    <p className="cm-agreement-deadline">{agreement.status==='family'?'اتفقتما على التواصل العائلي':`مدة التعارف حتى ${date}`}</p>
-    <SuccessNotice title={agreement.status==='family'?'اتفقتوا على التواصل مع الأهل':'اكتمل توقيع ميثاق التعارف'} detail={agreement.status==='family'?'اختاروا مع بعض مين بيتواصل مع الأهل، وكيف ومتى.':'تبدأ المدة من موافقتكم على الميثاق. قبل ما تنتهي، تكلموا عن الخطوة الجاية.'}/>
-    <p>عند انتهاء المدة، تقرّران معًا الانتقال إلى الخطوة التالية في مسار التعارف أو إنهاء التعارف باحترام.</p>
+    <p className="cm-agreement-deadline">{agreement.status==='family'?'اتفقتما على التواصل العائلي':agreement.exclusive?'اتفقتما على التعارف الحصري':`مدة التعارف حتى ${date}`}</p>
+    {agreement.status==='family'?<SuccessNotice title="اتفقتوا على التواصل مع الأهل" detail="اختاروا مع بعض مين بيتواصل مع الأهل، وكيف ومتى."/>:!agreement.exclusive&&nextStep}
     {familyActions}
-    {agreement.status==='accepted'&&<div className="cm-extension-actions">
-      <p>{dueSoon?'بقي أقل من يوم على موعدكما. اختارا ما يناسبكما بهدوء.':'يمكنكما مراجعة المدة والخطوة التالية معًا.'} لا تتغير مرحلة التعارف تلقائيًا.</p>
+    {shareContact}
+    {agreement.status==='accepted'&&!agreement.exclusive&&<div className="cm-extension-actions">
+      {dueSoon&&<p>باقي أقل من يوم على نهاية المدة.</p>}
       {agreement.extension?<><p>{agreement.extension.actor===agreement.actor?'اقتراح التمديد بانتظار موافقة الطرف الآخر.':`يقترح الطرف الآخر تمديد المدة ${durationLabel(agreement.extension.days)}.`}</p>{agreement.extension.actor!==agreement.actor&&<button className="btn-secondary" disabled={busy} onClick={()=>void submit('extension_accept')}>الموافقة على التمديد</button>}</>:<button className="btn-secondary" disabled={busy} onClick={()=>void submit('extend')}>اقتراح أسبوع إضافي</button>}
-      {onJourney&&<button className="btn-secondary" onClick={()=>{setExpanded(false);onJourney();}}>مراجعة الخطوة التالية</button>}
+      {onJourney&&<button className="btn-secondary" onClick={()=>{setExpanded(false);onJourney();}}>مراجعة التعارف الحصري</button>}
       {onEnd&&<button className="fb-text-button" onClick={()=>{setExpanded(false);onEnd();}}>{memberAr.endConnection}</button>}
     </div>}
     <small>هذا الاتفاق يخص محادثتكما. لإيقاف وصول الأهل إلى غرفة قائمة، اسحب الموافقة من جسر الأهل.</small>{error&&<p role="alert">{error}</p>}
     <HelpButton topic="journey" label="ما الذي يحدث بعد ذلك؟"/>
   </AgreementDetails>}
- </div>;
+ </div>);
  const form = <section className="cm-agreement" data-agreement-status={agreement.status} aria-labelledby="seriousness-title">
-  <header className="cm-agreement-hero">
-   <span className="cm-agreement-mark">{expired?<CalendarDays size={22}/>:<Feather size={22}/>}</span>
+  {expired ? <header className="cm-expiry-heading">
+    <span className="cm-expiry-kicker"><CalendarDays size={15} aria-hidden="true"/>ميثاق التعارف</span>
+    <h2 id="seriousness-title">اكتملت مدة التعارف</h2>
+    {agreement.deadline&&<p>{agreement.days&&<>{durationLabel(agreement.days)}<span aria-hidden="true"> · </span></>}انتهت في <time dateTime={agreement.deadline} title={date}>{shortDeadlineFormat.format(new Date(agreement.deadline))}</time></p>}
+  </header> : <header className="cm-agreement-hero">
+   <span className="cm-agreement-mark"><Feather size={22}/></span>
    <h2 id="seriousness-title">{title}</h2>
-   <p className="cm-agreement-intro">{expired ? date && `انتهت المدة في ${date}.` : description}</p>
-  </header>
-  <p className="cm-agreement-purpose">مدة للتعارف بوضوح. في نهايتها، تقرّران معًا الانتقال إلى الخطوة التالية في <strong>مسار التعارف</strong> أو إنهاء التعارف باحترام.</p>
-  <HelpButton topic="journey" label="عن الميثاق ومسار التعارف"/>
+   <p className="cm-agreement-intro">{description}</p>
+  </header>}
+  {!expired&&nextStep}
   {expired ? <div className="cm-agreement-decisions">
-   {onJourney && <button className="btn-primary" onClick={()=>{setExpanded(false);onJourney();}}>مراجعة الخطوة التالية في المسار</button>}
-   {onEnd && <button className="btn-secondary" disabled={busy} onClick={()=>{setExpanded(false);onEnd();}}>إنهاء التعارف باحترام</button>}
-   <details>
-    <summary>خيارات التمديد والتواصل العائلي</summary>
-    <p>يمكنكما تمديد المدة بموافقتكما معًا.</p>
+   <div className="cm-expiry-next">
+     <span className="cm-expiry-kicker">الخطوة الجاية</span>
+     <h3>التعارف الحصري</h3>
+     <p>إذا وافقتوا أنتم الاثنين، يختفي ملفّ كل واحد منكم من الاكتشاف وتتوقف الترشيحات والطلبات الجديدة.</p>
+     <p>تُغلق المحادثات والطلبات الأخرى، وتظهر شارة «تعارف حصري» بجانب اسميكم.</p>
+     {onJourney && <button type="button" className="btn-primary" onClick={()=>{setExpanded(false);onJourney();}}>مراجعة التعارف الحصري<ChevronLeft size={17} aria-hidden="true"/></button>}
+   </div>
+   {shareContact}
+   {onEnd && <button type="button" className="cm-expiry-link" disabled={busy} onClick={()=>{setExpanded(false);onEnd();}}><LogOut size={17} aria-hidden="true"/>إنهاء التعارف باحترام<ChevronLeft size={15} aria-hidden="true"/></button>}
+   <details open={decisions?true:undefined}>
+    <summary>خيارات التمديد والتواصل العائلي<ChevronDown size={15} aria-hidden="true"/></summary>
+    <p>التمديد يحتاج موافقتكم أنتم الاثنين.</p>
     {agreement.extension ? agreement.extension.actor===agreement.actor
      ? <p>اقتراح التمديد بانتظار الطرف الآخر.</p>
      : <button className="btn-secondary" disabled={busy} onClick={()=>void submit('extension_accept')}>الموافقة على تمديد المدة {durationLabel(agreement.extension.days)}</button>
@@ -181,14 +225,16 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
     <div className="cm-agreement-family"><Users size={21}/><span>التواصل مع الأهل يحتاج موافقة الطرفين.</span></div>
     {familyActions}
    </details>
-   <p className="cm-agreement-wait">تقدرون ترجعون للمحادثة بعد ما تتفقون على تمديد المدة أو التواصل مع الأهل.</p>
   </div> : <>
    <div className="cm-agreement-terms" aria-label="أسس ميثاق التعارف">
     <p><span className="cm-agreement-term-mark"><HeartHandshake size={17}/></span><span><strong>تعارف جاد بهدف الزواج</strong></span></p>
     <p><span className="cm-agreement-term-mark"><ShieldCheck size={17}/></span><span><strong>الاحترام والوضوح وحفظ الخصوصية</strong></span></p>
    </div>
    {woman?<><div className="cm-timeline-heading"><span><CalendarDays size={16}/> مدة التعارف</span><small>تبدأ بعد توقيعكما</small></div><div className="cm-timeline-choices">{[7,14,30].map(n=><button key={n} aria-pressed={days===n} onClick={()=>{setDays(n);setSigned(false);}} disabled={busy}><b>{daysFormat.format(n)}</b><span>{n===7?'أيام':'يومًا'}</span></button>)}</div></>:<div className="cm-timeline-offer"><span><CalendarHeart size={22}/></span><strong>{proposed?`${peerName} تقترح ${durationLabel(agreement.days)}`:`${peerName} تختار مدة التعارف`}</strong><p>{proposed?'تبدأ المدة عند موافقتك. التوقيع يعني قبول الميثاق والمدة معًا.':'تظهر المدة هنا بعد أن تختارها وتوقّع الميثاق.'}</p></div>}
-   {(woman||agreement.status==='proposed')&&<><label className="cm-agreement-sign"><input type="checkbox" checked={signed} onChange={e=>setSigned(e.target.checked)} disabled={busy}/><span>{myName ? `أنا ${myName}، ` : ''}قرأت شروط الميثاق وأوافق عليها وعلى مدة التعارف المحددة.</span></label><button className="btn-primary cm-agreement-submit" disabled={!signed||busy} onClick={()=>void submit(woman?'propose':'accept')}>{busy?'جارٍ حفظ التوقيع…':woman?agreement.status==='proposed'?'تحديث اقتراح المدة':'التوقيع واقتراح المدة':'التوقيع والموافقة وبدء الحديث'}</button></>}
+   {(woman||agreement.status==='proposed')&&<><label className="cm-agreement-sign"><input type="checkbox" checked={signed} onChange={e=>{
+     setSigned(e.target.checked);
+     if(e.target.checked && myName)void document.fonts?.load("32px 'Aref Ruqaa'",myName).catch(()=>{});
+   }} disabled={busy}/><span>{myName ? `أنا ${myName}، ` : ''}قرأت شروط الميثاق وأوافق عليها وعلى مدة التعارف المحددة.</span></label><button className="btn-primary cm-agreement-submit" disabled={!signed||busy} onClick={()=>void submit(woman?'propose':'accept')}>{busy?'جارٍ حفظ التوقيع…':woman?agreement.status==='proposed'?'تحديث اقتراح المدة':'التوقيع واقتراح المدة':'التوقيع والموافقة وبدء الحديث'}</button></>}
    <footer className="cm-agreement-signoff">
     <div className="cm-agreement-signatures" role="group" aria-label="حالة التوقيع">
      <span className={agreement.womanSignedAt?'signed':''}><i aria-hidden="true">{agreement.womanSignedAt?<Check size={14}/>:<Clock3 size={14}/>}</i><span><b>{womanName}</b><small>{agreement.womanSignedAt?'تم التوقيع':'بانتظار التوقيع'}</small></span></span>
@@ -201,11 +247,11 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
    </footer>
   </>}{error&&<p role="alert" className="form-error">{error}</p>}
  </section>;
- if (!hasHistory && !(proposed && woman)) return noticeSlot?createPortal(form,noticeSlot):form;
- return <>
-  {!expanded && decisionNotice(title,proposed ? `${description} في نهايتها تقرّران الخطوة التالية في مسار التعارف أو إنهاء التعارف.` : description,expired?'اختيار الخطوة التالية':proposed && woman?'مراجعة اقتراحك':'مراجعة الميثاق')}
+ if (!hasHistory && !(proposed && woman)) return withUpdates(noticeSlot?createPortal(form,noticeSlot):form);
+ return withUpdates(<>
+  {!expanded && decisionNotice(title,proposed ? `${description} بعدها تقدرون تختارون التعارف الحصري بموافقتكم أنتم الاثنين.` : description,expired?'اختيار الخطوة التالية':proposed && woman?'مراجعة اقتراحك':'مراجعة الميثاق')}
   {expanded && <AgreementDetails host={noticeSlot} close={()=>setExpanded(false)}>{form}</AgreementDetails>}
- </>;
+ </>);
 }
 
 function AgreementDetails({close,children,host}:{close:()=>void;children:ReactNode;host?:HTMLElement|null}) {

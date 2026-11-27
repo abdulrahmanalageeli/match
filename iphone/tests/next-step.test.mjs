@@ -9,6 +9,16 @@ const incoming = { ...match, id: 'incoming', status: 'pending' };
 const assessment = { completed: 2, total: 6, label: 'بيننا' };
 const snapshot = (connections = [match], agreements = [], progress = []) => ({ connections, agreements: new Map(agreements), progress: new Map(progress) });
 
+test('an expired pact offers a choice until both members agree to exclusivity', () => {
+  const pact = {status:'expired', actor:'reham'};
+  const review = chooseNextStep(snapshot([match], [['a',pact]]));
+  assert.equal(review.kind,'agreement');
+  assert.match(review.detail,/التعارف الحصري/);
+  const exclusive = snapshot([match], [['a',{...pact,exclusive:true}]]);
+  assert.equal(nextStepState(exclusive).exclusive,true);
+  assert.equal(chooseNextStep(exclusive).kind,'capacity');
+});
+
 test('an agreement awaiting this user takes precedence over assessment or incoming requests', () => {
   const result = chooseNextStep(snapshot([match, incoming], [['a', { status: 'proposed', actor: 'abdulrahman' }]]), assessment);
   assert.equal(result.kind, 'agreement');
@@ -56,12 +66,12 @@ test('unknown or waiting agreements never claim a fresh conversation is ready', 
 });
 
 test('notification empty copy explains each category rather than treating read messages as absent conversations', () => {
-  assert.match(emptyFeed('messages').detail, /غير المقروءة/);
-  assert.match(emptyFeed('messages').detail, /المحادثات السابقة تبقى/);
-  assert.match(emptyFeed('requests').detail, /لا يرسل طلبًا/);
-  assert.match(emptyFeed('interests').detail, /لا يفتح محادثة/);
-  assert.match(emptyFeed('journey').detail, /داخل المحادثة/);
-  assert.match(emptyFeed('unread').detail, /التحديثات السابقة/);
+  assert.match(emptyFeed('messages').title, /غير مقروءة/);
+  assert.match(emptyFeed('messages').detail, /رسائلك السابقة في «المحادثات»/);
+  assert.match(emptyFeed('requests').detail, /ما يرسل طلب تعارف/);
+  assert.match(emptyFeed('interests').detail, /ما يفتح محادثة/);
+  assert.match(emptyFeed('journey').detail, /تراجع المسار من المحادثة/);
+  assert.match(emptyFeed('unread').detail, /إشعاراتك السابقة في «الكل»/);
 });
 
 

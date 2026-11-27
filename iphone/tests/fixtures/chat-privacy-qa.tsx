@@ -45,7 +45,7 @@ let agreement: SeriousnessAgreement = {
  proposalId:'local-proposal',
  womanSignedAt:params.has('agreement')&&actor==='reham'?undefined:time(10),
  manSignedAt:params.has('agreement')?undefined:time(9),
- deadline:params.has('agreement')?undefined:new Date(Date.now()+14*86400000).toISOString(),
+ deadline:params.has('agreement')?undefined:params.has('renew')?time(60):new Date(Date.now()+14*86400000).toISOString(),
 };
 let failNextSend = params.has('interrupt');
 const source:CommunitySource = {...base,

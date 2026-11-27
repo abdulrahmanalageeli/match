@@ -16,9 +16,9 @@
 .cm-chat-plan .cm-agreement-summary { flex: none; border: 0; padding: 0; background: transparent; }
 .cm-chat-plan .cm-agreement-summary > button { flex-direction: column; gap: 3px; padding: 4px 7px; min-height: 44px; font-size: 10px; color: var(--muted); border-inline: 1px solid var(--line); }
 .cm-end-visible { flex: none; min-height: 44px; border: 0; padding: 0 0 0 2px; background: transparent; color: var(--accent-fill); font: inherit; font-size: 11px; white-space: nowrap; }
-.cm-chat .cm-chat-log { padding: 12px 16px 18px; gap: 6px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.cm-chat .cm-chat-log { padding: 12px 16px 18px; gap: 6px; scrollbar-width: thin; }
 .cm-chat-log::-webkit-scrollbar { width: 3px; }
-.cm-chat-log::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.cm-chat-log::-webkit-scrollbar-thumb { background: var(--wd-scroll-thumb); border-radius: 4px; }
 .cm-chat-log::-webkit-scrollbar-button { display: none; }
 .cm-chat-log:focus-visible { outline: 1px solid var(--rose); outline-offset: -2px; }
 .cm-chat .cm-bubble { padding: 9px 13px 6px; border-radius: 18px 18px 18px 5px; box-shadow: none; }

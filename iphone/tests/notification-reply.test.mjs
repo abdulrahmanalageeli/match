@@ -3,6 +3,27 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 
+test('a scoped tester closure tap opens its immutable archive ID on iOS',async()=>{
+  const id='c0000000-0000-4000-8000-000000000052', opened=[], acks=[];
+  const event={kind:'update',event:'introduction:closed',requestId:id,scope:'tester-scope',actionId:'open-closure'};
+  let cleanup,pending=true;
+  const native={status:async()=>({installationId:'test-installation'}),setOwner:async()=>{},
+    addListener:async()=>({remove(){}}),consumeOpen:async()=>({notification:pending?event:null}),
+    acknowledgeOpen:async({actionId})=>{pending=false;acks.push(actionId);}};
+  const modules={'@capacitor/core':{Capacitor:{isNativePlatform:()=>true,getPlatform:()=> 'ios'},registerPlugin:()=>native},
+    react:{useRef:value=>({current:value}),useEffect:fn=>{cleanup=fn();}},'./scope':{notificationScope:async()=>'tester-scope'},
+    '../../admin/server/updateEvents':{isUpdateEvent:value=>value==='introduction:closed'},'../cloud':{},
+    '../testing/pair':{testRequest:()=>new Promise(()=>{})},'./webPush':{}};
+  const source=readFileSync(new URL('../src/notifications/push.ts',import.meta.url),'utf8').replaceAll('import.meta.env.VITE_MARRIAGE_PUSH_ENABLED',"'true'");
+  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const api={},dom={addEventListener(){},removeEventListener(){},hidden:false};
+  new Function('require','exports','document','window',code)(name=>modules[name],api,dom,dom);
+  api.usePushNotifications('tester:fixture',async target=>opened.push(target));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(opened,[id]);assert.deepEqual(acks,['open-closure']);
+  cleanup();
+});
+
 test('unlock during an in-flight check replays reply without waiting for registration',async()=>{
   const listeners={},sent=[],acked=[];let release,first=true,pending=true,cleanup;
   const event={scope:'test-installation-scope',requestId:'00000000-0000-4000-8000-000000000001',kind:'message',scope:'tester-scope',action:'reply',actionId:'reply-1',text:'مرحبا'};

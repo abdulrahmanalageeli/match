@@ -13,11 +13,13 @@ const man = params.has('man');
 let agreement: SeriousnessAgreement = {
   status: params.has('expired') ? 'expired' : params.has('unsent') ? 'none' : 'proposed',
   actor: man ? 'abdulrahman' : 'reham',
+  exclusive: params.has('exclusive'),
   proposalId: 'proposal-1',
   days: 30,
   mineName: man ? 'عبدالله' : 'نورة',
   peerName: man ? 'نورة' : 'عبدالله',
   womanSignedAt: params.has('unsent') ? undefined : new Date().toISOString(),
+  manSignedAt: params.has('expired') || params.has('countdown') ? new Date().toISOString() : undefined,
   deadline: params.has('expired') ? new Date(Date.now()-86400000).toISOString() : undefined,
 };
 if(params.has('countdown')){
@@ -35,6 +37,7 @@ const source = { ...demoCommunity(() => demoProfile), agreement: async () => {
   }
   return {...agreement};
 }, agree: async (_id: string, action: string, payload: any) => {
+  if(params.has('signatureFailure'))throw Error('تعذّر حفظ التوقيع.');
   if(action === 'propose') agreement = { ...agreement, status: 'proposed', days: payload.days, proposalId: 'proposal-2', womanSignedAt: new Date().toISOString() };
   if(action === 'accept') agreement = { ...agreement, status: 'accepted', deadline: new Date(Date.now()+30*86400000).toISOString() };
   if(action === 'extend') agreement = { ...agreement, extension: { id: 'extension', actor: agreement.actor, days: 7 } };
@@ -45,7 +48,9 @@ const source = { ...demoCommunity(() => demoProfile), agreement: async () => {
 } };
 function Fixture() {
   const [allowed, setAllowed] = useState(false), [ending, setEnding] = useState(false);
-  return <main className="app-screen" dir="rtl"><ConversationAgreement source={source} requestId="synthetic" onAllowed={setAllowed} onEnd={()=>setEnding(true)}/>
+  const [decision,setDecision]=useState('');
+  return <main className="app-screen" dir="rtl"><ConversationAgreement source={source} requestId="synthetic" onAllowed={setAllowed} onEnd={()=>setEnding(true)} onJourney={()=>setDecision('مراجعة المسار')} onFamilyContact={()=>setDecision('مشاركة الرقم')}/>
+    {decision&&<output>{decision}</output>}
     {(ending||allowed)&&<output>{ending?'فتح تأكيد إنهاء التعارف':'المحادثة متاحة'}</output>}
     {params.has('stalled')&&<button onClick={()=>delayedRead?.({...agreement,status:'accepted'})}>Resolve previous read</button>}
     {params.has('offline')&&<button onClick={()=>{offline=false;}}>Restore connection</button>}

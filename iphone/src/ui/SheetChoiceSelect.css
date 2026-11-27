@@ -21,7 +21,7 @@
 .nf-choice-sheet-search:focus-within { outline: 2px solid #956176; outline-offset: 2px; }
 .nf-choice-sheet-search > svg { flex: none; }
 .nf-choice-sheet-search button { display: grid; place-items: center; flex: none; width: 44px; height: 44px; margin-inline-end: -10px; border: 0; background: none; color: #746870; }
-.nf-choice-sheet-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 12px; scrollbar-width: thin; scrollbar-color: #d8ccd0 transparent; }
+.nf-choice-sheet-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 12px; scrollbar-width: thin; }
 .nf-choice-sheet-group { padding: 12px 2px 6px; color: #81777d; font-size: 12px; }
 .nf-choice-sheet-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 52px; padding: 12px 2px; border: 0; border-bottom: 1px solid #eae4e4; border-radius: 0; background: none; color: #30232c; font: inherit; font-size: 16px; text-align: start; }
 .nf-choice-sheet-option svg { color: #5a0f28; flex: none; }

@@ -52,7 +52,7 @@
 .phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] .cm-agreement-summary > button { min-height: 36px; color: #716b70; font-size: 12px; }
 .phone-app .cm-shell .cm-chat .cm-chat-plan[data-ready] .cm-end-visible { min-height: 44px; padding-inline: 8px; color: #963549; font-size: 13px; font-weight: 500; }
 .phone-app .cm-shell .cm-chat-stage { background: #fdfdfd; }
-.phone-app .cm-shell .cm-chat .cm-chat-log { padding: 14px 16px 18px; gap: 6px; scrollbar-color: #c4bfbd transparent; }
+.phone-app .cm-shell .cm-chat .cm-chat-log { padding: 14px 16px 18px; gap: 6px; }
 .phone-app .cm-shell .cm-chat .cm-chat-day { color: #716b70; font-size: 12px; padding: 10px 32px 18px; }
 .phone-app .cm-shell .cm-chat-day::before,
 .phone-app .cm-shell .cm-chat-day::after { background: #ddd8d5; }
@@ -78,7 +78,13 @@
 .phone-app .cm-shell .cm-chat .cm-composer-surface { padding: 4px; border-radius: 12px; background: #fdfdfd; border-color: #d8d4d1; box-shadow: none; transition: border-color 180ms ease; }
 .phone-app .cm-shell .cm-chat .cm-composer-surface:focus-within { border-color: #9d7d89; box-shadow: none; }
 .phone-app .cm-shell .cm-chat-compose textarea { color: #242326; caret-color: #54152a; font-size: 16px; }
-.phone-app .cm-shell .cm-chat-compose textarea::placeholder { color: #817a80; }
+.phone-app .cm-shell .cm-chat-compose textarea::placeholder {
+  font-family: var(--font-ui);
+  font-size: .9375rem;
+  font-weight: 400;
+  color: var(--muted);
+  opacity: 1;
+}
 .phone-app .cm-shell .cm-chat-compose form button,
 .phone-app .cm-shell .cm-media-send { color: #fff; background: #54152a; border-radius: 10px; box-shadow: none; }
 .phone-app .cm-shell .cm-chat-compose form button:disabled { color: #9b9095; background: #e8e4e5; box-shadow: none; }

@@ -14,8 +14,41 @@
 .cm-agreement-hero .cm-agreement-mark { grid-row: 1 / span 2; }
 .cm-agreement h2 { margin: 0; color: var(--ink); font-size: 18px; font-weight: 700; line-height: 1.5; }
 .cm-agreement-intro { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
-.cm-agreement-purpose { margin: 14px 0 0; font-size: 14px; line-height: 1.85; color: var(--supporting-ink, var(--ink)); }
-.cm-agreement-purpose strong { color: var(--accent-fill); font-weight: 700; }
+.cm-agreement-next { display: grid; grid-template-columns: 22px minmax(0,1fr); align-items: start; gap: 8px; margin-block: 14px; }
+.cm-agreement-next > svg { margin-top: 3px; color: var(--accent-fill); }
+.cm-agreement-next h3 { margin: 0; font-size: 14px; line-height: 1.65; color: var(--ink); }
+.cm-agreement-next p, .cm-agreement-inline .cm-agreement-next p { margin: 2px 0 0; font-size: 13px; line-height: 1.7; color: var(--muted); }
+@font-face {
+  font-family: 'Aref Ruqaa';
+  src: url('/fonts/ArefRuqaa-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+.cm-ink-receipt { display:flex; justify-content:center; align-items:center; gap:14px; padding:5px 8px 10px; min-height:66px; color:var(--accent-fill); }
+.cm-signature-copy { display:grid; justify-items:center; min-width:0; }
+.cm-signature-copy > span { color:var(--muted); font-size:11px; line-height:1.6; }
+.cm-signature-copy bdi {
+  display:block; max-width:100%; padding-inline:3px; text-align:center; overflow-wrap:anywhere;
+  font:400 clamp(29px,8vw,35px)/1.55 'Aref Ruqaa','Geeza Pro',serif; font-synthesis:none;
+  color:var(--accent-fill);
+}
+.cm-signature-seal {
+  display:grid; place-items:center; flex:none; width:49px; height:49px;
+  background:url('/brand/wudayn-pact-wax.webp') center / contain no-repeat;
+  transform:rotate(-9deg);
+}
+.cm-signature-seal::before {
+  content:""; grid-area:1 / 1; width:35px; height:16px; transform:translateY(-.6px);
+  background:#360e20;
+}
+.cm-signature-seal::after {
+  content:""; grid-area:1 / 1; width:35px; height:16px;
+  background:linear-gradient(155deg,#f0d9c6,#d7b6ac 68%,#c99990);
+}
+.cm-signature-seal::before,.cm-signature-seal::after {
+  -webkit-mask:url('/brand/wudayn-signature-wordmark.webp') center / contain no-repeat;
+  mask:url('/brand/wudayn-signature-wordmark.webp') center / contain no-repeat;
+}
 .cm-agreement > .nf-help-link { justify-content: flex-start; min-height: 44px; margin: 0; padding: 0; font-size: 12px; color: var(--accent-fill); }
 .cm-agreement-terms { border-block: 1px solid var(--line); padding: 5px 0; margin: 0 0 13px; }
 .cm-agreement-terms p { display: grid; grid-template-columns: 22px minmax(0,1fr); min-height: 44px; align-items: center; touch-action: manipulation; gap: 8px; margin: 7px 0; }
@@ -85,15 +118,62 @@
 .cm-agreement-inline p { font-size: 14px; line-height: 1.8; }
 .cm-agreement-inline small { color: var(--muted); font-size: 12px; line-height: 1.7; }
 .cm-agreement-inline .cm-agreement-deadline { color: var(--accent-fill); }
-.cm-agreement-decisions > button { width: 100%; margin-block: 5px; }
-.cm-agreement-decisions details { margin-block: 10px; border-block: 1px solid var(--line); }
-.cm-agreement-decisions summary { padding-block: 12px; min-height: 44px; font-size: 13px; color: var(--accent-fill); cursor: pointer; }
-.cm-agreement-decisions details p { font-size: 13px; line-height: 1.8; }
+.cm-agreement-inline:has(> [data-agreement-status="expired"]),
+.cm-agreement[data-agreement-status="expired"] { border: 0; border-radius: 0; background: transparent; }
+.cm-agreement-inline:has(> [data-agreement-status="expired"]) { margin-block: 8px 0; padding: 0; }
+.cm-agreement[data-agreement-status="expired"] { padding: 10px 4px 6px; }
+.cm-agreement-inline:has(> [data-agreement-status="expired"]) > .cm-agreement-close {
+  position: absolute; z-index: 1; inset-block-start: 0; inset-inline-end: -4px; margin: 0;
+}
+.cm-expiry-heading { padding-inline-end: 42px; padding-block-end: 13px; border-block-end: 1px solid var(--line); }
+.cm-expiry-kicker { display: flex; align-items: center; gap: 6px; color: var(--accent-fill); font-size: 12px; font-weight: 600; line-height: 1.5; }
+.cm-expiry-heading h2 { margin: 2px 0; font-size: clamp(21px, 5.7vw, 25px); line-height: 1.5; }
+.cm-agreement .cm-expiry-heading p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.cm-expiry-heading p span { margin-inline: 2px; }
+.cm-expiry-next { margin-block: 15px 9px; }
+.cm-expiry-next h3 { margin: 1px 0 3px; font-size: 18px; line-height: 1.5; color: var(--ink); }
+.cm-agreement .cm-expiry-next p { margin: 0; font-size: 13px; line-height: 1.75; color: var(--muted); }
+.cm-agreement .cm-expiry-next p + p { margin-block-start: 4px; }
+.cm-expiry-next > button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-block-start: 13px; }
+.cm-agreement-decisions .cm-expiry-link,
+.cm-agreement-decisions summary { width: 100%; min-height: 45px; display: flex; align-items: center; gap: 9px; padding: 7px 0; border: 0; background: transparent; color: var(--ink); text-align: start; font: inherit; font-size: 13px; cursor: pointer; }
+.cm-expiry-link + .cm-expiry-link, .cm-agreement-decisions details { border-block-start: 1px solid var(--line); }
+.cm-expiry-link > svg:first-child { color: var(--accent-fill); }
+.cm-expiry-link > svg:last-child, .cm-agreement-decisions summary > svg { margin-inline-start: auto; color: var(--muted); flex: none; }
+.cm-agreement-decisions summary { list-style: none; color: var(--muted); font-size: 12px; }
+.cm-agreement-decisions summary::-webkit-details-marker { display: none; }
+.cm-agreement-decisions details[open] > summary svg { transform: rotate(180deg); }
+.cm-agreement-decisions details > p { margin: 2px 0 7px; font-size: 13px; line-height: 1.7; }
+.cm-agreement-decisions details > button { width: 100%; margin-block-end: 5px; }
 .cm-agreement-inline > .btn-primary, .cm-agreement-inline > .btn-secondary, .cm-extension-actions > button { width: 100%; margin-block: 5px; }
 @media(max-width:340px) { .cm-agreement { padding: 12px; } .cm-agreement h2 { font-size: 17px; } .cm-timeline-heading { flex-wrap: wrap; gap: 2px 8px; } }
 @media(prefers-reduced-motion:no-preference) {
+  html:not([data-nf-motion=reduced]) .cm-signature-copy bdi {
+    --ink-angle:108deg; --ink-start:0%; --ink-first:34%; --ink-last:66%; --ink-end:100%;
+    --ink-front:linear-gradient(var(--ink-angle), transparent 42%, #000 55%);
+    /* Keep Arabic shaping intact. The body takes ink first, then the upper strokes and dots. */
+    -webkit-mask-image:var(--ink-front),var(--ink-front); mask-image:var(--ink-front),var(--ink-front);
+    -webkit-mask-size:260% 57%,260% 44%; mask-size:260% 57%,260% 44%;
+    -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+    animation:cm-sign-ink 960ms cubic-bezier(.4,.08,.28,1) both;
+  }
+  html:not([data-nf-motion=reduced]) .cm-signature-copy bdi:dir(ltr) { --ink-angle:252deg; --ink-start:100%; --ink-first:66%; --ink-last:34%; --ink-end:0%; }
+  html:not([data-nf-motion=reduced]) .cm-signature-seal { animation:cm-seal-imprint 440ms cubic-bezier(.22,.72,.32,1) 680ms both; }
+  html:not([data-nf-motion=reduced]) .cm-ink-receipt { animation:cm-signature-leave 200ms ease-in 3.2s forwards; }
   html:not([data-nf-motion=reduced]) .cm-agreement,
   html:not([data-nf-motion=reduced]) .cm-agreement-inline { animation: cm-agreement-in 240ms ease-out both; }
   html:not([data-nf-motion=reduced]) .cm-timeline-choices button { transition: background-color 160ms ease, color 160ms ease; }
 }
+@keyframes cm-sign-ink {
+  0% { -webkit-mask-position:var(--ink-start) bottom,var(--ink-start) top; mask-position:var(--ink-start) bottom,var(--ink-start) top; }
+  25% { -webkit-mask-position:var(--ink-first) bottom,var(--ink-start) top; mask-position:var(--ink-first) bottom,var(--ink-start) top; }
+  78% { -webkit-mask-position:var(--ink-end) bottom,var(--ink-last) top; mask-position:var(--ink-end) bottom,var(--ink-last) top; }
+  100% { -webkit-mask-position:var(--ink-end) bottom,var(--ink-end) top; mask-position:var(--ink-end) bottom,var(--ink-end) top; }
+}
+@keyframes cm-seal-imprint {
+  0% { opacity:0; transform:translateY(-5px) scale(1.19) rotate(-17deg); }
+  60% { opacity:1; transform:scale(.96) rotate(-9deg); }
+  100% { opacity:1; transform:scale(1) rotate(-9deg); }
+}
+@keyframes cm-signature-leave { to { opacity:0; } }
 @keyframes cm-agreement-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }

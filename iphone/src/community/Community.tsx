@@ -125,6 +125,7 @@ import { ChatMediaComposer, MessageMedia } from "./ChatMedia";
 import { CallPermissionButton } from "./CallPermission";
 import { ChatScreenshotNotice } from "../privacy/ChatScreenshotNotice";
 import { ConversationAgreement } from "./ConversationAgreement";
+import { PactDecisionSheet, RematchChoice } from './FamilyContact';
 import { ConversationPilotFeedback } from "./ConversationPilotFeedback";
 import { useReadPosition } from "./useReadPosition";
 import { useVoiceCalls } from "../voice/VoiceCalls";
@@ -1024,14 +1025,6 @@ function Discovery({
         <Brand />
         <div className="wd-discovery-membership">
           <MembershipEntry/>
-          {order === "all" && <button
-            type="button"
-            className="dr-refresh-directory"
-            aria-label="تحديث الملفات"
-            aria-busy={loading || undefined}
-            disabled={!canRefreshDirectory}
-            onClick={() => void refreshDirectory()}
-          ><RotateCcw size={15} aria-hidden="true" /></button>}
         </div>
       </header>
       {showReceipt && <SuccessNotice title="حُفظ ملفك وتفضيلاتك" detail="ملفك جاهز للاستكشاف. ابدأ بأقرب الترشيحات، ويمكنك تعديل اختياراتك من الإعدادات." close={()=>setShowReceipt(false)}/>}
@@ -1251,22 +1244,16 @@ function JourneySummary({ progress, name, open }: { progress: StepProgress | nul
   </MotionPressButton>;
 }
 
-function RematchChoice({checked,change,disabled}:{checked:boolean;change:(value:boolean)=>void;disabled:boolean}) {
-  return <label className="cm-rematch-choice"><input type="checkbox" checked={checked} onChange={event=>change(event.target.checked)} disabled={disabled}/><span><strong>السماح بالتعارف مجددًا</strong><small>{checked?'يمكن لأي منكما إرسال طلب جديد؛ لن يبدأ التعارف إلا بعد قبول الطرف الآخر.':'لن تتمكّنا من إرسال طلب تعارف جديد لبعضكما.'}</small></span></label>;
-}
-
-function ConversationGuide({ source, connection, close, closed, choose, hasDraft, openInsights, openFamily, onCompletion, onProgress }: {
-  source: CommunitySource; connection: Connection; close: () => void; closed: () => void;
+function ConversationGuide({ source, connection, close, onEnd, reviewExclusive, choose, hasDraft, openInsights, openFamily, onCompletion, onProgress }: {
+  source: CommunitySource; connection: Connection; close: () => void; onEnd: () => void; reviewExclusive?: boolean;
   onProgress: (value: StepProgress) => void; choose: (text: string) => void; hasDraft: boolean; openInsights: () => void; openFamily?: () => void; onCompletion?: () => void;
 }) {
   const [progress, setProgress] = useState<StepProgress | null>(null);
   const [otherConnections, setOtherConnections] = useState<Connection[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [confirmClose, setConfirmClose] = useState(false);
-  const [allowRematch, setAllowRematch] = useState(false);
   const [exclusiveConsent, setExclusiveConsent] = useState(false);
-  const [reviewCommitment, setReviewCommitment] = useState(false);
+  const [reviewCommitment, setReviewCommitment] = useState(Boolean(reviewExclusive));
   const [rewindConfirm, setRewindConfirm] = useState(false);
   const [savedStep,setSavedStep]=useState<{title:string;detail:string;quiet?:boolean}|null>(null);
   const [retry, setRetry] = useState(0);
@@ -1287,12 +1274,11 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
     return () => { active = false; stop(); };
   }, [source, connection.id, retry]);
   useEffect(()=>{setExclusiveConsent(false);},[progress?.exclusiveId]);
-  async function act(end: boolean) {
+  async function advance() {
     if (busy) return;
     setBusy(true); setError("");
     try {
-      if (end) { await source.act(connection.id, "cancel", undefined, allowRematch); feedback('success'); closed(); }
-      else if (progress && source.nextStep) {
+      if (progress && source.nextStep) {
         const next=await source.nextStep(connection.id, !progress.exclusive ? 1 : progress.stage + 1, !(progress.exclusive ? progress.mine : progress.consentMine), exclusiveConsent);
         setProgress(next);onProgress(next);
         setSavedStep(next.stage>progress.stage||!progress.exclusive&&next.exclusive ? {title:'اتفقتما على المرحلة الجديدة',detail:journeyStages[next.stage]+' · حُفظ اختياركما معًا.'} : (next.exclusive ? next.mine : next.consentMine) ? {title:'وصل اقتراحك',detail:'بانتظار موافقة الطرف الآخر. تبقى المرحلة الحالية كما هي.',quiet:true} : {title:'سُحب الاقتراح',detail:'يمكنك اقتراح الخطوة مجددًا عندما تكون مستعدًا.',quiet:true});
@@ -1336,7 +1322,7 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
         {otherConnections !== null && <details className="nf-journey-closure"><summary>ما سيُغلق في حسابك <span>{ar.format(otherConnections.length)}</span><ChevronLeft size={14}/></summary>{otherConnections.length ? <ul>{otherConnections.map(item=><li key={item.id}>{item.person.alias} · {item.status==='accepted'?'محادثة قائمة':'طلب قيد الانتظار'}</li>)}</ul> : <p>لا توجد طلبات أو محادثات أخرى ظاهرة في حسابك حاليًا.</p>}<small>هذه معاينة لحالتك الحالية. يُطبّق الإغلاق على التعارفات الأخرى لدى الطرفين عند موافقتكما، وقد تتغير القائمة قبل ذلك.</small></details>}
         {!progress.consentMine && <label className="nf-journey-consent-check"><input type="checkbox" checked={exclusiveConsent} onChange={e => setExclusiveConsent(e.target.checked)} disabled={busy}/> <span>{memberAr.exclusiveConsent}</span></label>}
         <p className="nf-journey-consent-state">{progress.consentMine ? 'سُجّلت موافقتك. بانتظار الطرف الآخر.' : progress.consentPeer ? 'موافقتك الآن ستخفي ملفيكما من الاكتشاف وتغلق التعارفات والطلبات الأخرى.' : 'بعد موافقتكما يختفي ملفاكما من الاكتشاف وتُغلق التعارفات الأخرى.'}</p>
-        <MotionPressButton className={progress.consentMine ? 'btn-secondary' : 'btn-primary'} disabled={busy || (!progress.consentMine && !exclusiveConsent)} onClick={() => source.journeyChoice ? void decide('exclusive',progress.consentMine?'clear':progress.consentPeer?'accept':'propose') : void act(false)}>{progress.consentMine ? memberAr.withdrawExclusive : progress.consentPeer ? memberAr.acceptExclusive : memberAr.proposeExclusive}</MotionPressButton>
+        <MotionPressButton className={progress.consentMine ? 'btn-secondary' : 'btn-primary'} disabled={busy || (!progress.consentMine && !exclusiveConsent)} onClick={() => source.journeyChoice ? void decide('exclusive',progress.consentMine?'clear':progress.consentPeer?'accept':'propose') : void advance()}>{progress.consentMine ? memberAr.withdrawExclusive : progress.consentPeer ? memberAr.acceptExclusive : memberAr.proposeExclusive}</MotionPressButton>
          {source.journeyChoice&&progress.consentPeer&&!progress.consentMine&&<button type="button" className="btn-text" disabled={busy} onClick={()=>void decide('exclusive','clear')}>رفض طلب الحصرية</button>}
         {!progress.consentMine&&!progress.consentPeer&&<button type="button" className="btn-text" disabled={busy} onClick={()=>{setReviewCommitment(false);setExclusiveConsent(false);}}>ليس الآن</button>}
         </div>}
@@ -1347,7 +1333,7 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
       {(source.journeyChoice || progress.exclusive) && progress.stage < 2 && <>
         <h3>{progress.mine ? 'اقتراحك بانتظار الموافقة' : progress.peer ? 'لديك طلب للخطوة التالية' : 'خطوتكما القادمة'}</h3>
         <p className="nf-journey-next-note">{progress.mine ? "تنتقلان للخطوة التالية بعد موافقة الطرف الآخر." : progress.peer ? "راجع الخطوة ووافق عندما تكون مستعدًا." : "يصل اقتراحك للطرف الآخر؛ لا تتغيّر المرحلة إلا باتفاقكما."}</p>
-        <MotionPressButton className={progress.mine?'btn-secondary':'btn-primary'} disabled={busy} onClick={() => source.journeyChoice ? void decide('step', progress.mine?'clear':progress.peer?'accept':'propose',progress.stage+1) : void act(false)}>{(progress.mine ? memberAr.withdrawStage : progress.peer ? memberAr.acceptStage : memberAr.proposeStage)[progress.stage + 1]}</MotionPressButton>
+        <MotionPressButton className={progress.mine?'btn-secondary':'btn-primary'} disabled={busy} onClick={() => source.journeyChoice ? void decide('step', progress.mine?'clear':progress.peer?'accept':'propose',progress.stage+1) : void advance()}>{(progress.mine ? memberAr.withdrawStage : progress.peer ? memberAr.acceptStage : memberAr.proposeStage)[progress.stage + 1]}</MotionPressButton>
         {source.journeyChoice && progress.peer && !progress.mine && <button className="btn-text" disabled={busy} onClick={()=>void decide('step','clear',progress.stage+1)}>ليس الآن</button>}
       </>}
     </section>}
@@ -1365,12 +1351,7 @@ function ConversationGuide({ source, connection, close, closed, choose, hasDraft
       <details className="cm-practical-questions"><summary>مواضيع عملية قبل الخطوة القادمة</summary><p>اختارا موضوعًا يناسب وقتكما. يُضاف السؤال كمسودة لتراجعه قبل الإرسال.</p><div className="cm-step-buttons">{practicalQuestions.map(([title,text])=><button key={title} className="btn-secondary" disabled={busy||hasDraft} onClick={()=>choose(text)}><strong>{title}</strong><span>{text}</span></button>)}</div></details>
     </div></details>
     <div className="nf-journey-footer"><HelpButton topic="journey" label="كيف يعمل المسار؟"/>
-    {confirmClose ? <div className="nf-journey-end-confirm">
-      <p className="cm-step-note">سيُغلق التعارف ولن يتمكّن أي منكما من إرسال رسائل أخرى.</p>
-      <RematchChoice checked={allowRematch} change={setAllowRematch} disabled={busy}/>
-      <button className="btn-primary" disabled={busy} onClick={() => void act(true)}>تأكيد إنهاء التعارف</button>
-      <button className="btn-text" disabled={busy} onClick={() => setConfirmClose(false)}>تراجع</button>
-    </div> : <button className="btn-text nf-journey-end" disabled={busy} onClick={() => setConfirmClose(true)}>إنهاء التعارف</button>}
+    <button className="btn-text nf-journey-end" disabled={busy} onClick={onEnd}>إنهاء التعارف</button>
     </div></div>
   </Sheet>;
 }
@@ -1401,7 +1382,8 @@ function ChatComposer({ outbox, composer, canSend, conversationAllowed, typing, 
       <form onSubmit={onSubmit}>
         <textarea
           ref={composer} aria-label="رسالتك" rows={1} maxLength={1000} dir="rtl"
-          value={draft} placeholder={!conversationAllowed ? "مسودة حتى تفعيل الميثاق…" : reply ? "اكتب ردك…" : "رسالتك…"}
+          value={draft} placeholder={!conversationAllowed ? "اكتب مسودة" : reply ? "اكتب ردّك" : "اكتب رسالة"}
+          aria-description={!conversationAllowed ? "تقدر تكتب مسودة الآن وترسلها بعد تفعيل الميثاق." : undefined}
           onChange={(e) => { outbox.write(e.target.value); if (e.target.value.trim()) typing.touch(); else typing.stop(); }}
           onBlur={typing.stop}
           onKeyDown={(e) => {
@@ -1418,12 +1400,13 @@ function ChatComposer({ outbox, composer, canSend, conversationAllowed, typing, 
 }
 
 export function Chat({
-  source, connection, back, close, backLabel, pushOwner, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, initialJourney, openFeedback,
+  source, connection, back, close, backLabel, pushOwner, viewerGender, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, initialJourney, openFeedback,
 }: {
   initialMessage?:string;initialRoom?:string;initialAgreement?:boolean|number;initialAnalysis?:boolean|number;initialJourney?:boolean|number;openFeedback?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
   pushOwner?:string|null;
   onReported?: () => void;
   onEnded?: (id:string) => void;
+  viewerGender?: 'man'|'woman';
   onCompletion?: () => void;
 }) {
   const voice = useVoiceCalls();
@@ -1431,7 +1414,7 @@ export function Chat({
   const [safetyError, setSafetyError] = useState("");
   const [safetyBusy, setSafetyBusy] = useState(false);
   const [showLatest, setShowLatest] = useState(false);
-  const [guide, setGuide] = useState(Boolean(initialJourney));
+  const [guide, setGuide] = useState<boolean|'exclusive'>(Boolean(initialJourney));
   useEffect(()=>{if(initialJourney)setGuide(true);},[initialJourney]);
   const [recording, setRecording] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -1439,7 +1422,7 @@ export function Chat({
   const [muting,setMuting]=useState(false);
   const [muteError,setMuteError]=useState('');
   const [insightsOpen, setInsightsOpen] = useState(false);
-  const thread = useThread(source, connection.id, guide || insightsOpen);
+  const thread = useThread(source, connection.id, Boolean(guide) || insightsOpen);
   const [deepOpen, setDeepOpen] = useState(Boolean(initialAnalysis));
   const [deepTimelineAt, setDeepTimelineAt] = useState<string | null>(null);
   const [deepTimelineSlot, setDeepTimelineSlot] = useState<HTMLSpanElement | null>(null);
@@ -1450,10 +1433,7 @@ export function Chat({
   const [familyOpen, setFamilyOpen] = useState(Boolean(initialRoom));
   useCapturePrivacy(profileOpen || (familyOpen && source.family) ? null : 'chat');
   useEffect(()=>{if(initialRoom)setFamilyOpen(true);},[initialRoom]);
-  const [endMatch, setEndMatch] = useState(false);
-  const [allowRematch, setAllowRematch] = useState(false);
-  const [ending, setEnding] = useState(false);
-  const [endError, setEndError] = useState('');
+  const [endMatch, setEndMatch] = useState<'general'|'pact'|'share'|null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [evidence, setEvidence] = useState<{id:string; submission:string} | null>(null);
   const [messageActionId, setMessageActionId] = useState<string | null>(null);
@@ -1662,13 +1642,6 @@ export function Chat({
       setSafetyBusy(false);
     }
   }
-  async function finishMatch() {
-    if (ending) return;
-    setEnding(true); setEndError('');
-    try { await source.act(connection.id, 'cancel', undefined, allowRematch); feedback('success'); thread.outbox.clear(); onEnded?.(connection.id); close(); }
-    catch (e) { setEndError(messageFor(e)); }
-    finally { setEnding(false); }
-  }
   function returnToChat() {
     const origin = profileIdentity.current?.querySelector<HTMLElement>('.mp-portrait');
     const swap = () => {
@@ -1802,8 +1775,8 @@ export function Chat({
       </ChatComposer>}
       <div className="cm-chat-plan" data-ready>
         {conversationAllowed && source.progress && <JourneySummary progress={journey} name={connection.person.alias} open={() => setGuide(true)}/>}
-        {agreementSlot && !thread.accessDenied && <ConversationAgreement peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch(true)} onJourney={()=>setGuide(true)} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
-        <button className="cm-end-visible" type="button" aria-label="إنهاء التعارف" onClick={() => { setEndError(''); setAllowRematch(false); setEndMatch(true); }}><span>إنهاء</span></button>
+        {agreementSlot && !thread.accessDenied && <ConversationAgreement peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} openDetails={initialAgreement} onEnd={()=>setEndMatch('pact')} onJourney={()=>setGuide('exclusive')} onFamilyContact={source.shareFamilyContact && source.familyContactAvailable?.(connection.id)!==false?()=>setEndMatch('share'):undefined} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
+        <button className="cm-end-visible" type="button" aria-label="إنهاء التعارف" onClick={()=>setEndMatch('general')}><span>إنهاء</span></button>
       </div>
       <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة للتفاعل أو الرد أو الحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>
       {actionMessage && hasMessageActions && !privateHidden && <MessageFocus anchor={messageActionAnchor} self={actionMessage.senderIsMe}
@@ -1838,21 +1811,15 @@ export function Chat({
         </div>
         {muteError&&<p className="form-error" role="alert">{muteError}</p>}
       </Sheet>}
-      {endMatch && <Sheet title="إنهاء التعارف" onClose={() => { if (!ending) setEndMatch(false); }}>
-        <p className="cm-end-copy">هل ترغب بإنهاء التعارف مع {connection.person.alias}؟ ستُغلق المحادثة ولن يتمكّن أي منكما من إرسال رسائل أو بدء مكالمات.</p>
-        <p className="cm-step-note">إذا كنتما تحتاجان وقتًا أهدأ فقط، يمكنكما اقتراح العودة مرحلة من «مسار التعارف». إنهاء التعارف لا يعيد فتح المحادثات المغلقة سابقًا.</p>
-        {endError && <Banner alert text={endError}/>}
-        <RematchChoice checked={allowRematch} change={setAllowRematch} disabled={ending}/>
-        <button className="btn-primary" disabled={ending} onClick={() => void finishMatch()}>{ending ? 'جارٍ إنهاء التعارف…' : 'تأكيد إنهاء التعارف'}</button>
-        <button className="btn-text" disabled={ending} onClick={() => setEndMatch(false)}>الاستمرار في التعارف</button>
-      </Sheet>}
+      {endMatch && <PactDecisionSheet mode={endMatch==='share'?'share':'close'} initialContext={endMatch==='pact'?'pact':'general'} source={source} connection={connection} viewerGender={viewerGender} dismiss={()=>setEndMatch(null)}
+        onClosed={()=>{thread.outbox.clear();onEnded?.(connection.id);close();}}/>}
       {chatHelp&&<HelpCenter initialTopic="chat" close={()=>setChatHelp(false)}/>}
       {safety && <SafetySheet evidence={!!evidence} contextRows={evidenceContext} action={safety} apply={moderate} busy={safetyBusy} error={safetyError}
         close={() => { if (!safetyBusy) { setSafety(null); setEvidence(null); setSafetyError(""); } }}/>}
       {guide && <ConversationGuide source={source} connection={connection} onProgress={setJourney} hasDraft={thread.hasDraft || Boolean(replyDraft) || !canSend || recording} onCompletion={onCompletion}
         openInsights={() => { setGuide(false); setInsightsOpen(true); }}
         openFamily={source.family?()=>{setGuide(false);openFamily();}:undefined}
-        close={() => setGuide(false)} closed={() => { thread.outbox.clear(); onEnded?.(connection.id); close(); }}
+        close={() => setGuide(false)} reviewExclusive={guide==='exclusive'} onEnd={()=>{setGuide(false);setEndMatch(guide==='exclusive'?'pact':'general');}}
         choose={chooseConversationPrompt}/>}
     </section>
   );
@@ -1867,7 +1834,7 @@ const categories = [
 type Category = (typeof categories)[number]["id"];
 const requestScrollMemory = new WeakMap<CommunitySource, Map<string, number>>();
 function Requests({
-  source, pushOwner,
+  source, pushOwner, viewerGender,
   onChatChange,
   onMutual, compatibilityUpdates, onCompatibilityRead, curatedUpdate, onCuratedUpdate,
   openConversation,
@@ -1884,6 +1851,7 @@ function Requests({
   onMatches,
 }: {
   pushOwner?: string | null;
+  viewerGender?: 'man'|'woman';
   source: CommunitySource;
   onChatChange: (chat: boolean) => void;
   onMutual?: (connection: Connection) => void;
@@ -2160,6 +2128,7 @@ function Requests({
       <Chat
         key={item.id}
         pushOwner={pushOwner}
+        viewerGender={viewerGender}
         initialRoom={messageTarget?.connection===item.id?messageTarget.room:undefined}
         initialAnalysis={messageTarget?.connection===item.id&&messageTarget.analysis}
         initialJourney={messageTarget?.connection===item.id&&messageTarget.journey}
@@ -2298,6 +2267,7 @@ function Requests({
       {!existing && !unavailable && <p className="cm-help">يفتح قبول الطرف الآخر محادثة خاصة بينكما.</p>}
     </>}/>;
   }
+  const closingConnection=removeTarget && list.find(row=>row.id===removeTarget && row.status==='accepted');
   if (matches) return <>
     {exitFeedback}
     {actionError && <Banner alert text={actionError}/>}
@@ -2310,13 +2280,11 @@ function Requests({
     onRetry={()=>void refresh()} onBrowse={onBrowse}
     onProfile={id=>{listScroll.current=window.scrollY;navigation.current++;flushSync(()=>{setSelected(id);setChat(false);setActionError('');setNotice('');});window.scrollTo({top:0,behavior:'instant'});}}
     onConversation={(id,origin)=>{listScroll.current=window.scrollY;enterChat(id,origin);}}/>
-    {removeTarget && list.some(row=>row.id===removeTarget&&row.status==='accepted') && <Sheet title="إنهاء التعارف؟" onClose={()=>{if(!busy)setRemoveTarget(null);}}>
-      <p>هل ترغب بإنهاء التعارف مع {list.find(row=>row.id===removeTarget)?.person.alias}؟ ستُغلق المحادثة ولن يتمكّن أي منكما من إرسال رسائل أو بدء مكالمات.</p>
-      {actionError && <Banner alert text={actionError}/>}
-      <RematchChoice checked={allowRematch} change={setAllowRematch} disabled={busy}/>
-      <button className="btn-primary" disabled={busy} onClick={()=>{const row=list.find(row=>row.id===removeTarget&&row.status==='accepted');if(row)void act('cancel',undefined,row);}}>{busy?'جارٍ إنهاء التعارف…':'تأكيد إنهاء التعارف'}</button>
-      <button className="btn-text" disabled={busy} onClick={()=>setRemoveTarget(null)}>الاستمرار في التعارف</button>
-    </Sheet>}
+    {closingConnection && <PactDecisionSheet key={closingConnection.id} mode="close" source={closingConnection.person.isDemo?source.demoInteractions??source:source}
+      connection={closingConnection} viewerGender={viewerGender} dismiss={()=>setRemoveTarget(null)} onClosed={()=>{
+        setRemoveTarget(null);setEndedFeedback(closingConnection.id);setList(rows=>rows.filter(row=>row.id!==closingConnection.id));
+        setNotice('انتهى التعارف.');void refresh();
+      }}/>}
     {declineTarget && list.some(row=>row.id===declineTarget&&row.status==='pending'&&row.direction==='incoming') && <Sheet title="رفض طلب التعارف؟" onClose={()=>{if(!busy)setDeclineTarget(null);}}>
       <p>سيُغلق طلب التعارف.</p>
       {actionError && <Banner alert text={actionError}/>}
@@ -2478,7 +2446,7 @@ export function Community(props: CommunityProps) {
       ) : tab === "discover" ? (
         <Discovery source={source} onAccount={onAccount} profileSaved={props.profileSaved} onBeena={props.onBeena} beenaAnswered={props.beenaAnswered} onInbox={entry => { setRequestToOpen(entry); onTab("inbox"); }} onConversation={(id,panel)=>{if(panel && props.openUpdate){void props.openUpdate({requestId:id,kind:'update',event:panel==='agreement'?'agreement:proposed':'journey:invited'});return;}setConversationToOpen(id);onTab('chats');}} />
       ) : (
-        <Requests key={tab} pushOwner={props.pushOwner} source={source} onChatChange={setChat} conversations={tab === "chats"} matches={tab === 'curated'}
+        <Requests key={tab} pushOwner={props.pushOwner} viewerGender={props.viewerGender} source={source} onChatChange={setChat} conversations={tab === "chats"} matches={tab === 'curated'}
           onBrowse={() => onTab('discover')}
           onMatches={() => onTab('curated')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}

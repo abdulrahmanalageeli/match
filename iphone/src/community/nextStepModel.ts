@@ -27,7 +27,7 @@ export function nextStepState(snapshot: NextStepSnapshot): NextStepState {
   return {
     loaded: true,
     acceptedCount: accepted.length,
-    exclusive: accepted.some(c => snapshot.progress.get(c.id)?.exclusive || c.person.exclusive),
+    exclusive: accepted.some(c => snapshot.progress.get(c.id)?.exclusive || snapshot.agreements.get(c.id)?.exclusive || c.person.exclusive),
     pendingIncomingCount: snapshot.connections.filter(c => c.status === 'pending' && c.direction === 'incoming').length,
   };
 }
@@ -43,11 +43,11 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
   for (const c of accepted) {
     const a = snapshot.agreements.get(c.id);
     const p = snapshot.progress.get(c.id);
-    if (a?.extension && (a.status === 'accepted' || a.status === 'expired') && a.extension.actor !== a.actor) {
+    if (!a?.exclusive && !p?.exclusive && a?.extension && (a.status === 'accepted' || a.status === 'expired') && a.extension.actor !== a.actor) {
       return conversation(c, 'agreement', 'اقتراح تمديد بانتظارك', `اقتراح من ${c.person.alias} لتمديد المدة. المدة الإضافية: ${durationLabel(a.extension.days)}. يبدأ التمديد بعد موافقتكما.`, 'مراجعة التمديد', true);
     }
-    if (a?.status === 'expired' && !a.familyAgreed?.[a.actor]) {
-      return conversation(c, 'agreement', 'راجعا اتجاه التعارف', `انتهت المدة مع ${c.person.alias}. اختارا التمديد أو التواصل العائلي أو الانسحاب بوضوح.`, 'مراجعة اتفاقنا', true);
+    if (a?.status === 'expired' && !a.exclusive && !p?.exclusive && !a.familyAgreed?.[a.actor]) {
+      return conversation(c, 'agreement', 'انتهت مدة الميثاق', `الخطوة الجاية مع ${c.person.alias} هي التعارف الحصري، إذا وافقتوا عليه أنتم الاثنين.`, 'مراجعة خيارات الميثاق', true);
     }
     if (a?.status === 'none' && a.actor === 'reham') {
       return conversation(c, 'agreement', 'بداية واضحة قبل أول رسالة', `اختاري مدة التعارف مع ${c.person.alias}. تبدأ المدة بعد موافقتكما على الشروط.`, 'اقتراح مدة التعارف', true);
@@ -84,7 +84,7 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
       action: assessment.completed ? 'تابع مواقف بيننا' : 'جرّب مواقف بيننا', target: 'assessment' };
   }
 
-  const exclusive = accepted.find(c => snapshot.progress.get(c.id)?.exclusive || c.person.exclusive);
+  const exclusive = accepted.find(c => snapshot.progress.get(c.id)?.exclusive || snapshot.agreements.get(c.id)?.exclusive || c.person.exclusive);
   if (exclusive) return conversation(exclusive, 'capacity', `مساحتك الآن مع ${exclusive.person.alias}`,
     snapshot.progress.get(exclusive.id)?.stage === 2 ? 'وصلتما للخطوة العائلية. اتفقا على الشخص والوسيلة والموعد بالوتيرة التي تناسبكما.' : 'اخترتما التعارف الحصري. لا تبدأ طلبات جديدة خلاله، ويمكنكما مراجعة المسار معًا.', 'متابعة مسارنا');
   if (accepted.length >= capacity) return conversation(accepted[0], 'capacity', 'مساحة للتعارف بتركيز',
@@ -92,7 +92,7 @@ export function chooseNextStep(snapshot: NextStepSnapshot, assessment?: NextStep
 
   for (const c of accepted) {
     const a = snapshot.agreements.get(c.id);
-    if (a?.status === 'none' || a?.status === 'proposed' || a?.status === 'expired') {
+    if (a?.status === 'none' || a?.status === 'proposed' || (a?.status === 'expired' && !a.exclusive && !snapshot.progress.get(c.id)?.exclusive)) {
       return { ...conversation(c, 'waiting', 'الخطوة التالية لدى الطرف الآخر',
         a.status === 'none' ? `بانتظار اقتراح المدة من ${c.person.alias}. تبدأ المراسلة بعد موافقتكما على الشروط والمدة.` : `اقتراحك مع ${c.person.alias} بانتظار المراجعة. يمكنك الاطّلاع على اتفاقكما في المحادثة.`, 'عرض اتفاقنا'), agreementPeer: c.person.alias };
     }

@@ -151,7 +151,7 @@ html[data-nf-motion="reduced"] .wi-dialog *,html[data-nf-motion="reduced"] .wi-d
 .wi-chat[data-opening] .wi-composer { border-top:0; padding-inline:22px; }
 .wi-chat-context { display:flex; align-items:center; justify-content:space-between; flex:none; gap:10px; padding:11px 22px; font-size:0.75rem; color:#86717d; }
 .wi-chat-context>span:last-child { display:flex; align-items:center; gap:5px; font-size:0.6875rem; }
-.wi-thread { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:12px 22px 24px; scrollbar-width:thin; scrollbar-color:#d8c8d1 transparent; }
+.wi-thread { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:12px 22px 24px; scrollbar-width:thin; }
 .wi-exchange { display:contents; }
 .wi-bubble { max-width:91%; width:fit-content; margin-block:0 18px; padding:15px 17px; line-height:1.95; font-size:1rem; overflow-wrap:anywhere; }
 .wi-bubble p { margin:0; white-space:pre-wrap; }

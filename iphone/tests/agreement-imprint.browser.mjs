@@ -18,7 +18,7 @@ try {
  page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  async function open(actor,query='agreement') {
-  await page.goto('http://127.0.0.1:5297/tests/fixtures/chat-privacy-qa.html?'+query+'&actor='+actor+'&case='+Date.now());
+  await page.goto('http://127.0.0.1:5297/tests/fixtures/chat-privacy-qa.html?'+query+'&actor='+actor+'&case='+Date.now(),{waitUntil:'domcontentloaded',timeout:60000});
   await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
   await page.locator('.cm-chat-stage').waitFor();
   await page.evaluate(()=>document.fonts.ready);
@@ -28,7 +28,7 @@ try {
   await open(actor);
   const imprint=page.locator('.cm-agreement-slot .cm-agreement');
   await imprint.waitFor();
-  assert.match(await imprint.innerText(),/مسار التعارف/);
+  assert.match(await imprint.locator('.cm-agreement-next').innerText(),/التعارف الحصري[\s\S]*أنتم الاثنين[\s\S]*تُغلق المحادثات والطلبات الأخرى/);
   assert.equal(await page.getByRole('dialog').count(),0);
   assert(await page.getByRole('button',{name:'إرسال الرسالة',exact:true}).isDisabled());
   await page.screenshot({path:resolve(output,actor+'-390.png'),animations:'disabled'});
@@ -47,6 +47,9 @@ try {
   await imprint.locator('.cm-agreement-sign span').tap();
   assert(await checkbox.isChecked());
   await imprint.getByRole('button',{name:actor==='reham'?'التوقيع واقتراح المدة':'التوقيع والموافقة وبدء الحديث'}).click();
+  const signature=page.locator('.cm-agreement-slot .cm-ink-receipt');
+  await signature.waitFor();
+  assert.equal(await signature.locator('bdi').textContent(),actor==='reham'?'نورة':'عبدالله');
   if(actor==='reham') {
    await page.getByRole('button',{name:'مراجعة اقتراحك'}).waitFor();
    assert.equal(await imprint.count(),0);
@@ -69,7 +72,7 @@ try {
  assert.equal(await notice.evaluate(node=>node.getBoundingClientRect().top),top);
  await page.getByRole('button',{name:'اختيار الخطوة التالية'}).click();
  const expired=page.locator('.cm-agreement-slot .cm-agreement-inline');
- await expired.getByRole('button',{name:'مراجعة الخطوة التالية في المسار'}).waitFor();
+ await expired.getByRole('button',{name:'مراجعة التعارف الحصري'}).waitFor();
  await expired.getByRole('button',{name:'إنهاء التعارف باحترام'}).waitFor();
  await page.screenshot({path:resolve(output,'expired-390.png'),animations:'disabled'});
  await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();

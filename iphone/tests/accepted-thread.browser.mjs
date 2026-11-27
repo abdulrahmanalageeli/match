@@ -63,7 +63,10 @@ try {
  await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
  await page.locator('.cm-agreement-slot').getByRole('heading',{name:'انتهت مدة ميثاق التعارف'}).waitFor();
  await page.getByRole('button',{name:'اختيار الخطوة التالية'}).click();
- await page.locator('.cm-agreement-slot .cm-agreement-inline').getByRole('heading',{name:'انتهت مدة ميثاق التعارف'}).waitFor();
+ const expiry=page.locator('.cm-agreement-slot .cm-agreement-inline');
+ await expiry.getByRole('heading',{name:'اكتملت مدة التعارف'}).waitFor();
+ assert.match(await expiry.locator('.cm-expiry-next').innerText(),/إذا وافقتوا أنتم الاثنين[\s\S]+تُغلق المحادثات والطلبات الأخرى/);
+ assert.equal(await expiry.getByRole('button',{name:'مشاركة رقم الأهل'}).count(),0);
  assert.equal(await page.getByRole('dialog').count(),0,'agreement expands inside the chat');
  await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();
  await page.locator('[data-server-id="hello"]').waitFor();

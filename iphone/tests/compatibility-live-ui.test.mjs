@@ -13,6 +13,7 @@ import { readBrowseMemory, saveBrowseMemory } from '../src/community/discoveryMe
 import { shuffleWithVisibility } from '../src/community/visibilityOrder.ts';
 
 const communityCode = compile(await readFile(new URL('../src/community/Community.tsx', import.meta.url), 'utf8') + '\nexport { Discovery, Requests, DirectoryRow, PersonCard, FilterSheet };');
+const decisionCode = compile(await readFile(new URL('../src/community/FamilyContact.tsx', import.meta.url), 'utf8'));
 const lunaCode = compile(await readFile(new URL('../src/community/LunaSearch.tsx', import.meta.url), 'utf8'));
 const insightsCode = compile(await readFile(new URL('../src/community/ChatInsights.tsx', import.meta.url), 'utf8'));
 const relationshipCountsCode = compile(await readFile(new URL('../src/community/useRelationshipCounts.ts', import.meta.url), 'utf8'));
@@ -230,18 +231,19 @@ test('ending an accepted match requires confirmation and submits once', async ()
   const m=mount(communityCode,'Requests',{...baseProps(source),matches:true});
   m.render(); await settle();
   named(m.render(),'MatchesOverview').props.onRemove('pending');
-  assert.equal(named(m.render(),'Sheet'),undefined);
+  assert.equal(named(m.render(),'PactDecisionSheet'),undefined);
   named(m.render(),'MatchesOverview').props.onRemove('accepted');
-  let sheet=named(m.render(),'Sheet'); assert.equal(sheet.props.title,'إنهاء التعارف؟'); assert.equal(calls.length,0);
-  nodes(sheet).find(node=>node.type==='button'&&textOf(node)==='الاستمرار في التعارف').props.onClick();
-  assert.equal(named(m.render(),'Sheet'),undefined); assert.equal(calls.length,0);
-  named(m.render(),'MatchesOverview').props.onRemove('accepted'); sheet=named(m.render(),'Sheet');
-  const confirm=nodes(sheet).find(node=>node.type==='button'&&textOf(node)==='تأكيد إنهاء التعارف');
-  confirm.props.onClick(); confirm.props.onClick();
+  const decision=named(m.render(),'PactDecisionSheet'); assert.equal(decision.props.mode,'close'); assert.equal(calls.length,0);
+  decision.props.dismiss();
+  assert.equal(named(m.render(),'PactDecisionSheet'),undefined); assert.equal(calls.length,0);
+  named(m.render(),'MatchesOverview').props.onRemove('accepted');
+  const confirmation=mount(decisionCode,'PactDecisionSheet',named(m.render(),'PactDecisionSheet').props);
+  const form=nodes(confirmation.render()).find(node=>node.type==='form');
+  form.props.onSubmit({preventDefault:noop});form.props.onSubmit({preventDefault:noop});
   assert.deepEqual(calls,[['accepted','cancel',false]]);
   gate.resolve(); await settle(); await settle();
-  assert.equal(named(m.render(),'Sheet'),undefined);
-  assert.equal(named(m.render(),'MatchesOverview').props.connections.some(row=>row.id==='accepted'),false); m.close();
+  assert.equal(named(m.render(),'PactDecisionSheet'),undefined);
+  assert.equal(named(m.render(),'MatchesOverview').props.connections.some(row=>row.id==='accepted'),false); confirmation.close();m.close();
 });
 
 test('navigation captures discovery position before the parent resets the page scroll', async () => {

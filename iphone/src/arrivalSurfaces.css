@@ -357,22 +357,6 @@ html .phone-app [data-motion-press]:active { translate: none !important; }
 .phone-app .cm-shell .df-discovery .dr-fit-visual .nf-score-logo { transform:scale(1.18,1.32); transform-origin:center; }
 .phone-app .cm-shell .df-discovery .dr-row-actions button > svg { stroke-width: 1.5; }
 html:has(.dr-directory) { overscroll-behavior-y: contain; }
-.phone-app .cm-shell .dr-refresh-directory {
-  display: inline-grid;
-  place-items: center;
-  min-width: 32px;
-  min-height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #641a35;
-}
-.phone-app .cm-shell .dr-refresh-directory:focus-visible { outline: 2px solid #641a35; }
-.phone-app .cm-shell .dr-refresh-directory:disabled { opacity: .5; }
-@media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion="reduced"]) .dr-refresh-directory[aria-busy="true"] svg { animation: dr-refresh-spin 850ms linear infinite; }
-}
 @keyframes dr-refresh-spin { to { transform: rotate(-360deg); } }
 
 .phone-app .cm-shell .dr-filter-sheet {

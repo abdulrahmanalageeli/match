@@ -29,6 +29,8 @@ window.__trackPullRows=()=>{window.__pullRowReads=0;for(const person of people){
  const tier=person.membershipTier;Object.defineProperty(person,'membershipTier',{configurable:true,get(){window.__pullRowReads++;return tier;}});
 }};
 window.__filters=[];const source={discover:async(f)=>{window.__filters.push(f);return f.search==='لا يوجد'?[]:people.filter(person=>person.eligible!==false||f.mode==='all'&&!f.eligibleOnly);},inbox:async()=>[],watch:()=>()=>{},setInterest:async(id,value)=>{window.__interest.push({id,value});if(window.__failInterest)throw Error('تعذّر إرسال الاهتمام');const index=people.findIndex(p=>p.id===id);people[index]={...people[index],interested:value};},verification:async()=>({claims:[],requests:new URLSearchParams(location.search).has('legacy')?[{id:'old'}]:[]}),request:async()=>{throw Error('not part of fixture')}};
+const discover=source.discover;
+source.discover=async filters=>{await window.__directoryRefreshGate;return discover(filters);};
 if(location.search.includes('slowProfile')){
  const listeners=new Set();
  source.watch=listener=>{listeners.add(listener);return ()=>listeners.delete(listener);};
@@ -66,8 +68,7 @@ await server.listen();let browser,page;const errors=[];
 async function checkDirectoryPull() {
  const surface = page.locator('.dr-directory');
  const indicator = surface.locator('.dr-pull-indicator');
- const refreshButton = surface.getByRole('button',{name:'تحديث الملفات'});
- await page.waitForFunction(()=>!document.querySelector('.dr-refresh-directory')?.disabled);
+ assert.equal(await surface.getByRole('button',{name:'تحديث الملفات'}).count(),0);
  await page.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});window.__trackPullRows();});
  const touch = async (type, down) => surface.evaluate((element,{type,down})=>{
    const finger=new Touch({identifier:1,target:element,clientX:165,clientY:80+down});
@@ -101,12 +102,13 @@ async function checkDirectoryPull() {
  await touch('touchstart',0);
  await touch('touchmove',190);
  await page.waitForFunction(()=>document.querySelector('.dr-pull-content').style.paddingTop==='88px');
+ await page.evaluate(()=>{window.__directoryRefreshGate=new Promise(resolve=>{window.__finishRefresh=resolve;});});
  await touch('touchend',190);
  await indicator.getByText('جارٍ تحديث الملفات…',{exact:true}).waitFor();
  assert.equal(await indicator.evaluate(element=>element.style.height),'48px');
+ await page.evaluate(()=>{window.__finishRefresh();delete window.__directoryRefreshGate;});
  await page.waitForFunction(()=>document.querySelector('.dr-pull-content').style.paddingTop==='0px');
  assert.equal(await pullCalls(),callsBefore+1,'one completed pull refreshes once');
- assert.ok(await refreshButton.isEnabled());
  const clickSuppressed = await surface.evaluate(element=>!element.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true})));
  assert.ok(clickSuppressed,'a completed drag suppresses its following click');
 }

@@ -65,8 +65,13 @@ test('local demo never invents a guardian identity, live invitation, or peer con
 test('member family RPC stays user-bound; family data never becomes a discovery profile', async t => {
   const calls = []; globalThis.window = { setTimeout, clearTimeout }; globalThis.__familyRpc = async (...args) => { calls.push(args); return {}; };
   t.after(() => { delete globalThis.window; delete globalThis.__familyRpc; });
-  await cloudCommunity('owner').family('state', { connectionId: 'match' });
+  const member = cloudCommunity('owner');
+  await member.family('state', { connectionId: 'match' });
   assert.equal(calls[0][0], 'marriage_family'); assert.deepEqual(calls[0][1], { action: 'state', payload: { connectionId: 'match' } }); assert.equal(calls[0][2], 'owner');
+  await member.shareFamilyContact('match', '+966112345678', {closeNow:true, allowRematch:true});
+  await member.familyContact('match');
+  assert.deepEqual(calls[1].slice(0,3), ['marriage_share_family_contact', {selected_request:'match',family_phone:'+966112345678',close_now:true,allow_rematch:true}, 'owner']);
+  assert.deepEqual(calls[2].slice(0,3), ['marriage_family_contact', {selected_request:'match'}, 'owner']);
   const demo = demoCommunity(() => demoProfile); const people = await demo.discover({ mode: 'all' });
   assert(people.every(person => !('familyLinks' in person) && !('familyRooms' in person) && !('guardian' in person)));
 });

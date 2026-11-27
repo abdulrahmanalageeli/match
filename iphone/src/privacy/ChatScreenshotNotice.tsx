@@ -3,7 +3,7 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import { Camera } from '../BrandIcons';
 import type { CommunitySource } from '../community/data';
 import { nativePrivatePhoto } from '../community/privatePhoto';
-import { captureTitle, latestChatScreenshot, watchChatScreenshots } from '../notifications/chatScreenshots';
+import { captureTitle, latestChatScreenshot, latestPeerChatScreenshot, recordOwnChatScreenshot, watchChatScreenshots } from '../notifications/chatScreenshots';
 import { nativeSession, showScreenshotGlow } from '../session';
 
 const captureTime = new Intl.DateTimeFormat('ar-SA', { hour: 'numeric', minute: '2-digit' });
@@ -30,9 +30,9 @@ export function ChatScreenshotNotice({ source, requestId }: { source: CommunityS
       !chat.current.closest('[data-private-hidden]') && !document.querySelector(
         'html[data-capture-native-hidden], html[data-capture-hidden], dialog[open], [aria-modal="true"]:not(dialog)');
     const resume = () => { visibleSince = Date.now(); };
-    const seen = new Set([latestChatScreenshot(source, requestId)?.id]);
+    const seen = new Set([latestPeerChatScreenshot(source, requestId)?.id]);
     const stopGlow = watchChatScreenshots(() => {
-      const event = latestChatScreenshot(source, requestId);
+      const event = latestPeerChatScreenshot(source, requestId);
       if (!event || seen.has(event.id)) return;
       seen.add(event.id);
       const at = Date.parse(event.createdAt);
@@ -45,6 +45,7 @@ export function ChatScreenshotNotice({ source, requestId }: { source: CommunityS
     void (async () => {
       const handle = await nativeSession.addListener('chatScreenshot', event => {
         if (event.context !== context || !visibleChat()) return;
+        recordOwnChatScreenshot(source, requestId, event.eventId);
         void source.reportChatScreenshot!(requestId, event.eventId).catch(() => {
           if (active) setFailed(ids => ids.includes(event.eventId) ? ids : [...ids, event.eventId]);
         });
@@ -73,7 +74,7 @@ export function ChatScreenshotNotice({ source, requestId }: { source: CommunityS
   const visible=latest&&visibleId===latest.id?latest:null;
   if(!visible&&!failed.length)return <div ref={chat} hidden/>;
   return <div className="cm-chat-capture-notice" ref={chat}>
-    {visible&&<p className="cm-chat-capture-event" role="status"><Camera size={14} aria-hidden="true"/><strong>{captureTitle(visible.person.alias)}</strong><time dateTime={visible.createdAt}>{captureTime.format(new Date(visible.createdAt))}</time></p>}
+    {visible&&<p key={visible.id} className="cm-chat-capture-event" role="status"><Camera size={14} aria-hidden="true"/><strong>{'own' in visible?'لقطة شاشة منك':captureTitle(visible.person.alias)}</strong><time dateTime={visible.createdAt}>{captureTime.format(new Date(visible.createdAt))}</time></p>}
     {failed.length>0&&<p className="cm-chat-capture-error" role="alert">لم نتمكن من إرسال تنبيه لقطة الشاشة. <button onClick={()=>void retry()}>إعادة المحاولة</button></p>}
   </div>;
 }

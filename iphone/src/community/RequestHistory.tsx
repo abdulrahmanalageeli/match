@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CommunitySource, RequestHistoryEntry } from './data';
 import { ChevronLeft, Inbox } from '../BrandIcons';
 import { ConversationPilotFeedback } from './ConversationPilotFeedback';
+import { FamilyContactReveal } from './FamilyContact';
 
 const dates = new Intl.DateTimeFormat('ar-SA-u-ca-gregory', { day: 'numeric', month: 'long', year: 'numeric' });
 function date(value?: string | null) {
@@ -57,8 +58,9 @@ export function RequestHistory({ source, title, targetId }: { source: CommunityS
     {loading && <p role="status">جارٍ تحميل السجل…</p>}
     {error ? <><p role="alert">تعذّر تحميل السجل.</p><button className="btn-text" onClick={() => setRetry(n => n + 1)}>إعادة المحاولة</button></> :
       !loading && !rows.length ? <p>{targetId ? 'هذا الطلب لم يعد متاحًا.' : 'عندما ينتهي طلب أو تعارف، يظهر هنا.'}</p> : <ul>{rows.map(row => <li key={row.id}>
-        <details className="cm-history-entry" open={row.id===targetId||undefined}><summary id={'history-'+row.id}><span><strong>{row.alias}</strong><small>{row.direction === 'incoming' ? 'طلب وارد' : 'طلب مرسل'} · {historyStatus(row)}</small></span><ChevronLeft size={14} aria-hidden="true"/></summary>
+        <details className="cm-history-entry" open={row.id===targetId||undefined}><summary id={'history-'+row.id}><span><strong>{row.alias}</strong><small>{row.direction === 'mutual' ? 'تعارف متبادل' : row.direction === 'incoming' ? 'طلب وارد' : 'طلب مرسل'} · {historyStatus(row)}{row.hasFamilyContact?' · رقم الأهل متاح':''}</small></span><ChevronLeft size={14} aria-hidden="true"/></summary>
         <div className="cm-history-actions">
+        {row.hasFamilyContact&&<FamilyContactReveal source={source} requestId={row.id}/>}
         {date(row.createdAt) && <small>أُرسل <time dateTime={row.createdAt}>{date(row.createdAt)}</time></small>}
         {date(row.closedAt) && <small>أُغلق <time dateTime={row.closedAt!}>{date(row.closedAt)}</time></small>}
         {typeof row.canRequestAgain==='boolean'&&<small>{row.canRequestAgain?'يمكن إرسال طلب جديد إذا ظهر الملف في استكشف.':'لا يمكن إرسال طلب جديد لهذا التعارف.'}</small>}
@@ -81,6 +83,10 @@ export function RequestHistory({ source, title, targetId }: { source: CommunityS
 
 
 function historyStatus(row: RequestHistoryEntry) {
+  if (row.closureContext) {
+    const status = row.closureContext === 'pact' ? 'أُنهي ميثاق التعارف' : 'أُنهي التعارف';
+    return row.hasFamilyContact ? status : status + ' · من دون رقم للأهل';
+  }
   switch (row.resolution ?? row.outcome) {
     case 'declined': return row.direction==='incoming' ? 'اعتذرت عن الطلب' : 'اعتذر الطرف الآخر';
     case 'withdrawn': return row.direction==='incoming' ? 'سحب الطرف الآخر الطلب' : 'سحبت الطلب';

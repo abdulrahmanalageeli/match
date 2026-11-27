@@ -8,7 +8,7 @@ import { emptyFeed } from './emptyFeed';
 import { readAlertProgress } from './alertProgress';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { notificationUpdates, type InAppUpdate, type PushOpen } from './push';
-import { actionLabel, updateEvents } from '../../admin/server/updateEvents';
+import { actionLabel, introductionClosureCopy, updateEvents } from '../../admin/server/updateEvents';
 import type { CompatibilityUpdate } from './ActivityAlerts';
 import { CompatibilityChangeSheet } from './CompatibilityNotice';
 import './notification-feed.css';
@@ -192,13 +192,16 @@ export function NotificationFeed({ compatibilityUpdates = [], onCompatibilityRea
       const item=entry.type==='activity'?entry.row:null;
       const update=entry.type==='update'?entry.row:null;
       const style=update&&updateEvents[update.event];
+      const closure=update?.event==='introduction:closed' && update.closureContext
+        ? introductionClosureCopy(update.closureContext, update.hasFamilyContact === true) : null;
       const Icon=entry.type==='fit'||style&&style[1]==='analysis'?Sparkles:
         style&&style[2]==='step'?Route:style&&style[2]==='account'?ShieldCheck:
         style&&style[1]==='membership'?Gift:HeartHandshake;
       const unread=entry.type==='curated'||entry.row.unread;
-      const title=item?.title ?? (style ? style[0] : entry.type==='fit' ? `تحديث على توافقك مع ${entry.row.name}` :
+      const title=item?.title ?? closure?.title ?? (style ? style[0] : entry.type==='fit' ? `تحديث على توافقك مع ${entry.row.name}` :
         entry.type==='curated' ? `قُبل التعارف مع ${entry.row.name}` : '');
-      const detail=item?.detail ?? (update ? actionLabel(update.event) : entry.type==='fit' ? 'عرض ما تغيّر' : 'عرض التعارف');
+      const detail=item?.detail ?? closure?.body ?? (update?.event==='introduction:closed' && update.hasFamilyContact ? 'رقم الأهل متاح في التعارفات السابقة'
+        : update ? actionLabel(update.event) : entry.type==='fit' ? 'عرض ما تغيّر' : 'عرض التعارف');
       const activate=async()=>{
         if(entry.type==='activity'){await open(entry.row);return;}
         if(entry.type==='curated'){onCuratedUpdate?.();return;}

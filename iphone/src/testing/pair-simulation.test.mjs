@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
+import {normalizeFamilyPhone} from '../community/familyPhone.ts';
 import { isolateCommunityServices } from '../../tests/fixtures/isolated-community-services.mjs';
 
 const moduleUrl=source=>'data:text/javascript;base64,'+Buffer.from(source).toString('base64');
@@ -66,6 +67,7 @@ function harness(t,overrides={}){
   t.mock.method(globalThis,'fetch',async(_url,options)=>{
     const request=JSON.parse(options.body);calls.push(request);
     if(request.action==='notifications')return {ok:true,json:async()=>structuredClone(notifications)};
+    if(request.action==='closure_history')return {ok:true,json:async()=>[]};
     if(request.action==='typing_state')return {ok:true,json:async()=>true};
     if(request.action==='typing_set')return {ok:true,json:async()=>true};
     if(request.action==='notifications_read')notifications.forEach(row=>{if(request.payload.ids.includes(row.id))row.readAt=new Date().toISOString();});
@@ -95,6 +97,78 @@ async function signAsReham(source,id) {
   await source.simulation.step();
   assert.equal((await source.agreement(id)).status,'accepted');
 }
+
+test('family contact accepts Saudi mobile and fixed lines and rejects handles, links and embedded text',()=>{
+  for (const input of ['٠٥٥ ١٢٣ ٤٥٦٧','+966551234567','00966-55-123-4567']) assert.equal(normalizeFamilyPhone(input),'+966551234567');
+  assert.equal(normalizeFamilyPhone('۰۱۱ ۲۳۴ ۵۶۷۸'),'+966112345678');
+  for (const input of ['@0551234567','snap 0551234567','https://snapchat.com/0551234567','0551234567\n','0551234567#9','+966151234567','+15512345678',' '.repeat(33)+'0551234567']) assert.equal(normalizeFamilyPhone(input),null,input);
+});
+
+test('a signed demo pact can share at expiry or close with a number, and history carries only availability',async t=>{
+  const h=harness(t);
+  const person=(await h.source.discover({mode:'all'}))[0],id=await acceptFictional(h.source,person.id);
+  await assert.rejects(h.source.shareFamilyContact(id,'0551234567',{closeNow:true}));
+  await signAsReham(h.source,id);
+  await assert.rejects(h.source.shareFamilyContact(id,'0551234567'));
+  await assert.rejects(h.source.shareFamilyContact(id,'snap:0551234567',{closeNow:true}));
+  const deadline=Date.parse((await h.source.agreement(id)).deadline);
+  t.mock.method(Date,'now',()=>deadline+1);
+  await h.source.shareFamilyContact(id,'٠٥٥١٢٣٤٥٦٧');
+  assert.equal((await h.source.agreement(id)).hasFamilyContact,true);
+  await h.source.shareFamilyContact(id,'+966551234567');
+  await assert.rejects(h.source.shareFamilyContact(id,'0112345678'),/سبق تأكيد/);
+  await assert.rejects(h.source.shareFamilyContact(id,'0112345678',{closeNow:true}),/سبق تأكيد/);
+  assert((await h.source.inbox()).some(row=>row.id===id && row.status==='accepted'));
+  await h.source.shareFamilyContact(id,'0551234567',{closeNow:true,allowRematch:true});
+  await h.source.shareFamilyContact(id,'00966551234567',{closeNow:true});
+  assert.equal(await h.source.familyContact(id),'+966551234567');
+  await assert.rejects(h.source.shareFamilyContact(id,'0112345678',{closeNow:true}),/سبق تأكيد/);
+  const row=await h.source.requestHistoryItem(id);
+  assert.equal(row.hasFamilyContact,true);assert(!JSON.stringify(row).includes('551234567'));
+  assert.equal((await h.source.requestHistory()).find(r=>r.id===id).hasFamilyContact,true);
+  await h.source.reportPerson(person.id,'بلاغ بعد الإنهاء');
+  assert.equal(await h.source.familyContact(id),null);
+  assert.equal((await h.source.requestHistoryItem(id)).hasFamilyContact,false);
+});
+
+test('explicit closures preserve the chosen context, authorized family contact and rematch choice',async t=>{
+  const {source}=harness(t,{matched:false});
+  const people=await source.discover({mode:'all'});
+  const plain=await acceptFictional(source,people[0].id);
+  await assert.rejects(source.closeIntroduction(plain,{context:'pact',allowRematch:false}),/ميثاق/);
+  await source.closeIntroduction(plain,{context:'general',allowRematch:true});
+  const plainRow=await source.requestHistoryItem(plain);
+  assert.equal(plainRow.closureContext,'general');
+  assert.equal(plainRow.hasFamilyContact,false);
+  assert.equal(plainRow.canRequestAgain,true);
+
+  const signed=await acceptFictional(source,people[1].id);
+  await signAsReham(source,signed);
+  const choice={context:'pact',allowRematch:false,familyPhone:'٠٥٥١٢٣٤٥٦٧'};
+  await assert.rejects(source.closeIntroduction(signed,{...choice,familyPhone:'@example'}),/رقم/);
+  assert((await source.inbox()).some(r=>r.id===signed));
+  await source.closeIntroduction(signed,choice);
+  await source.closeIntroduction(signed,choice);
+  const signedRow=await source.requestHistoryItem(signed);
+  assert.equal(signedRow.closureContext,'pact');
+  assert.equal(signedRow.hasFamilyContact,true);
+  assert.equal(signedRow.canRequestAgain,false);
+  assert(!JSON.stringify(signedRow).match(/[0٠][5٥]{2}/));
+  assert.equal(await source.familyContact(signed),'+966551234567');
+});
+
+test('an expired pact resumes demo messaging only once both agree to exclusivity',async t=>{
+  const h=harness(t,{matched:false});
+  const person=(await h.source.discover({mode:'all'}))[0],id=await acceptFictional(h.source,person.id);
+  await signAsReham(h.source,id);
+  const deadline=Date.parse((await h.source.agreement(id)).deadline);
+  t.mock.method(Date,'now',()=>deadline+1);
+  await h.source.journeyChoice(id,'exclusive','propose',null);
+  await assert.rejects(h.source.send(id,'رسالة','before-consent'));
+  await h.source.simulation.step();
+  assert.equal((await h.source.agreement(id)).exclusive,true);
+  assert.equal(await h.source.send(id,'نرتب الخطوة الجاية','after-consent'),'after-consent');
+});
 
 test('library paging excludes deleted and view-once rows, and paired unread/typing stay in their own conversation',async t=>{
  const list=Array.from({length:62},(_,i)=>({id:`m${i}`,sender:'abdulrahman',body:`Family ${i}`,createdAt:new Date(Date.now()-100000+i*100).toISOString()}));

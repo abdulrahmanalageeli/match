@@ -31,7 +31,7 @@ test('real member communication requires mutual agreement; history and cleanup r
    finally { await db.exec('rollback'); }
   });
   for(const [user,actor,mineName,peerName] of [[a,'abdulrahman','خالد','ليلى'],[b,'reham','ليلى','خالد']]){
-   assert.deepEqual(await readOnlyAgreement(user),{status:'none',actor,mineName,peerName});
+   assert.deepEqual(await readOnlyAgreement(user),{status:'none',actor,mineName,peerName,exclusive:false,hasFamilyContact:false});
   }
   assert.equal((await db.query('select count(*)::int as count from marriage.conversation_agreements where request_id=$1',[id])).rows[0].count,0);
   await assert.rejects(readOnlyAgreement(outsider),error=>error.code==='42501');

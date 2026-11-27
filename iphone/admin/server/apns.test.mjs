@@ -9,6 +9,23 @@ const {providerToken,pushPayload,classifyApns,openApns}=await import('data:text/
 const pair=generateKeyPairSync('ec',{namedCurve:'prime256v1'});
 const config={teamId:'TEAM123456',keyId:'KEY1234567',privateKey:Buffer.from(pair.privateKey.export({type:'pkcs8',format:'pem'})).toString('base64'),topic:'com.blindmatch.marriage',environment:'sandbox'};
 const job={id:randomUUID(),leaseId:randomUUID(),requestId:randomUUID(),kind:'message',token:'a'.repeat(64),environment:'sandbox',expiresAt:new Date(Date.now()+60000).toISOString()};
+test('closure previews distinguish all four choices and keep private lock screens discreet',()=>{
+ const alerts=new Set();
+ for(const closureContext of ['general','pact']) for(const hasFamilyContact of [true,false]){
+  const details={target:job.requestId,event:'introduction:closed',preview:'event',badge:1,closureContext,hasFamilyContact};
+  const payload=pushPayload({kind:'update',requestId:'00000000-0000-4000-8000-000000000001',details});
+  assert.equal(payload.requestId,job.requestId);
+  assert.equal(payload.event,'introduction:closed');
+  assert.equal(payload.aps.alert.title.includes('ميثاق التعارف'),closureContext==='pact');
+  assert.equal(payload.aps.alert.body.includes('متاح'),hasFamilyContact);
+  alerts.add(JSON.stringify(payload.aps.alert));
+  const privatePayload=pushPayload({kind:'update',requestId:'',details:{...details,preview:'private'}});
+  assert.deepEqual(privatePayload.aps.alert,{title:'وُدَين',body:'إشعار جديد'});
+  assert.equal(privatePayload.hasFamilyContact,undefined);
+  assert.equal(privatePayload.closureContext,undefined);
+ }
+ assert.equal(alerts.size,4);
+});
 test('update alerts use the exact destination and honor privacy and sound settings',()=>{
  const details={target:job.requestId,event:'agreement:proposed',preview:'event',badge:1};
  const agreement=pushPayload({kind:'update',requestId:null,details});

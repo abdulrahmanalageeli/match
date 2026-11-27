@@ -17,6 +17,7 @@ export const updateEvents = {
   'agreement:expired': ['انتهت مدة التعارف', 'agreement', 'silent'],
   'agreement:family_invited': ['وصلك اقتراح للتواصل مع الأهل', 'agreement', 'step'],
   'agreement:family_confirmed': ['اتفقتوا على التواصل مع الأهل', 'agreement', 'step'],
+  'agreement:family_contact': ['شاركت معك رقم أهلها للخطوة الرسمية', 'agreement', 'step'],
   'journey:exclusive': ['بدأ التعارف الحصري', 'journey', 'celebration'],
   'journey:invited': ['خطوة جديدة في التعارف تنتظر ردّك', 'journey', 'step'],
   'journey:confirmed': ['اتفقتوا على الخطوة الجاية', 'journey', 'step'],
@@ -47,6 +48,15 @@ export const updateEvents = {
 
 export type UpdateEvent = keyof typeof updateEvents;
 
+export type IntroductionClosureContext = 'general' | 'pact';
+
+export function introductionClosureCopy(context: IntroductionClosureContext, hasFamilyContact: boolean) {
+  return {
+    title: context === 'pact' ? 'اختار الطرف الآخر إنهاء ميثاق التعارف' : 'أنهى الطرف الآخر التعارف',
+    body: hasFamilyContact ? 'رقم الأهل متاح في تفاصيل التعارف.' : 'أُغلق التعارف من دون إرفاق رقم للأهل.',
+  };
+}
+
 export function isUpdateEvent(value: unknown): value is UpdateEvent {
   return typeof value === 'string' && Object.hasOwn(updateEvents, value);
 }
@@ -57,7 +67,8 @@ export function actionLabel(event: UpdateEvent) {
   if (event === 'family_room:ready') return 'عرض المساحة';
   if (event === 'family_room:invited') return 'مراجعة المشاركين';
   if (event === 'agreement:extension') return 'مراجعة التمديد';
-  if (event === 'agreement:expired') return 'اختيار الخطوة التالية';
+  if (event === 'agreement:expired') return 'مراجعة التعارف الحصري والخيارات المتاحة';
+  if (event === 'agreement:family_contact') return 'عرض رقم الأهل في الميثاق';
   if (event === 'analysis:review') return 'مراجعة المشاركة';
   switch (updateEvents[event][1]) {
     case 'agreement': return 'مراجعة ميثاق التعارف';

@@ -12,7 +12,7 @@
 .nf-journey-summary-track i[data-complete] { background: #a36d7e; }
 .cm-journey-summary.nf-journey-summary[data-pending] { border-color: #d4aeb8; background: #fbf0ef; }
 .nf-journey-guide { padding-top: 2px; color: #633344; }
-.cm-sheet:has(> .nf-journey-guide) { scrollbar-width: thin; scrollbar-color: #d9c4b8 transparent; }
+.cm-sheet:has(> .nf-journey-guide) { scrollbar-width: thin; }
 .nf-journey-current { padding: 10px 0 18px; text-align: center; }
 .nf-journey-eyebrow { color: #a2816d; font-size: 11px; letter-spacing: .2px; }
 .nf-journey-current h3 { margin: 9px 0 5px; color: #5a1b32; font-size: 23px; line-height: 1.6; }

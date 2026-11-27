@@ -7,6 +7,8 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 :root {
+  --wd-scroll-thumb: #99838c;
+  scrollbar-color: var(--wd-scroll-thumb) transparent;
   color-scheme: only light;
   --paper: #fdfdfd;
   --surface: #ffffff;
@@ -58,6 +60,14 @@
   -webkit-text-size-adjust: 100%;
 }
 * { box-sizing: border-box; }
+:where(html, body, body *) { scrollbar-width: thin; }
+:root:has(.phone-app > :is(.wd-welcome, .wd-paywall, .wd-gift-page)), .pg-lightbox {
+  --wd-scroll-thumb: #d6c5c8;
+  scrollbar-color: var(--wd-scroll-thumb) transparent;
+}
+@media (prefers-contrast: more), (forced-colors: active) {
+  :root, :root:has(.phone-app > :is(.wd-welcome, .wd-paywall, .wd-gift-page)), .pg-lightbox { scrollbar-color: auto; }
+}
 body { margin: 0; -webkit-font-smoothing: antialiased; }
 body:has(.phone-app > :is(.app-screen, .flow-frame, .wd-welcome))::before {
   content: "";
@@ -74,7 +84,17 @@ body:has(.phone-app > :is(.app-screen, .flow-frame, .wd-welcome))::before {
   mask-image: linear-gradient(to top, transparent 0, #000 min(14px, var(--nf-safe-top)), #000 100%);
   pointer-events: none;
 }
-body:has(.phone-app > .nf-auth-frame)::before { --nf-safe-surface: #f8f6f5; }
+:root:has(.phone-app > .nf-auth-frame) { --nf-edge-top: #f8f6f5; --nf-edge-bottom: #faf8f7; }
+:root:has(.phone-app > .wd-paywall) { --nf-edge-top: #492839; --nf-edge-bottom: #130d16; }
+:root:has(.phone-app > .wd-gift-page) { --nf-edge-top: #f7f4ef; --nf-edge-bottom: var(--nf-edge-top); }
+/* The frame paints through both insets. Tint the status area only as content scrolls underneath. */
+body:has(.phone-app > .flow-frame)::before {
+  background: var(--nf-edge-top, var(--page-background));
+  opacity: var(--nf-safe-scroll, 0);
+}
+@media (max-width: 520px) {
+  :root:has(.phone-app > .flow-frame), body:has(.phone-app > .flow-frame) { background: var(--nf-edge-bottom, var(--page-background)); }
+}
 body:has(.phone-app .mi-tabbar)::before,
 .phone-app :is(.mi-tabbar, .cm-chat-head, .cm-chat-plan[data-ready])::before {
   background:

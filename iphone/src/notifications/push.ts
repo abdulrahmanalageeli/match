@@ -14,10 +14,10 @@ const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(ow
   : callRpc<T>('marriage_push_' + action, payload, owner);
 import { disableWebPush, enableWebPush, registerWebPushDevice, monitorWebPush, registerPushWorker, webPushConfigured, webPushStatus, webPushSupported } from './webPush';
 
-import { isUpdateEvent, type UpdateEvent } from '../../admin/server/updateEvents';
+import { isUpdateEvent, type IntroductionClosureContext, type UpdateEvent } from '../../admin/server/updateEvents';
 
 export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication' | 'simulation' | 'update';event?:UpdateEvent;scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
-export type InAppUpdate = {id:string;event:UpdateEvent;target:string;createdAt:string;unread:boolean};
+export type InAppUpdate = {id:string;event:UpdateEvent;target:string;createdAt:string;unread:boolean;hasFamilyContact?:boolean;closureContext?:IntroductionClosureContext};
 
 const updateReads = new Map<string,Promise<InAppUpdate[]>>();
 export async function notificationUpdates(owner:string,readId?:string):Promise<InAppUpdate[]> {
@@ -238,10 +238,12 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
         return;
       }
       if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family','analysis','publication','update'].includes(notification.kind) && (notification.kind !== 'update' || isUpdateEvent(notification.event))) {
-        if (scope !== notification.scope || isTester(owner) !== (notification.requestId === testerRequestId)) {
+        const pairedChat = notification.requestId === testerRequestId;
+        const testerArchive = isTester(owner) && notification.kind === 'update' && notification.event === 'introduction:closed';
+        if (scope !== notification.scope || (isTester(owner) !== pairedChat && !testerArchive)) {
           if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}return;
         }
-        await callback.current.onOpen(isTester(owner) ? 'tester-pair' : notification.requestId, notification.kind,notification);
+        await callback.current.onOpen(pairedChat ? 'tester-pair' : notification.requestId, notification.kind,notification);
         if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}
         failures=0;
       }

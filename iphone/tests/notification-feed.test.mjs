@@ -1,9 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildFeed, filterFeed, isRecentNotification } from '../src/notifications/feed.ts';
+import { introductionClosureCopy, updateEvents } from '../admin/server/updateEvents.ts';
 const person = { id: 'person', alias: 'عضو', age: 30, city: 'الرياض', occupation: '', bio: '', interests: [], reasons: [] };
 const request = { id: 'request', status: 'pending', direction: 'incoming', person, createdAt: '2026-11-05T14:00:00Z' };
 const visit = { id: 'visit', kind: 'profile_visit', person, createdAt: '2026-11-06T14:00:00Z' };
+
+test('all four voluntary closure notices describe the peer’s decision and family contact status', () => {
+  const copies=[];
+  for (const context of ['general','pact']) for (const hasFamilyContact of [false,true]) {
+    const {title,body}=introductionClosureCopy(context,hasFamilyContact);
+    assert.match(title,/الطرف الآخر/);
+    assert.equal(title.includes('ميثاق التعارف'),context==='pact');
+    assert.equal(body.includes('متاح'),hasFamilyContact);
+    assert.equal(body.includes('من دون'),!hasFamilyContact);
+    assert(!/[\d٠-٩]/u.test(body));
+    copies.push(title+body);
+  }
+  assert.equal(new Set(copies).size,4);
+  assert.equal(updateEvents['introduction:closed'][1],'history');
+});
 
 test('check-in opens the active chat and each stage has its own unread state', () => {
   const chat = {...request, status:'accepted'};

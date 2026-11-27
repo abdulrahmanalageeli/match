@@ -15,9 +15,13 @@ export function MembershipEntry(){
  return <><button type="button" className="wd-membership-entry" data-tier={current} onClick={()=>upgrade(current==='premium'?'seriousness':undefined)}
   aria-label={`${serious?'وسام الجدية':current==='premium'?'عضويتك المميزة':'عضويتك المجانية'} · ${serious?'إدارة العضوية':'اكتشاف الاشتراكات وترقية العضوية'}`}>
    {current!=='free'&&<span className="wd-entry-insignia"><MembershipMark serious={serious}/></span>}
-  <span className="wd-entry-copy"><strong>{serious?'وسام الجدية':current==='premium'?'العضوية المميزة':'المجانية · ترقية'}</strong></span>
+  <span className="wd-entry-copy"><strong><span className="wd-tier-prefix">{serious?'وسام ':current==='premium'?'العضوية ':'المجانية · '}</span>{serious?'الجدية':current==='premium'?'المميزة':'ترقية'}</strong></span>
   <ChevronLeft size={13}/>
- </button>{gift&&<button type="button" className="wd-directory-gift" aria-label={giftAttention?`هدايا العضوية · ${giftAttention} بانتظارك`:"إهداء عضوية"} onClick={()=>gift()}><Gift size={16}/>{giftAttention>0&&<i aria-hidden="true"/>}</button>}</>;
+ </button>{gift&&<button type="button" className="wd-directory-gift" onClick={()=>gift()}
+  aria-label={giftAttention ? `هدايا العضوية · ${giftAttention.toLocaleString('ar-SA')} بانتظارك` : 'إهداء عضوية'}>
+  <span className="wd-gift-glyph"><Gift size={17} strokeWidth={1.6} aria-hidden="true"/>{giftAttention>0&&<i aria-hidden="true"/>}</span>
+  <span className="wd-gift-label">إهداء</span>
+ </button>}</>;
 }
 
 type Tier = 'free' | MembershipPlan;

@@ -3,6 +3,45 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createDatabase, asService } from './harness.mjs';
 
+test('each tester can close an introduction and the other gets its exact historical target',async()=>{
+ const db=await createDatabase();
+ try {
+  const actors=['abdulrahman','reham'], sessions=['a'.repeat(64),'b'.repeat(64)];
+  const call=(fn,action,i,payload={})=>asService(db,async()=>(await db.query('select public.'+fn+'($1,$2,$3) result',[action,sessions[i],JSON.stringify(payload)])).rows[0].result);
+  const summaries=i=>call('nisfayn_test_push_updates','push_updates',i);
+  await db.exec("update marriage.admin_test_members set paused=false,suspended=false,review_status='approved',access_until=now()+interval '7 days'");
+  for (const [i,actor] of actors.entries()) {
+   await db.query("insert into nisfayn_test.sessions values(sha256($1::text::bytea),$2,now()+interval '1 day')",[sessions[i],actor]);
+   await call('nisfayn_test_push','push_register',i,{installation:randomUUID(),device_token:(i?'c':'d').repeat(64),device_environment:'production'});
+   await call('nisfayn_test_push','push_enable',i,{enabled:true});
+   await call('nisfayn_test_push','push_privacy',i,{preview_mode:i?'event':'private'});
+  }
+  let previousId;
+  for (const [i,actor] of actors.entries()) {
+   const context=i?'pact':'general', recipient=1-i, now=new Date().toISOString();
+   await db.query("update nisfayn_test.room set data=data||$1 where id",[JSON.stringify({matched:true,matchedAt:now,seriousness:{status:'accepted',womanSignedAt:now,manSignedAt:now}})]);
+   await assert.rejects(call('nisfayn_test_introduction','close_introduction',i,{closureContext:context,familyPhone:'0551234567'}));
+   const choice={closureContext:context,allowRematch:true};
+   await call('nisfayn_test_introduction','close_introduction',i,choice);
+   await call('nisfayn_test_introduction','close_introduction',i,choice);
+   const alerts=(await summaries(recipient)).filter(x=>x.event==='introduction:closed');
+   assert.equal(alerts.length,1);
+   const [notice]=alerts;
+   assert.equal(notice.closureContext,context);
+   assert.equal(notice.hasFamilyContact,false);
+   assert.notEqual(notice.target,previousId); previousId=notice.target;
+   assert(!(await summaries(i)).some(x=>x.target===notice.target));
+   const [archive]=await call('nisfayn_test_introduction','closure_history',recipient,{id:notice.target});
+   assert.equal(archive.id,notice.target); assert.equal(archive.closureContext,context);
+   const jobs=await asService(db,async()=>(await db.query("select public.nisfayn_test_push_claim('production',16) jobs")).rows[0].jobs);
+   const job=jobs.find(j=>j.kind==='update'&&j.token===(recipient?'c':'d').repeat(64) && j.id);
+   assert(job,actor+' closure delivers to the peer');
+   const detail=await asService(db,async()=>(await db.query('select public.nisfayn_push_delivery($1,$2,true,$3) d',[job.id,job.leaseId,job.token])).rows[0].d);
+   assert.equal(detail.target,notice.target); assert.equal(detail.closureContext,recipient?context:undefined);
+  }
+ } finally {await db.close();}
+});
+
 test('tester APNs routes privately, deduplicates, and revokes stale notifications', async () => {
  const db=await createDatabase();
  try {
@@ -27,12 +66,13 @@ test('tester APNs routes privately, deduplicates, and revokes stale notification
   assert.equal(proposal.token,'d'.repeat(64));
   const proposalDetail=await asService(db, async()=>(await db.query('select public.nisfayn_push_delivery($1,$2,true,$3) detail',[proposal.id,proposal.leaseId,proposal.token])).rows[0].detail);
   assert.equal(proposalDetail.event,'agreement:proposed');
-  await agreement({status:'none'});
-  assert.equal(await valid(proposal),false);
-  assert.deepEqual(await claim(),[]);
   const alerts=async actor=>asService(db,async()=>(await db.query("select public.nisfayn_test_push_updates('push_updates',$1,'{}') value",[sessions[actor]])).rows[0].value);
   assert.equal((await alerts('abdulrahman'))[0].event,'agreement:proposed');
   assert.deepEqual(await alerts('reham'),[]);
+  await agreement({status:'none'});
+  assert.equal(await valid(proposal),false);
+  assert.deepEqual(await claim(),[]);
+  assert.deepEqual(await alerts('abdulrahman'),[]);
   const send=async(sender)=>{
    const message={id:randomUUID(),sender,body:'Private text must never enter APNs',createdAt:new Date().toISOString()};
    await db.query("update nisfayn_test.room set data=jsonb_set(data,'{messages}',(data->'messages')||jsonb_build_array($1::jsonb))",[JSON.stringify(message)]);

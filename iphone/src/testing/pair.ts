@@ -1,4 +1,4 @@
-import { demoCommunity, demoPeople, demoProfile, matchesDiscoveryFilters, sanitizeMessage, searchMessageRows, type ActivityNotification, type CommunitySource, type Message, type PublicPerson, type SeriousnessAgreement } from '../community/data';
+import { demoCommunity, demoPeople, demoProfile, matchesDiscoveryFilters, sanitizeMessage, searchMessageRows, type ActivityNotification, type CommunitySource, type Message, type PublicPerson, type RequestHistoryEntry, type SeriousnessAgreement } from '../community/data';
 import { marriageProjectUrl, marriagePublishableKey } from '../deployment';
 import { assessmentVersion, describeFit, dimensionsForVersion, interests, preferencePercentage, type MatchFit } from '../compatibility/model';
 import { beenaRankMultiplier, compareBeena, type BeenaFit, type SharedBeenaStory } from '../beena/model';
@@ -145,6 +145,30 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   ...manualVerificationSource(account.session),
   suggestOpener:()=>requestAi({mode:'opener'},account.session),
   familyTestMode: true,
+  familyContactAvailable: id => id !== 'tester-pair',
+  async closeIntroduction(id, choice) {
+    if (id !== 'tester-pair') return local.closeIntroduction!(id, choice);
+    if (choice.familyPhone) throw Error('مشاركة الرقم غير متاحة.');
+    await mutate('close_introduction', {allowRematch: choice.allowRematch, closureContext: choice.context});
+  },
+  async requestHistoryItem(id) {
+    const entry=await local.requestHistoryItem!(id);
+    if (entry) return entry;
+    const remote=await testRequest<RequestHistoryEntry[]>('closure_history',account.session,{id});
+    return remote[0] ?? null;
+  },
+  async requestHistory(beforeId) {
+    const cursor=beforeId ? await source.requestHistoryItem!(beforeId) : null;
+    if (beforeId && !cursor?.closedAt) return [];
+    const [localRows,remoteRows]=await Promise.all([
+      local.requestHistory!(),testRequest<RequestHistoryEntry[]>('closure_history',account.session,
+        cursor ? {beforeDate:cursor.closedAt,beforeId:cursor.id} : {}),
+    ]);
+    return [...localRows,...remoteRows].filter(r=>!cursor ||
+      Date.parse(r.closedAt!)<Date.parse(cursor.closedAt!) ||
+      (Date.parse(r.closedAt!)===Date.parse(cursor.closedAt!)&&r.id<cursor.id))
+      .sort((a,b)=>Date.parse(b.closedAt!)-Date.parse(a.closedAt!) || b.id.localeCompare(a.id)).slice(0,50);
+  },
   familyEligibleConnection: id => id === 'tester-pair',
   async family(action,payload={}){const result=unwrapFamilyResult(await testRequest('family',account.session,{...boundedFamilyPayload(action,payload),action}));if(!['state','messages','export'].includes(action))listeners.forEach(f=>f());return result;},
   readinessTestMode: true,

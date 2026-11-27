@@ -38,6 +38,7 @@ final class MarriageBridgeController: CAPBridgeViewController {
     private var pendingPortraits: [String: DiscoveryFrameDecode] = [:]
     private var reportedSafeInsets: (top: Int, bottom: Int)?
     private var pageLoadObservation: NSKeyValueObservation?
+    private var themeObservation: NSKeyValueObservation?
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -58,6 +59,18 @@ final class MarriageBridgeController: CAPBridgeViewController {
             webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             content.addSubview(webView)
             content.accessibilityElements = [webView]
+            themeObservation = webView.observe(\.themeColor, options: [.initial, .new]) { [weak self] webView, _ in
+                guard let self else { return }
+                let color = webView.themeColor ?? .systemBackground
+                self.content.backgroundColor = color
+                webView.underPageBackgroundColor = color
+                var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+                if color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+                    let lightText = 0.2126 * red + 0.7152 * green + 0.0722 * blue < 0.5
+                    let style: UIStatusBarStyle = lightText ? .lightContent : .darkContent
+                    if self.statusBarStyle != style { self.setStatusBarStyle(style) }
+                }
+            }
         }
         pageLoadObservation = webView?.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
             if webView.isLoading {

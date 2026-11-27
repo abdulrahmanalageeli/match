@@ -1,6 +1,7 @@
 // Keep native calls, report access and camera verification outside Node source tests.
 export function isolateCommunityServices(source) {
   return source
+    .replace("'./familyPhone'", JSON.stringify(new URL('../../src/community/familyPhone.ts',import.meta.url).href))
     .replace("'./profileReading.ts'", JSON.stringify(new URL('../../src/community/profileReading.ts',import.meta.url).href))
     .replace("'./demoAssessmentSeeds.mjs'", JSON.stringify(new URL('../../src/community/demoAssessmentSeeds.mjs',import.meta.url).href))
     .replace("'./simulationRhythm.ts'", JSON.stringify(new URL('../../src/community/simulationRhythm.ts',import.meta.url).href))

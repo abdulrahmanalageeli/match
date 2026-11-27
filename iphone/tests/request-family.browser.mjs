@@ -78,11 +78,27 @@ try {
   await exitBridge.click();
   await page.getByText('تمت العودة من جسر الأهل',{exact:true}).waitFor();
  }
- await go('agreement-qa.html?unsent');await page.locator('.cm-agreement').waitFor();
+ await go('agreement-qa.html?expired&exclusive&man');
+ await page.getByText('المحادثة متاحة',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'مشاركة رقم الأهل'}).count(),0);
+ await go('agreement-qa.html?expired&man');await page.getByRole('button',{name:'مراجعة التعارف الحصري'}).click();
+ await page.getByText('مراجعة المسار',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'مشاركة رقم الأهل'}).count(),0);
+ await go('agreement-qa.html?expired');await page.getByRole('button',{name:'مشاركة رقم الأهل'}).click();
+ await page.getByText('مشاركة الرقم',{exact:true}).waitFor();
+ await go('agreement-qa.html?man&signatureFailure');await page.getByRole('checkbox').check();
+ await page.getByRole('button',{name:'التوقيع والموافقة وبدء الحديث'}).click();
+ await page.getByRole('alert').filter({hasText:'تعذّر حفظ التوقيع.'}).waitFor();
+ assert.equal(await page.locator('.cm-ink-receipt').count(),0);
  for(const mode of ['os','app']) {
+  await go('agreement-qa.html?man');
   await page.emulateMedia({reducedMotion:mode==='os'?'reduce':'no-preference'});
   if(mode==='app')await page.evaluate(()=>document.documentElement.dataset.nfMotion='reduced');
   assert.equal(await page.locator('.cm-agreement').evaluate(e=>getComputedStyle(e).animationName),'none');
+  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'التوقيع والموافقة وبدء الحديث'}).click();
+  const signature=page.locator('.cm-ink-receipt');
+  assert.equal(await signature.locator('bdi').innerText(),'عبدالله');
+  assert.ok(await signature.evaluate(el=>!el.getAnimations({subtree:true}).length));
  }
  assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
  console.log('PASS: 390/320px proposal duration, explicit signature, accepted agreement, expired extension and exit, pending room deep link/focus, participant approval and separate family chat, OS/app reduced motion; zero external requests.');

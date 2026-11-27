@@ -17,6 +17,7 @@ import { privateUpdates, type WatchUpdates } from "./updates";
 import type { Profile, ProfilePortrait, PortraitRevealPolicy } from "../types";
 import type { MarriageBasics, PartnerCriteria } from "../compatibility/marriage";
 import type { PublicAvatar } from "../compatibility/appearance";
+import { normalizeFamilyPhone } from './familyPhone';
 import { personalityQuestionsFor, partnerTraitQuestions } from "../compatibility/personality";
 import { describeFit, normalizeNationality, preferencePercentage, assessmentVersion, dimensionsForVersion, interests, rankPreferences, type MatchFit } from "../compatibility/model";
 import { sharedBeenaStory, type SharedBeenaStory } from "../beena/model";
@@ -72,8 +73,11 @@ export type Connection = {
   latestUnreadAt?: string;
 };
 export type MatchingExclusion = { id: string; alias: string; reason: 'blocked' | 'no_rematch'; since?: string };
+export type IntroductionClosure = {context: import('../../admin/server/updateEvents').IntroductionClosureContext; allowRematch: boolean; familyPhone?: string};
 export type RequestHistoryEntry = {
-  id: string; alias: string; direction: "incoming" | "outgoing";
+  id: string; alias: string; direction: "incoming" | "outgoing" | "mutual";
+  hasFamilyContact?: boolean;
+  closureContext?: IntroductionClosure['context'];
   resolution?: "declined" | "withdrawn" | "ended" | "expired" | "closed"; canRequestAgain?: boolean;
   createdAt: string; closedAt?: string | null; outcome: "closed" | "expired";
 };
@@ -118,7 +122,7 @@ export function sanitizeMessage(message: Message): Message {
   return message.reply?.deletedAt ? { ...message, reply: { ...message.reply, body: deletedMessageText } } : message;
 }
 export type CallPermissionState = { status: "none" | "pending" | "accepted" | "declined"; direction?: "incoming" | "outgoing" };
-export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';extension?:{id:string;actor:string;days:number};actor:'reham'|'abdulrahman';mineName?:string;peerName?:string;days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyProposalId?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
+export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';hasFamilyContact?:boolean;exclusive?:boolean;extension?:{id:string;actor:string;days:number};actor:'reham'|'abdulrahman';mineName?:string;peerName?:string;days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyProposalId?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
 export const messagePageSize = 50;
 export type Filters = {
   language?: string;
@@ -212,6 +216,7 @@ export interface CommunitySource extends ManualVerificationSource {
   request(memberId: string): Promise<string>;
   demoAcceptOutgoing?(requestId: string): Promise<void>;
   act(requestId: string, action: RequestAction, reason?: string, allowRematch?: boolean): Promise<void>;
+  closeIntroduction?(requestId: string, choice: IntroductionClosure): Promise<void>;
   acknowledgeMatch?(key: string): Promise<void>;
   thread(requestId: string, beforeId?: string): Promise<Message[]>;
   messageChanges?(requestId: string, messageIds: string[]): Promise<Message[]>;
@@ -229,6 +234,9 @@ export interface CommunitySource extends ManualVerificationSource {
   callPermission?(requestId: string): Promise<CallPermissionState>;
   requestCallPermission?(requestId: string, action: "invite" | "accept" | "decline"): Promise<CallPermissionState>;
   agreement?(requestId:string):Promise<SeriousnessAgreement>;
+  familyContact?(requestId: string): Promise<string | null>;
+  familyContactAvailable?(requestId: string): boolean;
+  shareFamilyContact?(requestId: string, phone: string, options?: { closeNow?: boolean; allowRematch?: boolean }): Promise<void>;
   conversationPilotNotices?(): Promise<FeedbackNotice[]>;
   conversationPilot?(requestId: string, action?: 'read' | 'save' | 'withdraw' | 'followup' | 'week' | 'exit',
     answer?: ConversationPilotAnswer | {followupTalked: boolean} | ConnectionReview): Promise<ConversationPilotState | null>;
@@ -303,6 +311,13 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     mediaUrl: async (...args) => (await media()).mediaUrl!(...args),
     openMedia: async (...args) => (await media()).openMedia!(...args),
     agreement: request_id => timedRpc('marriage_agreement',{request_id}),
+    familyContact: selected_request => timedRpc('marriage_family_contact', {selected_request}),
+    closeIntroduction: (selected_request, choice) => timedRpc('marriage_close_introduction', {
+      selected_request, closure_context: choice.context, allow_rematch: choice.allowRematch, family_phone: choice.familyPhone ?? null,
+    }),
+    shareFamilyContact: (selected_request, family_phone, options = {}) => timedRpc('marriage_share_family_contact', {
+      selected_request, family_phone, close_now: options.closeNow ?? false, allow_rematch: options.allowRematch ?? false,
+    }),
     conversationPilotNotices: () => timedRpc('marriage_conversation_pilot_notices',{}),
     conversationPilot: (request_key, action = 'read', answer) => timedRpc('marriage_conversation_pilot_response', {request_key, action, answer: answer ?? null}),
     agree: (request_id,action,payload={}) => timedRpc('marriage_agreement',{request_id,action,payload}),
@@ -601,7 +616,7 @@ function validatePortraitReveal(blur: number, reveal?: { policy: PortraitRevealP
   return policy;
 }
 
-export function demoCommunity(viewer: () => Profile, seedConnections = true, simulationOptions: DemoSimulationOptions = {}): CommunitySource & { simulation: DemoSimulationController; exclusiveConnection: () => string | null; retireOtherConnections: () => void } {
+export function demoCommunity(viewer: () => Profile, seedConnections = true, simulationOptions: DemoSimulationOptions = {}): CommunitySource & { simulation: DemoSimulationController; ownsConnection: (id: string) => boolean; exclusiveConnection: () => string | null; retireOtherConnections: () => void } {
   function demoAssessmentFor(person: (typeof examples)[number], member: Profile) {
     const peer = member.assessmentVersion === assessmentVersion ? { ...person, ...person.currentAssessment } : person;
     if (!simulationOptions.useAvailableTesterBasics) return peer;
@@ -655,6 +670,8 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   const readThrough = new Map<string, string>();
   const steps = new Map<string, StepProgress>();
   const agreements = new Map<string, SeriousnessAgreement>();
+  // Fictional connections keep contact details in memory, outside the saved demo snapshot.
+  const familyPhones = new Map<string, string>();
   const callPermissions = new Map<string, CallPermissionState>();
   let weeklyPicks: string[] | undefined;
   let exclusiveId: string | null = null;
@@ -782,6 +799,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       record.status = 'closed';
       record.updatedAt = now;
       record.allowRematch = false;
+      familyPhones.delete(record.id);
       typingPeople.delete(record.id);
       changed = true;
     }
@@ -796,11 +814,45 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     const record = open(id);
     if (record.status !== 'accepted') throw Error('التعارف غير متاح.');
     const value: SeriousnessAgreement = { status: simulationOptions.interactiveJourney && !(messages.get(id)?.length) ? 'none' : 'accepted', actor: viewer().gender === 'man' ? 'abdulrahman' : 'reham', ...agreements.get(id),
+      exclusive: exclusiveId === id, hasFamilyContact: familyPhones.has(id) && !blockedPeople.has(record.peer),
       mineName: viewer().displayName, peerName: examples.find(person => person.id === record.peer)?.alias };
     if (value.status === 'accepted' && value.deadline && Date.parse(value.deadline) <= Date.now()) value.status = 'expired';
     return value;
   }
-  function chatReady(id: string) { return !simulationOptions.interactiveJourney || ['accepted','family'].includes(agreement(id).status); }
+  function chatReady(id: string) {
+    if (!simulationOptions.interactiveJourney) return true;
+    const pact = agreement(id);
+    return pact.status === 'accepted' || pact.status === 'family' || (pact.status === 'expired' && pact.exclusive === true);
+  }
+  function hasSignedPact(pact: SeriousnessAgreement) {
+    return Boolean(pact.womanSignedAt && pact.manSignedAt && ['accepted','expired','family'].includes(pact.status));
+  }
+  function confirmFamilyPhone(record: Local, input: string, closing: boolean) {
+    const phone = normalizeFamilyPhone(input);
+    if (!phone) throw Error('أدخلي رقم جوال أو هاتف ثابت سعودي صحيح.');
+    if (viewer().gender !== 'woman' || blockedPeople.has(record.peer)) throw Error('مشاركة الرقم غير متاحة.');
+    const confirmed = familyPhones.get(record.id);
+    if (confirmed && confirmed !== phone) throw Error('سبق تأكيد رقم الأهل لهذا التعارف.');
+    if (confirmed === phone && (!closing || record.status === 'closed')) return;
+    const pact = agreement(record.id);
+    if (!hasSignedPact(pact) || (!closing && pact.status !== 'expired')) throw Error('تتاح مشاركة الرقم عند انتهاء الميثاق أو إنهاء التعارف.');
+    familyPhones.set(record.id, phone);
+  }
+  function cancelRequest(record: Local, allowRematch: boolean) {
+    if (record.status !== 'accepted' && (record.direction !== 'outgoing' || record.status !== 'pending')) throw Error('هذا الإجراء غير متاح.');
+    record.status = 'closed';
+    record.allowRematch = allowRematch;
+    record.updatedAt = new Date().toISOString();
+    if (record.id === exclusiveId) exclusiveId = null;
+    typingPeople.delete(record.id);
+    notify(); simulation.wake();
+  }
+  function historyEntry(record: Local): RequestHistoryEntry {
+    return {id: record.id, alias: examples.find(p => p.id === record.peer)?.alias ?? 'عضو',
+      direction: record.direction, createdAt: record.createdAt, closedAt: record.updatedAt, outcome: 'closed',
+      ...(record.closureContext && {closureContext: record.closureContext, resolution: 'ended', canRequestAgain: record.allowRematch}),
+      hasFamilyContact: familyPhones.has(record.id) && !blockedPeople.has(record.peer)};
+  }
   function requireChat(id: string) { threadRows(id); if (!chatReady(id)) throw Error('تبدأ المراسلة بعد موافقتكما على شروط التعارف ومدته.'); }
   function advanceRelationship(record: Local): string | undefined {
     if (!simulationOptions.interactiveJourney) return;
@@ -875,7 +927,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       if(activityRows.length>40)activityRows.splice(0,activityRows.length-40);
     },
     changed:notify,
-    reset(){records.splice(0);messages.clear();readThrough.clear();steps.clear();agreements.clear();callPermissions.clear();typingPeople.clear();hiddenPeople.clear();blockedPeople.clear();interestedPeople.clear();activityRows.splice(0);celebrationsSeen.clear();exclusiveId=null;weeklyPicks=undefined;mediaFiles.clear();},
+    reset(){records.splice(0);messages.clear();readThrough.clear();steps.clear();agreements.clear();familyPhones.clear();callPermissions.clear();typingPeople.clear();hiddenPeople.clear();blockedPeople.clear();interestedPeople.clear();activityRows.splice(0);celebrationsSeen.clear();exclusiveId=null;weeklyPicks=undefined;mediaFiles.clear();},
   },simulationOptions,persistedSimulation);
   const profileReading = createProfileReading(id => {
     const member = viewer();
@@ -886,6 +938,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   }, notify, simulationOptions.generateReading, () => simulationOptions.membershipTier?.()==='seriousness');
   return {
     simulation, profileReading,
+    ownsConnection: id => records.some(r => r.id === id),
     exclusiveConnection: () => exclusiveId,
     retireOtherConnections() {
       if (closeOtherConnections(null, new Date().toISOString())) notify();
@@ -951,6 +1004,32 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
     },
     async progress(id) { return progress(id); },
     async agreement(id) { return agreement(id); },
+    async familyContact(id) {
+      const record = records.find(r => r.id === id);
+      return record && !blockedPeople.has(record.peer) ? familyPhones.get(id) ?? null : null;
+    },
+    async closeIntroduction(id, choice) {
+      const record = records.find(r => r.id === id);
+      if (!record || blockedPeople.has(record.peer)) throw Error('التعارف غير متاح.');
+      if (record.status === 'closed' && record.closureContext === choice.context &&
+          record.allowRematch === choice.allowRematch) {
+        if (choice.familyPhone !== undefined) confirmFamilyPhone(record, choice.familyPhone, true);
+        return;
+      }
+      if (record.status !== 'accepted') throw Error('هذا الإجراء غير متاح.');
+      if (choice.context === 'pact' && !hasSignedPact(agreement(id))) throw Error('ما فيه ميثاق موقّع بينكم.');
+      if (choice.familyPhone !== undefined) confirmFamilyPhone(record, choice.familyPhone, true);
+      record.closureContext = choice.context;
+      cancelRequest(record, choice.allowRematch);
+    },
+    async shareFamilyContact(id, phone, {closeNow = false, allowRematch = false} = {}) {
+      const record = records.find(r => r.id === id);
+      if (!record) throw Error('مشاركة الرقم غير متاحة.');
+      confirmFamilyPhone(record, phone, closeNow);
+      if (record.status === 'closed') return;
+      if (closeNow) cancelRequest(record, allowRematch);
+      else notify();
+    },
     async agree(id, action, payload={}) {
       const value=agreement(id),now=new Date().toISOString();
       if(action==='propose') {
@@ -1065,10 +1144,11 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       const closed = records.filter(r => r.status === 'closed').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id));
       const index = beforeId ? closed.findIndex(record => record.id === beforeId) : -1;
       if (beforeId && index < 0) return [];
-      return closed.slice(index + 1, index + 51).map(r => ({
-        id: r.id, alias: examples.find(p => p.id === r.peer)?.alias ?? 'عضو',
-        direction: r.direction, createdAt: r.createdAt, closedAt: r.updatedAt, outcome: 'closed' as const,
-      }));
+      return closed.slice(index + 1, index + 51).map(historyEntry);
+    },
+    async requestHistoryItem(id) {
+      const record = records.find(r => r.id === id && r.status === 'closed');
+      return record ? historyEntry(record) : null;
     },
     async matchingExclusions() {
       const excluded = new Map<string, MatchingExclusion>();
@@ -1125,10 +1205,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         r.status = action === "accept" ? "accepted" : "closed";
         if(action==='accept')r.celebrationKey=crypto.randomUUID();
       } else if (action === "cancel") {
-        if (r.status !== "accepted" && (r.direction !== "outgoing" || r.status !== "pending"))
-          throw new Error("هذا الإجراء غير متاح.");
-        r.status = "closed";
-        r.allowRematch = allowRematch;
+        return cancelRequest(r, allowRematch);
       } else {
         r.status = "closed";
         blockedPeople.add(r.peer);hiddenPeople.add(r.peer);r.allowRematch=false;

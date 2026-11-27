@@ -1,4 +1,7 @@
-admin
+admin/*
+!admin/server/
+admin/server/*
+!admin/server/updateEvents.ts
 ios
 service
 supabase

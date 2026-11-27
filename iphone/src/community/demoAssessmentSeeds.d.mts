@@ -4,6 +4,7 @@ import type { BeenaProfile } from '../beena/model';
 type DemoSeed = {
   beena: BeenaProfile;
   alias: string; age: number; city: string; occupation: string; education: string;
+  familyManager?: string;
   bio: string; lookingFor: string; values: string; home: string; interests: string[];
   /** In catalog order: social energy, initiative, depth, openness, closeness,
    * reassurance, support, planning, novelty, conflict pace, directness, quiet. */

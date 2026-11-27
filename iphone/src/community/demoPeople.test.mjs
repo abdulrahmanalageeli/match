@@ -22,13 +22,14 @@ import {demoAssessmentSeeds,demoSurvey} from ${JSON.stringify(new URL('./demoAss
 const compiled=ts.transpileModule(fixtures,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const {demoPeople,demoProfile}=await import('data:text/javascript;base64,'+Buffer.from(imports+compiled).toString('base64'));
 
-test('fictional roster contains 15 distinct adults per gender with complete valid assessments',()=>{
-  assert.equal(demoPeople.length,30);
-  assert.equal(new Set(demoPeople.map(p=>p.id)).size,30);
-  assert.equal(new Set(demoPeople.map(p=>p.bio)).size,30);
+test('fictional roster contains 18 distinct adults per gender with complete valid assessments',()=>{
+  assert.equal(demoPeople.length,36);
+  assert.equal(new Set(demoPeople.map(p=>p.id)).size,36);
+  assert.equal(new Set(demoPeople.map(p=>p.bio)).size,36);
   for(const gender of ['man','woman']){
     const pool=demoPeople.filter(p=>p.gender===gender);
-    assert.deepEqual(pool.map(p=>p.id),Array.from({length:15},(_,i)=>(gender==='man'?'p':'wp')+String(i+1).padStart(2,'0')));
+    assert.deepEqual(pool.map(p=>p.id),Array.from({length:18},(_,i)=>(gender==='man'?'p':'wp')+String(i+1).padStart(2,'0')));
+    assert.equal(pool.filter(person=>person.familyManager).length,3);
     assert(pool.filter(p=>p.membershipTier==='free').length>pool.length/2);
     assert.deepEqual(new Set(pool.map(p=>p.membershipTier)),new Set(['free','premium','seriousness']));
   }

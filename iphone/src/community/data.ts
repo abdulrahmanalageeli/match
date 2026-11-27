@@ -31,6 +31,7 @@ import { demoMembershipTier } from './simulationRhythm.ts';
 
 export type GalleryPhoto = { id: string; path?: string };
 export type PublicPerson = {
+  familyManager?: string;
   membershipTier?:'free'|'premium'|'seriousness';
   premium?: boolean;
   compatibilityLocked?: boolean;
@@ -521,7 +522,7 @@ export const demoPeople = demoAssessmentSeeds.map(({ id, seed, index, genderInde
   const woman = genderIndex === 1;
   const photo = demoPhotoIds.has(id) ? `/demo/portraits/${id}-everyday.webp` : undefined;
   const tone = (['tone_4','tone_5','tone_2','tone_8','tone_1','tone_6'] as const)[(index + (woman ? 0 : 1)) % 6];
-  const dress = (['hijab','niqab','uncovered','hijab','hijab','uncovered','hijab','niqab','hijab','uncovered','niqab','hijab','hijab','uncovered','hijab'] as const)[index];
+  const dress = (['hijab','niqab','uncovered','hijab','hijab','uncovered','hijab','niqab','hijab','uncovered','niqab','hijab','hijab','uncovered','hijab','hijab','niqab','hijab'] as const)[index];
   const noChildren = seed.children === 'B';
   const partnerCriteria: PartnerCriteria = {
     sharedLanguage: {mode: 'prefer'},
@@ -539,15 +540,15 @@ export const demoPeople = demoAssessmentSeeds.map(({ id, seed, index, genderInde
   };
   const surveyAnswers = demoSurvey(seed, index, assessmentVersion);
   const originCities = woman
-    ? ['الطائف','الرياض','جدة','القصيم','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام','بريدة','جدة','حائل','الخرج','الطائف']
-    : ['الرياض','الأحساء','جدة','الطائف','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام','بريدة','مكة المكرمة','حائل','الرياض','الطائف'];
+    ? ['الطائف','الرياض','جدة','القصيم','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام','بريدة','جدة','حائل','الخرج','الطائف','الرياض','المدينة المنورة','الأحساء']
+    : ['الرياض','الأحساء','جدة','الطائف','الرياض','المدينة المنورة','جدة','الخبر','أبها','الدمام','بريدة','مكة المكرمة','حائل','الرياض','الطائف','الدمام','جدة','بريدة'];
   const tribeName = (woman ? ['عتيبة', 'بني تميم'] : ['عنزة', 'بني تميم'])[index % 2];
   const tribal = index % 3 !== 2;
   const expensePlans = {A:'husband_essentials',B:'equal',C:'proportional',D:'discuss'} as const;
   const housingPlans = {A:'independent',B:'discuss',C:'with_family',D:'discuss'} as const;
   const marriageBasics: MarriageBasics = {
-    heightCm: woman ? [165,169,162,167,164,166,160,171,158,163,155,168,161,172,159][index] : [179,183,174,181,176,178,172,180,185,175,170,177,182,168,175][index],
-    weightKg: woman ? [59,64,55,62,58,60,54,67,52,65,68,71,63,75,74][index] : [78,85,72,82,76,80,69,87,84,75,83,71,98,69,92][index],
+    heightCm: woman ? [165,169,162,167,164,166,160,171,158,163,155,168,161,172,159,166,161,168][index] : [179,183,174,181,176,178,172,180,185,175,170,177,182,168,175,178,181,174][index],
+    weightKg: woman ? [59,64,55,62,58,60,54,67,52,65,68,71,63,75,74,60,59,63][index] : [78,85,72,82,76,80,69,87,84,75,83,71,98,69,92,77,82,73][index],
     nationality: seed.nationality ?? (woman ? 'سعودية' : 'سعودي'),
     originCity: originCities[index],
     spokenLanguages: index % 4 === 3 ? ['العربية'] : ['العربية','الإنجليزية'],
@@ -578,6 +579,7 @@ export const demoPeople = demoAssessmentSeeds.map(({ id, seed, index, genderInde
   };
   return {
     id, isDemo:true as const,
+    familyManager:seed.familyManager,
     membershipTier: seed.membershipTier,
     alias:seed.alias,age:seed.age,city:seed.city,occupation:seed.occupation,profession:seed.occupation,bio:seed.bio,
     gender:woman?'woman' as const:'man' as const,education:seed.education,
@@ -755,6 +757,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       connectionStatus: records.find(r => r.peer === person.id && r.status !== "closed")?.status as "accepted" | "pending" | undefined,
       exclusive: records.some(r => r.id === exclusiveId && r.peer === person.id),
       alias: person.alias,
+      familyManager: person.familyManager,
       age: person.age,
       city: person.city,
       occupation: person.occupation,

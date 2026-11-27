@@ -80,6 +80,7 @@ export function fictionalReply(person: PublicPerson, history: { senderIsMe: bool
   const said = new Set(history.filter(message => !message.senderIsMe).map(message => message.body));
   if (!recent) return brief.opener;
   if (/زواج|خطبة|رسمي|الأهل|الاهل|لقاء/.test(recent)) {
+    if (brief.meetingReply) return brief.meetingReply;
     if (brief.meeting === 'family_before_formal') return 'أرتاح أكثر إذا اللقاء الأول كان بحضور الأهل، بعد ما نتفق على الأساسيات.';
     if (brief.meeting === 'after_formal') return 'بالنسبة لي اللقاء يكون بعد الخطوة الرسمية. هنا نقدر نسولف عن اللي يهمنا قبلها.';
     if (brief.meeting === 'public_before_formal') return 'أفضل مكان عام قبل الخطوة الرسمية، وقت ما نكون مرتاحين للفكرة.';
@@ -87,6 +88,7 @@ export function fictionalReply(person: PublicPerson, history: { senderIsMe: bool
   }
   if (/عمل|دوام|مهن|شغل|يومك|يومج/.test(recent)) return brief.daily;
   if (/خلاف|زعل|نقاش|عص[بّ]/.test(recent)) {
+    if (brief.conflictReply) return brief.conflictReply;
     const responses: Record<string, string> = {
       A:'أفضل نتكلم في وقته. إذا فهمت وش ضايقك يسهل علي أوضح اللي عندي.',
       B:'أحتاج أهدأ شوي، بس أحب نتفق متى نرجع نكمل الكلام.',

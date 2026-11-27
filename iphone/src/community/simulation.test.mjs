@@ -375,6 +375,10 @@ test('fallback uses conversation topic and respects contact boundaries',()=>{
   assert.match(fictionalReply({...p,id:'wp15'},[{senderIsMe:true,body:'كيف دوامك'}]),/المحل/);
   assert.match(fictionalReply({...p,id:'wp13'},[{senderIsMe:true,body:'هلا وأهلين'}]),/مشاعل/);
   assert.match(fictionalReply({...p,id:'wp14'},[{senderIsMe:true,body:'وش هواياتك؟'}]),/ألغاز/);
+  assert.match(fictionalReply({...p,id:'wp16'},[]),/معك أم غادة/);
+  assert.match(fictionalReply({...p,id:'wp17'},[{senderIsMe:true,body:'كيف دوامك؟'}]),/مها تداوم/);
+  assert.match(fictionalReply({...p,id:'p16'},[{senderIsMe:true,body:'متى اللقاء؟'}]),/فيصل يفضّل/);
+  assert.match(fictionalReply({...p,id:'p18'},[{senderIsMe:true,body:'إذا صار خلاف؟'}]),/ولدي/);
   const greeting=[{senderIsMe:true,body:'السلام عليكم'}];
   assert.match(fictionalReply(p,greeting),/^وعليكم السلام/);
   assert.notEqual(fictionalReply(p,greeting),fictionalReply({...p,id:'p04'},greeting));

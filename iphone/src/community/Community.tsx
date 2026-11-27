@@ -490,6 +490,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
         <MemberBadge tier={person.membershipTier} active={person.premium} labeled/>
       </div>
       <div className="df-identity-meta">{person.city && <span><MapPin size={13} />{person.city}</span>}
+        {person.familyManager && <span>بإدارة {person.familyManager}</span>}
         {person.occupation && <span><BriefcaseBusiness size={13} />{person.occupation}</span>}
         {timeline && marriageTimelineLabels[timeline] && <span><Clock3 size={13} />الزواج {marriageTimelineLabels[timeline]}</span>}</div>
       {(!person.portrait||person.isDemo)&&!(person.isDemo&&(source.simulation||source.demoInteractions||source.familyTestMode))&&<small className="df-portrait-source">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={11} /> الصور تُشارك بخصوصية</>}</small>}
@@ -616,7 +617,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
               </button>
             )}
           </span>
-          <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
+          <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{person.familyManager&&<span className="dr-row-meta">بإدارة {person.familyManager}</span>}{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
         </span>
       </div>
       {premium ? !person.compatibilityLocked && <button type="button" className="dr-fit-visual" onClick={explain} disabled={!person.fit}

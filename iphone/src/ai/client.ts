@@ -49,7 +49,7 @@ export async function requestAi(input: AiRequest, testSession?: string): Promise
 /** Only the private Abdulrahman simulation may send its fictional transcript.
  * Real-member suggestions keep using the separate data-free opener above. */
 export async function requestSimulationReply(personaId: string, messages: SimulationMessage[], testSession: string): Promise<string> {
-  if (!/^(?:w)?p(?:0[1-9]|1[0-5])$/.test(personaId) || !/^[0-9a-f]{64}$/.test(testSession)
+  if (!/^(?:w)?p(?:0[1-9]|1[0-8])$/.test(personaId) || !/^[0-9a-f]{64}$/.test(testSession)
     || !Array.isArray(messages) || messages.length > 32
     || messages.some(message => !message || typeof message.senderIsMe !== 'boolean' || typeof message.body !== 'string'
       || !message.body.trim() || message.body.length > 2000 || Object.keys(message).some(key => key !== 'senderIsMe' && key !== 'body'))

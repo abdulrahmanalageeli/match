@@ -222,8 +222,10 @@ test('verified member testers can use the same bot workflow in either discovery 
       lunaSearch:async(alias,filters)=>({people:[],options:{...filters,lunaFields:{},luna:[{field:'alias',kind:'must',terms:[alias]}]}})};
     const directory=withTestingDiscovery(remote,()=>profile,'verified-'+gender,()=>'premium');
     const people=await directory.discover({mode:'all'});
-    assert.equal(people.length,15);
-    const person=people.find(row=>row.eligible!==false);
+    assert.equal(people.length,18);
+    const families=people.filter(row=>row.familyManager);
+    assert.equal(families.length,3);
+    const person=families.find(row=>row.eligible!==false);
     for (const mode of ['all','recommended']) {
       const target=mode==='all' ? person : (await directory.discover({mode}))[0];
       const result=await directory.lunaSearch(target.alias,{mode});

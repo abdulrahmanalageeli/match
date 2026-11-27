@@ -1,0 +1,69 @@
+name: Wudayn iPhone screen previews
+on:
+  push:
+    branches: [codex/wudayn-ios-screen-previews]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wudayn-ios-screen-previews
+  cancel-in-progress: true
+jobs:
+  capture:
+    runs-on: macos-26
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: iphone
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: iphone/package-lock.json
+      - name: Boot the preview iPhone
+        run: |
+          read -r SIMULATOR_UDID SIMULATOR_NAME < <(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; phones=[d for k, ds in devices.items() if ".iOS-" in k for d in ds if d["name"].startswith("iPhone")]; phone=next((p for p in phones if p["name"]=="iPhone 17"),phones[0]); print(phone["udid"], phone["name"])')
+          printf 'SIMULATOR_UDID=%s\nSIMULATOR_NAME=%s\n' "$SIMULATOR_UDID" "$SIMULATOR_NAME" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIMULATOR_UDID"
+      - name: Bundle Wudayn and its local preview fixtures
+        run: |
+          npm ci --prefer-offline
+          node tests/simulator/build-fixtures.mjs
+          echo '<meta charset="utf-8"><script>location.replace("/tests/simulator/preview.html")</script>' > dist/index.html
+          npx --no-install cap sync ios
+          gem list -i xcodeproj || gem install --user-install xcodeproj -v 1.27.0 --no-document
+          ruby tests/simulator/add-test-target.rb
+      - name: Capture Wudayn screens in WKWebView
+        run: |
+          mkdir -p "$RUNNER_TEMP/wudayn-preview/screens"
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcrun simctl status_bar "$SIMULATOR_UDID" override --time '9:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryLevel 100
+          printf 'Device: %s\nPreview commit: %s\n' "$SIMULATOR_NAME" "$GITHUB_SHA" > "$RUNNER_TEMP/wudayn-preview/screens/build.txt"
+          set -o pipefail
+          xcodebuild test -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" -parallel-testing-enabled NO \
+            -only-testing:SimulatorChecks/SimulatorChecks/testSafeAreaChrome \
+            -only-testing:DisplayChecks/DisplayChecks/testMemberTabsOnDisplay \
+            -derivedDataPath "$RUNNER_TEMP/WudaynBuild" \
+            -resultBundlePath "$RUNNER_TEMP/wudayn-preview/Wudayn.xcresult" \
+            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/wudayn-preview/xcodebuild.log"
+      - name: Confirm both simulator screenshots
+        if: always()
+        run: |
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/wudayn-preview/Wudayn.xcresult" --output-path "$RUNNER_TEMP/wudayn-preview/attachments"
+          python3 tests/simulator/export-previews.py "$RUNNER_TEMP/wudayn-preview"
+          test -s "$RUNNER_TEMP/wudayn-preview/screens/discovery.png"
+          test -s "$RUNNER_TEMP/wudayn-preview/screens/settings.png"
+      - name: Save screen previews and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wudayn-iphone-previews
+          path: |
+            ${{ runner.temp }}/wudayn-preview/screens
+            ${{ runner.temp }}/wudayn-preview/xcodebuild.log
+          retention-days: 7

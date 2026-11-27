@@ -1,5 +1,7 @@
 import {useEffect,useState} from 'react';
 import {cityOptions} from '../profile/profileOptions';
+import {ChevronLeft, X} from '../BrandIcons';
+import {SheetChoiceSelect} from '../ui/SheetChoiceSelect';
 import type {CommunitySource} from './data';
 
 export function RelocationCities({source,onSaved}:{source:CommunitySource;onSaved:()=>void}) {
@@ -19,14 +21,16 @@ export function RelocationCities({source,onSaved}:{source:CommunitySource;onSave
     catch{setMessage('تعذّر حفظ مدن الانتقال. حاول مرة أخرى.');}
     finally{setBusy(false);}
   }
-  return <details><summary>مدن الانتقال في تفضيلاتي الدائمة</summary>
-    <p>إذا اخترت «مدينة نتفق عليها» في الاستبيان، حدّد المدن التي تقبل الانتقال إليها. تبقى مدينتك الحالية ضمن الخيارات. تظهر هذه القائمة لك وحدك وتبقى بعد مسح فلاتر البحث.</p>
-    {cities && <fieldset disabled={busy}><legend>مدن يمكنني الانتقال إليها</legend>
-      <select aria-label="إضافة مدينة للانتقال" value="" disabled={cities.length>=20} onChange={e=>{if(e.target.value)setCities([...cities,e.target.value]);setMessage('');}}>
-        <option value="">اختر مدينة</option>{cityOptions.filter(o=>!o.value.startsWith('مدينة أخرى')&&!cities.includes(o.value)).map(o=><option key={o.value} value={o.value}>{o.value}</option>)}
-      </select>
-      {cities.map(city=><button type="button" key={city} aria-label={'إزالة '+city} onClick={()=>{setCities(cities.filter(c=>c!==city));setMessage('');}}>{city} ×</button>)}
-      <button type="button" className="btn-secondary" onClick={()=>void save()}>حفظ مدن الانتقال</button></fieldset>}
+  return <details className="dr-filter-section dr-filter-group"><summary><span>مدن الانتقال في تفضيلاتي الدائمة</span><ChevronLeft size={17} aria-hidden="true"/></summary>
+    <div className="dr-refined-fields dr-relocation-fields">
+    <p>إذا اخترت «مدينة نتفق عليها»، أضف المدن المناسبة لك. تبقى مدينتك ضمن الخيارات، وتُحفظ هذه القائمة لك حتى بعد مسح الفلاتر.</p>
+    {cities && <>
+      <SheetChoiceSelect label="إضافة مدينة للانتقال" value="" placeholder="اختر مدينة" disabled={busy || cities.length>=20}
+        options={cityOptions.filter(o=>!o.value.startsWith('مدينة أخرى')&&!cities.includes(o.value))}
+        onChange={city=>{if(city)setCities([...cities,city]);setMessage('');}}/>
+      <div className="dr-selected-filters">{cities.map(city=><button type="button" key={city} disabled={busy} aria-label={'إزالة '+city} onClick={()=>{setCities(cities.filter(c=>c!==city));setMessage('');}}>{city}<X size={13} aria-hidden="true"/></button>)}</div>
+      <button type="button" className="btn-text" disabled={busy} onClick={()=>void save()}>حفظ مدن الانتقال</button></>}
     {message&&<small role="status">{message}</small>}
+    </div>
   </details>;
 }

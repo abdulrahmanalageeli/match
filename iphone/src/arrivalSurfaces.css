@@ -431,12 +431,6 @@ html:has(.dr-directory) { overscroll-behavior-y: contain; }
 .dr-filter-availability input:focus-visible + .dr-filter-switch { outline: 2px solid #54152a; outline-offset: 2px; }
 .phone-app .dr-filter-body > .dr-filter-group > summary { min-height: 44px; padding: 4px 0; color: #231f23; font-size: 0.875rem; }
 .phone-app .dr-filter-body > .dr-filter-group > summary > svg { color: #69656b; }
-.dr-filter-body .dr-filter-fields { gap: 9px; padding: 0 8px 9px; }
-.dr-filter-body .dr-filter-fields .dr-filter-section { border-radius: 9px; background: var(--surface); }
-.dr-filter-body .dr-filter-fields .dr-filter-section summary { min-height: 40px; padding: 6px 9px; }
-.phone-app .dr-filter-body .dr-filter-fields select { min-height: 38px; padding-block: 5px; }
-.phone-app .dr-filter-body .dr-filter-fields .nf-choice-control { min-height: 38px; }
-.phone-app .dr-filter-body .dr-filter-fields .nf-choice-control input { min-height: 36px; padding-block: 4px; }
 .dr-filter-footer { flex: none; padding: 12px 16px max(12px, var(--nf-safe-bottom, 0px)); background: var(--surface); }
 .dr-filter-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .phone-app .dr-filter-actions > button { min-height: 44px; }
@@ -738,7 +732,6 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 .phone-app .mp-profile .mp-fit :is(.mp-fit-preferences, .nf-pref-map, .nf-pref-method, .nf-pref-criteria) > summary {
   min-block-size: 48px; padding-block: 8px;
 }
-.phone-app .dr-filter-body .dr-filter-fields .dr-filter-section > summary,
 .phone-app .luna-search-results .luna-search-person { min-block-size: 52px; padding-block: 6px; }
 
 /* The history heading stays in place when the list beneath it opens. */
@@ -787,8 +780,43 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 .phone-app .dr-filter-body > :is(.nf-sheet-choice-row, .dr-filter-age, .dr-filter-availability, .dr-filter-group) {
   background: transparent; border-block-end-color: color-mix(in srgb, var(--line) 66%, transparent);
 }
-.phone-app .dr-filter-body .dr-filter-fields .dr-filter-section {
-  border: 0; border-block-end: 1px solid var(--line); border-radius: 0; background: transparent;
+.dr-filter-group > summary > span:first-child { flex: 1; }
+.dr-filter-count { color: var(--accent); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.dr-refined-fields { min-width: 0; margin-inline-start: 7px; padding-inline-start: 12px; margin-block-end: 6px; border-inline-start: 1px solid var(--line); }
+.phone-app .dr-refined-fields .nf-sheet-choice-row, .phone-app .dr-filter-body > .dr-fit-upgrade {
+  min-height: 44px; padding: 4px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none;
 }
-.phone-app .dr-filter-body .dr-filter-fields .dr-filter-section summary { padding-inline: 0; }
+.phone-app .dr-refined-fields > :is(.nf-sheet-choice-row, .dr-refined-range, .dr-exclusion-picker):not(:last-child),
+.phone-app .dr-filter-body > .dr-fit-upgrade {
+  border-block-end: 1px solid color-mix(in srgb, var(--line) 66%, transparent);
+}
+.dr-refined-range { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)); column-gap: 16px; }
+.phone-app .dr-refined-range .nf-sheet-choice-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 0 5px; padding-block: 7px; }
+.dr-refined-range .nf-sheet-choice-value { max-width: none; grid-row: 2; }
+.dr-refined-range .nf-sheet-choice-row > svg { grid-column: 2; grid-row: 1 / span 2; }
+.dr-fit-upgrade { display: flex; align-items: center; gap: 9px; width: 100%; text-align: start; color: var(--ink); font: inherit; font-size: .875rem; font-weight: 650; }
+.dr-fit-upgrade small { display: inline-flex; align-items: center; gap: 5px; margin-inline-start: auto; color: var(--accent); font-size: .75rem; font-weight: 500; }
+.dr-fit-upgrade > svg { color: var(--muted); }
+.dr-refined-fields .dr-exclusion-picker { gap: 0; }
+.dr-refined-fields .dr-selected-filters:not(:empty) { padding-block-end: 6px; }
+.dr-refined-fields .dr-selected-filters button { background: var(--raised-tint); border: 0; color: var(--accent); }
+.dr-refined-fields fieldset.dr-refined-exclusions { min-width: 0; margin: 0; padding: 6px 0 9px; border: 0; }
+.dr-refined-exclusions legend { padding: 5px 0 0; color: var(--ink); font-size: .825rem; font-weight: 600; }
+.dr-refined-exclusions .dr-exclusion-options { gap: 2px 6px; }
+.phone-app .dr-refined-exclusions .dr-exclusion-options label {
+  position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 9px;
+  border: 0; border-radius: 0; background: transparent; color: var(--muted); font-size: .8rem;
+}
+.dr-refined-exclusions .dr-exclusion-options label::before {
+  content: ''; position: absolute; inset: 6px 0; border-radius: 8px; background: var(--raised-tint); pointer-events: none;
+}
+.dr-refined-exclusions .dr-exclusion-options input { position: absolute; opacity: 0; }
+.dr-refined-exclusions .dr-exclusion-options :is(span, svg) { position: relative; }
+.dr-refined-exclusions .dr-exclusion-options svg { opacity: 0; color: var(--accent); }
+.dr-refined-exclusions .dr-exclusion-options input:checked ~ svg { opacity: 1; }
+.phone-app .dr-refined-exclusions .dr-exclusion-options label:has(input:checked) { background: transparent; }
+.dr-refined-exclusions .dr-exclusion-options label:has(input:checked)::before { background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.dr-refined-exclusions .dr-exclusion-options input:checked + span { color: var(--accent); font-weight: 600; }
+.dr-refined-exclusions .dr-exclusion-options label:has(input:focus-visible)::before { outline: 2px solid var(--accent); }
+.dr-relocation-fields > p, .dr-relocation-fields > small { margin: 0; padding-block: 4px; color: var(--muted); font-size: .78rem; }
 .phone-app .dr-filter-age-row label { border-radius: 8px; background: var(--raised-tint); }

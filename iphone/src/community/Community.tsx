@@ -85,7 +85,6 @@ import { MemberTabs } from "../Home";
 import { interests } from "../compatibility/model";
 import { marriageTimelineLabels } from "../compatibility/marriage";
 import { cityOptions, nationalityChoices, canonicalCity, canonicalNationality, educationOptions, professionOptions, numericOptions } from '../profile/profileOptions';
-import { ChoiceSelect } from '../ui/ChoiceSelect';
 import { SheetChoiceSelect } from '../ui/SheetChoiceSelect';
 import { FitDetails, partialPreferenceCoverage, preferencePercentage } from "../compatibility/FitDetails";
 import { AvatarPortrait } from "../avatars/AvatarPortrait";
@@ -186,6 +185,20 @@ const dateLabel = new Intl.DateTimeFormat("ar-SA-u-ca-gregory", {
 const emptyFilters: Filters = {};
 const filterHeightOptions = numericOptions(120, 230, 'سم');
 const filterWeightOptions = numericOptions(35, 250, 'كجم');
+const smokingChoices = [
+  {value:'never',label:'لا يدخّن'}, {value:'cigarettes',label:'سجائر'}, {value:'vape',label:'فيب'},
+  {value:'shisha',label:'شيشة'}, {value:'sometimes',label:'أحيانًا · غير محدد'}, {value:'yes',label:'يدخّن · غير محدد'},
+];
+const maritalChoices = [
+  {value:'never_married',label:'لم يسبق الزواج'}, {value:'divorced',label:'مطلق / مطلقة'},
+  {value:'widowed',label:'أرمل / أرملة'}, {value:'married',label:'متزوج'},
+];
+const tribalChoices = [{value:'tribal',label:'قبلي'}, {value:'non_tribal',label:'غير قبلي'}];
+const exclusionGroups = [
+  {key:'excludeTribalBackgrounds',label:'إخفاء حسب الخلفية القبلية',options:tribalChoices},
+  {key:'excludeSmoking',label:'إخفاء حسب التدخين',options:smokingChoices},
+  {key:'excludeMaritalStatuses',label:'إخفاء حسب الحالة الاجتماعية',options:maritalChoices},
+] as const;
 const reportCategories = ['تهديد فوري للسلامة', 'إساءة أو ضغط غير مرغوب', 'انتحال أو معلومات مضللة', 'طلب أموال أو احتيال', 'انتهاك الخصوصية', 'محتوى غير مناسب', 'سبب آخر'];
 const practicalQuestions = [
   ['السكن والمدينة', 'أين تتصور أن نستقر، وهل سيكون السكن مستقلًا؟ وما حدود المرونة في الانتقال؟'],
@@ -276,6 +289,14 @@ function Banner({ text, alert = false }: { text: string; alert?: boolean }) {
     </p>
   );
 }
+function FilterGroup({title, count, children}: {title:string; count:number; children:ReactNode}) {
+  const initiallyOpen = useRef(count > 0);
+  return <details className="dr-filter-section dr-filter-group" open={initiallyOpen.current}>
+    <summary><span>{title}</span>{count > 0 && <small className="dr-filter-count" aria-label={`عدد الفلاتر المحددة ${ar.format(count)}`}>{ar.format(count)}</small>}<ChevronLeft size={17} aria-hidden="true"/></summary>
+    <div className="dr-refined-fields">{children}</div>
+  </details>;
+}
+
 function FilterSheet({
   source,onSaved,filters,allProfiles,
   apply,
@@ -362,50 +383,72 @@ function FilterSheet({
             <span className="dr-filter-switch" aria-hidden="true" />
           </label>
           <h3 className="dr-filter-heading"><SlidersHorizontal size={15} aria-hidden="true"/>تفضيلات أدق</h3>
-          <details className="dr-filter-section dr-filter-group">
-            <summary><span>خيارات إضافية</span><ChevronLeft size={17} aria-hidden="true" /></summary>
-            <div className="dr-filter-fields">
-        <details className="dr-filter-section" open={!!extra.language}><summary><span>اللغات</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
-          <ChoiceSelect label="يتحدث اللغة" value={extra.language ?? ''} options={languageOptions.map(value => ({value,label:value}))} placeholder="جميع اللغات" allowClear onChange={language => setExtra(current => ({...current,language:language || undefined}))}/>
-        </div></details>
-        <details className="dr-filter-section" open={!!(extra.education||extra.profession||extra.children)}><summary><span>الدراسة والعمل والعائلة</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
-          <ChoiceSelect label="المؤهل التعليمي" value={extra.education??''} options={educationOptions} placeholder="كل المؤهلات" allowClear onChange={education=>setExtra(current=>({...current,education:education||undefined}))}/>
-          <ChoiceSelect label="مجال العمل أو الوضع المهني" value={extra.profession??''} options={professionOptions} placeholder="كل المجالات" allowClear onChange={profession=>setExtra(current=>({...current,profession:profession||undefined}))}/>
-          <label>الأبناء<select value={extra.children??''} onChange={event=>setExtra(current=>({...current,children:event.target.value as Filters['children']||undefined}))}><option value="">بدون تحديد</option><option value="none">ليس لديه / لديها أبناء</option><option value="has">لديه / لديها أبناء</option></select></label>
-        </div></details>
-        <details className="dr-filter-section" open={[extra.minHeight,extra.maxHeight,extra.minWeight,extra.maxWeight].some(value=>value!==undefined)}><summary><span>الطول والوزن</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
-          {([{label:'الطول',minKey:'minHeight',maxKey:'maxHeight',options:filterHeightOptions},{label:'الوزن',minKey:'minWeight',maxKey:'maxWeight',options:filterWeightOptions}] as const).map(({label,minKey,maxKey,options})=><div className="cm-age-fields" key={label}>
-            <ChoiceSelect label={label+' من'} value={extra[minKey]?.toString()??''} options={options.filter(option=>extra[maxKey]===undefined||Number(option.value)<=extra[maxKey]!)} placeholder="دون حد أدنى" allowClear onChange={value=>setExtra(current=>({...current,[minKey]:value?Number(value):undefined}))}/>
-            <ChoiceSelect label={label+' إلى'} value={extra[maxKey]?.toString()??''} options={options.filter(option=>extra[minKey]===undefined||Number(option.value)>=extra[minKey]!)} placeholder="دون حد أعلى" allowClear onChange={value=>setExtra(current=>({...current,[maxKey]:value?Number(value):undefined}))}/>
-          </div>)}
-        </div></details>
-        <div className="cm-age-fields"><label>الحالة الاجتماعية<select value={extra.maritalStatus??''} onChange={e=>setExtra({...extra,maritalStatus:e.target.value})}><option value="">الكل</option><option value="never_married">لم يسبق الزواج</option><option value="divorced">مطلق / مطلقة</option><option value="widowed">أرمل / أرملة</option><option value="married">متزوج</option></select></label>
-        <label>التدخين<select value={extra.smoking??''} onChange={e=>setExtra({...extra,smoking:e.target.value})}><option value="">الكل</option><option value="never">لا يدخّن</option><option value="cigarettes">سجائر</option><option value="vape">فيب</option><option value="shisha">شيشة</option><option value="sometimes">أحيانًا · غير محدد</option><option value="yes">يدخّن · غير محدد</option></select></label></div>
-        <label>غطاء الرأس<select value={extra.dressStyle??''} onChange={e=>setExtra({...extra,dressStyle:e.target.value})}><option value="">بدون تحديد</option>{dressStyles.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
-        <label>الموقف من عمل الزوجة<select value={extra.work??''} onChange={e=>setExtra({...extra,work:e.target.value})}><option value="">بدون تحديد</option><option value="A">تفضيل العمل</option><option value="B">تفضيل عدم العمل</option><option value="C">المرونة حسب الاتفاق</option></select></label>
-        {premium?<label>توافق التفضيلات<select value={extra.minFit??0} onChange={e=>setExtra({...extra,minFit:Number(e.target.value)})}><option value={0}>كل مستويات التوافق</option><option value={60}>٦٠ نقطة فأعلى</option><option value={75}>٧٥ نقطة فأعلى</option><option value={90}>٩٠ نقطة فأعلى</option></select><small>تظهر الدرجة من ١٠٠ عند اكتمال التقييمين.</small></label>:<button type="button" className="btn-text" onClick={()=>upgrade("premium")}><LockKeyhole size={14}/>التصفية بدرجة التوافق مع العضوية المميزة</button>}
-        <label className="dr-availability"><input type="checkbox" checked={!!extra.onlineOnly} onChange={e=>setExtra({...extra,onlineOnly:e.target.checked})}/> نشط الآن فقط</label>
-        <details className="dr-filter-section" open={!!(extra.nationality||extra.tribalBackground)}><summary><span>الجنسية والخلفية القبلية</span><ChevronLeft size={15}/></summary><div className="dr-filter-fields">
-          <ChoiceSelect label="الجنسية المطلوبة" value={extra.nationality??''} options={nationalityChoices} placeholder="كل الجنسيات" allowClear onChange={nationality=>setExtra(current=>({...current,nationality:nationality||undefined}))}/>
-          <label>الخلفية القبلية<select value={extra.tribalBackground??''} onChange={event=>setExtra({...extra,tribalBackground:event.target.value})}><option value="">الجميع</option><option value="tribal">قبلي</option><option value="non_tribal">غير قبلي</option><option value="prefer_not_to_say">لم يذكر الخلفية</option></select></label>
-        </div></details>
+          <SheetChoiceSelect label="يتحدث اللغة" value={extra.language ?? ''} options={languageOptions.map(value=>({value,label:value}))}
+            placeholder="جميع اللغات" allowClear onChange={language=>setExtra({...extra,language:language || undefined})}/>
+          <FilterGroup title="الدراسة والعمل والعائلة" count={[extra.education,extra.profession,extra.children,extra.maritalStatus,extra.work].filter(Boolean).length}>
+            <SheetChoiceSelect label="المؤهل التعليمي" value={extra.education ?? ''} options={educationOptions} placeholder="كل المؤهلات"
+              allowClear onChange={education=>setExtra({...extra,education:education || undefined})}/>
+            <SheetChoiceSelect label="مجال العمل أو الوضع المهني" value={extra.profession ?? ''} options={professionOptions} placeholder="كل المجالات"
+              allowClear onChange={profession=>setExtra({...extra,profession:profession || undefined})}/>
+            <SheetChoiceSelect label="الحالة الاجتماعية" value={extra.maritalStatus ?? ''} options={maritalChoices} placeholder="الكل"
+              searchable={false} allowClear onChange={maritalStatus=>setExtra({...extra,maritalStatus:maritalStatus || undefined})}/>
+            <SheetChoiceSelect label="الأبناء" value={extra.children ?? ''} placeholder="بدون تحديد" searchable={false} allowClear
+              options={[{value:'none',label:'ليس لديه / لديها أبناء'},{value:'has',label:'لديه / لديها أبناء'}]}
+              onChange={value=>setExtra({...extra,children:(value || undefined) as Filters['children']})}/>
+            <SheetChoiceSelect label="الموقف من عمل الزوجة" value={extra.work ?? ''} placeholder="بدون تحديد" searchable={false} allowClear
+              options={[{value:'A',label:'تفضيل العمل'},{value:'B',label:'تفضيل عدم العمل'},{value:'C',label:'المرونة حسب الاتفاق'}]}
+              onChange={work=>setExtra({...extra,work:work || undefined})}/>
+          </FilterGroup>
+          <FilterGroup title="الطول والوزن" count={[extra.minHeight,extra.maxHeight,extra.minWeight,extra.maxWeight].filter(value=>value!==undefined).length}>
+            {([{label:'الطول',minKey:'minHeight',maxKey:'maxHeight',options:filterHeightOptions},{label:'الوزن',minKey:'minWeight',maxKey:'maxWeight',options:filterWeightOptions}] as const).map(({label,minKey,maxKey,options})=>
+              <div className="dr-refined-range" key={label}>
+                <SheetChoiceSelect label={label+' من'} value={extra[minKey]?.toString() ?? ''} placeholder="دون حد أدنى" allowClear
+                  options={options.filter(option=>extra[maxKey]===undefined || Number(option.value)<=extra[maxKey]!)}
+                  onChange={value=>setExtra({...extra,[minKey]:value ? Number(value) : undefined})}/>
+                <SheetChoiceSelect label={label+' إلى'} value={extra[maxKey]?.toString() ?? ''} placeholder="دون حد أعلى" allowClear
+                  options={options.filter(option=>extra[minKey]===undefined || Number(option.value)>=extra[minKey]!)}
+                  onChange={value=>setExtra({...extra,[maxKey]:value ? Number(value) : undefined})}/>
+              </div>)}
+          </FilterGroup>
+          <FilterGroup title="الجنسية والخلفية القبلية" count={[extra.nationality,extra.tribalBackground].filter(Boolean).length}>
+            <SheetChoiceSelect label="الجنسية المطلوبة" value={extra.nationality ?? ''} options={nationalityChoices} placeholder="كل الجنسيات"
+              allowClear onChange={nationality=>setExtra({...extra,nationality:nationality || undefined})}/>
+            <SheetChoiceSelect label="الخلفية القبلية" value={extra.tribalBackground ?? ''} placeholder="الجميع" searchable={false} allowClear
+              options={[...tribalChoices,{value:'prefer_not_to_say',label:'لم يذكر الخلفية'}]}
+              onChange={tribalBackground=>setExtra({...extra,tribalBackground:tribalBackground || undefined})}/>
+          </FilterGroup>
+          <SheetChoiceSelect label="التدخين" value={extra.smoking ?? ''} options={smokingChoices} placeholder="الكل" searchable={false}
+            allowClear onChange={smoking=>setExtra({...extra,smoking:smoking || undefined})}/>
+          <SheetChoiceSelect label="غطاء الرأس" value={extra.dressStyle ?? ''} options={dressStyles} placeholder="بدون تحديد" searchable={false}
+            allowClear onChange={dressStyle=>setExtra({...extra,dressStyle:dressStyle || undefined})}/>
+          {premium ? <SheetChoiceSelect label="توافق التفضيلات" value={extra.minFit ? String(extra.minFit) : ''} placeholder="كل مستويات التوافق"
+            options={[{value:'60',label:'٦٠ نقطة فأعلى'},{value:'75',label:'٧٥ نقطة فأعلى'},{value:'90',label:'٩٠ نقطة فأعلى'}]}
+            searchable={false} allowClear onChange={value=>setExtra({...extra,minFit:Number(value)})}/>
+            : <button type="button" className="dr-fit-upgrade" onClick={()=>upgrade('premium')}><span>التصفية بدرجة التوافق</span><small><LockKeyhole size={14}/>العضوية المميزة</small><ChevronLeft size={17} aria-hidden="true"/></button>}
+          <label className="dr-filter-availability">
+            <span>نشط الآن فقط</span><input type="checkbox" role="switch" checked={!!extra.onlineOnly} onChange={e=>setExtra({...extra,onlineOnly:e.target.checked})}/>
+            <span className="dr-filter-switch" aria-hidden="true"/>
+          </label>
+          <FilterGroup title="ما لا أرغب برؤيته" count={excludedCities.length+excludedNationalities.length+exclusionGroups.reduce((count,group)=>count+(extra[group.key]?.length ?? 0),0)}>
+            <div className="dr-exclusion-picker">
+              <SheetChoiceSelect label="إخفاء مدن" value="" options={cityOptions.filter(option=>!excludedCities.includes(option.value))} placeholder="أضف مدينة" disabled={excludedCities.length>=20}
+                onChange={city=>{if(city)setExcludedCities(current=>current.includes(city)?current:[...current,city].slice(0,20));}}/>
+              <div className="dr-selected-filters" aria-label="المدن المستبعدة">{excludedCities.map(city=><button type="button" key={city} onClick={()=>setExcludedCities(current=>current.filter(value=>value!==city))} aria-label={`إزالة استبعاد ${city}`}>{city}<X size={13} aria-hidden="true"/></button>)}</div>
+              {excludedCities.length>=20&&<small>يمكنك استبعاد ٢٠ مدينة. أزل اختيارًا لإضافة مدينة أخرى.</small>}
             </div>
-          </details>
-        <details className="dr-filter-section dr-filter-group dr-filter-exclusions"><summary><span>ما لا أرغب برؤيته</span><ChevronLeft size={17} aria-hidden="true" /></summary><div className="dr-filter-fields">
-          <div className="dr-exclusion-picker">
-            <ChoiceSelect label="إخفاء مدن" value="" options={cityOptions.filter(option=>!excludedCities.includes(option.value))} placeholder="أضف مدينة للاستبعاد" disabled={excludedCities.length>=20} onChange={city=>{if(city)setExcludedCities(current=>current.includes(city)?current:[...current,city].slice(0,20));}}/>
-            <div className="dr-selected-filters" aria-label="المدن المستبعدة">{excludedCities.map(city=><button type="button" key={city} onClick={()=>setExcludedCities(current=>current.filter(value=>value!==city))} aria-label={`إزالة استبعاد ${city}`}><span>{city}</span><X size={13} aria-hidden="true"/></button>)}</div>
-            {excludedCities.length>=20&&<small>يمكنك استبعاد ٢٠ مدينة. أزل اختيارًا لإضافة مدينة أخرى.</small>}
-          </div>
-          <div className="dr-exclusion-picker">
-            <ChoiceSelect label="إخفاء جنسيات" value="" options={nationalityChoices.filter(option=>!excludedNationalities.includes(option.value))} placeholder="أضف جنسية للاستبعاد" disabled={excludedNationalities.length>=20} onChange={nationality=>{if(nationality)setExcludedNationalities(current=>current.includes(nationality)?current:[...current,nationality].slice(0,20));}}/>
-            <div className="dr-selected-filters" aria-label="الجنسيات المستبعدة">{excludedNationalities.map(nationality=><button type="button" key={nationality} onClick={()=>setExcludedNationalities(current=>current.filter(value=>value!==nationality))} aria-label={`إزالة استبعاد ${nationality}`}><span>{nationalityChoices.find(option=>option.value===nationality)?.label??nationality}</span><X size={13} aria-hidden="true"/></button>)}</div>
-            {excludedNationalities.length>=20&&<small>يمكنك استبعاد ٢٠ جنسية. أزل اختيارًا لإضافة جنسية أخرى.</small>}
-          </div>
-          <fieldset><legend>إخفاء حسب الخلفية القبلية</legend><div className="dr-exclusion-options">{[['tribal','قبلي'],['non_tribal','غير قبلي']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeTribalBackgrounds?.includes(value)} onChange={()=>toggleExcluded('excludeTribalBackgrounds',value)}/>{label}</label>)}</div></fieldset>
-          <fieldset><legend>إخفاء حسب التدخين</legend><div className="dr-exclusion-options">{[['never','لا يدخّن'],['cigarettes','سجائر'],['vape','فيب'],['shisha','شيشة'],['sometimes','أحيانًا · غير محدد'],['yes','يدخّن · غير محدد']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeSmoking?.includes(value)} onChange={()=>toggleExcluded('excludeSmoking',value)}/>{label}</label>)}</div></fieldset>
-          <fieldset><legend>إخفاء حسب الحالة الاجتماعية</legend><div className="dr-exclusion-options">{[['never_married','لم يسبق الزواج'],['divorced','مطلق / مطلقة'],['widowed','أرمل / أرملة'],['married','متزوج']].map(([value,label])=><label key={value}><input type="checkbox" checked={!!extra.excludeMaritalStatuses?.includes(value)} onChange={()=>toggleExcluded('excludeMaritalStatuses',value)}/>{label}</label>)}</div></fieldset>
-        </div></details>
+            <div className="dr-exclusion-picker">
+              <SheetChoiceSelect label="إخفاء جنسيات" value="" options={nationalityChoices.filter(option=>!excludedNationalities.includes(option.value))} placeholder="أضف جنسية" disabled={excludedNationalities.length>=20}
+                onChange={nationality=>{if(nationality)setExcludedNationalities(current=>current.includes(nationality)?current:[...current,nationality].slice(0,20));}}/>
+              <div className="dr-selected-filters" aria-label="الجنسيات المستبعدة">{excludedNationalities.map(nationality=><button type="button" key={nationality} onClick={()=>setExcludedNationalities(current=>current.filter(value=>value!==nationality))} aria-label={`إزالة استبعاد ${nationality}`}>{nationalityChoices.find(option=>option.value===nationality)?.label ?? nationality}<X size={13} aria-hidden="true"/></button>)}</div>
+              {excludedNationalities.length>=20&&<small>يمكنك استبعاد ٢٠ جنسية. أزل اختيارًا لإضافة جنسية أخرى.</small>}
+            </div>
+            {exclusionGroups.map(group=><fieldset key={group.key} className="dr-refined-exclusions"><legend>{group.label}</legend>
+              <div className="dr-exclusion-options">{group.options.map(option=><label key={option.value}>
+                <input type="checkbox" checked={!!extra[group.key]?.includes(option.value)} onChange={()=>toggleExcluded(group.key,option.value)}/>
+                <span>{option.label}</span><Check size={13} aria-hidden="true"/>
+              </label>)}</div>
+            </fieldset>)}
+          </FilterGroup>
         <RelocationCities source={source} onSaved={onSaved}/>
         </div>
         <div className="dr-filter-footer">

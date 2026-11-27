@@ -7,7 +7,7 @@ import {lunaResultCard} from '../src/community/lunaResultCard.mjs';
 const fixtures=Array.from({length:15},(_,i)=>({id:'sample-'+i,online:true}));
 const code=ts.transpileModule(readFileSync(new URL('../src/community/testingDiscovery.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
 const localRows=[];
-const local={discover:async()=>fixtures,inbox:async()=>localRows,request:async id=>{localRows.push({id:'local-request',person:{id,isDemo:true},status:'pending'});return 'local-request';},setInterest:async()=>{},act:async()=>{localRows[0].status='accepted';},unreadCount:async()=>1};
+const local={discover:async()=>fixtures,inbox:async()=>localRows,ownsConnection:id=>localRows.some(row=>row.id===id),request:async id=>{localRows.push({id:'local-request',person:{id,isDemo:true},status:'pending'});return 'local-request';},setInterest:async()=>{},act:async()=>{localRows[0].status='accepted';},unreadCount:async()=>1};
 function loadTestingModule(samples){
   samples={inbox:async()=>[],exclusiveConnection:()=>null,...samples};
   const module={};

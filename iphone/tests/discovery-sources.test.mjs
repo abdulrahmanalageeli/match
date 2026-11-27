@@ -122,7 +122,7 @@ test('interactive simulated journey requires explicit user signature and support
   assert.equal((await source.thread(id)).at(-1).body,'هلا');
 });
 
-test('an accepted fictional peer can still sign after discovery preferences change', async () => {
+test('age preferences leave introductions eligible and an explicit age filter leaves an accepted pact usable', async () => {
   for (const gender of ['man','woman']) {
     const viewer={...demoProfile,gender};
     const source=demoCommunity(()=>viewer,false,{interactiveJourney:true});
@@ -131,8 +131,11 @@ test('an accepted fictional peer can still sign after discovery preferences chan
     await source.demoAcceptOutgoing(id);
     viewer.preferredMinAge=60;
     viewer.preferredMaxAge=65;
-    assert(!(await source.discover({mode:'all',eligibleOnly:true})).some(person=>person.id===peer.id));
-    await assert.rejects(source.request(other.id),/غير متاح/);
+    const eligible=await source.discover({mode:'all',eligibleOnly:true});
+    assert(eligible.some(person=>person.id===peer.id));
+    assert(eligible.some(person=>person.id===other.id));
+    const filtered=await source.discover({mode:'all',eligibleOnly:true,minAge:60,maxAge:65});
+    assert(!filtered.some(person=>person.id===peer.id));
     assert((await source.inbox()).some(row=>row.id===id && row.status==='accepted'));
     if (gender==='woman') await source.agree(id,'propose',{days:7,signed:true});
     await source.simulation.step();
@@ -144,6 +147,8 @@ test('an accepted fictional peer can still sign after discovery preferences chan
     assert.equal((await source.agreement(id)).status,'accepted');
     await source.send(id,'السلام عليكم','after-preference-change');
     assert.equal((await source.thread(id)).at(-1).body,'السلام عليكم');
+    const secondId=await source.request(other.id);
+    assert((await source.inbox()).some(row=>row.id===secondId && row.status==='pending'));
   }
 });
 
@@ -207,6 +212,7 @@ test('paired discovery honors actual interests, work filters and combined orderi
 test('verified member testers can use the same bot workflow in either discovery pool',async()=>{
   const code=(await compile('../src/community/testingDiscovery.ts'))
     .replace("'./data'",JSON.stringify(dataUrl))
+    .replace("'./lunaResultCard.mjs'",JSON.stringify(new URL('../src/community/lunaResultCard.mjs',import.meta.url).href))
     .replace("'./demoLunaSearch'",JSON.stringify(new URL('../src/community/demoLunaSearch.ts',import.meta.url).href));
   const {withTestingDiscovery}=await import(url(code));
   for (const gender of ['woman','man']) {
@@ -217,10 +223,19 @@ test('verified member testers can use the same bot workflow in either discovery 
     const people=await directory.discover({mode:'all'});
     assert.equal(people.length,15);
     const person=people.find(row=>row.eligible!==false);
-    const result=await directory.lunaSearch(person.alias,{mode:'all'});
-    assert(result.people.some(row=>row.id===person.id));
-    assert(result.people.every(row=>row.isDemo && row.eligible && row.alias===person.alias));
-    assert.deepEqual(await directory.discover(result.options),result.people);
+    for (const mode of ['all','recommended']) {
+      const target=mode==='all' ? person : (await directory.discover({mode}))[0];
+      const result=await directory.lunaSearch(target.alias,{mode});
+      assert(result.people.some(row=>row.id===target.id));
+      const matches=await directory.discover(result.options);
+      assert.deepEqual(result.people.map(row=>row.id),matches.map(row=>row.id));
+      assert(matches.every(row=>row.eligible));
+      for(const card of result.people){
+        assert(card.isDemo && card.alias===target.alias);
+        assert.deepEqual(card.matchReasons,['الاسم في الملف: '+target.alias]);
+        assert(!('eligible' in card) && !('marriageBasics' in card) && !('fit' in card));
+      }
+    }
     const id=await directory.request(person.id);
     const bot=directory.demoInteractions;
     await bot.simulation.step();

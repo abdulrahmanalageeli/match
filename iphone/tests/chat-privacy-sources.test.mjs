@@ -58,7 +58,9 @@ test('live discovery forwards every filter in both modes and keeps request dates
  const source=cloudCommunity('member');
  const filters={city:'الرياض',search:'عضو',nationality:'السعودية',excludeCities:['جدة'],onlineOnly:true,minFit:70,work:'A',availableOnly:true};
  await source.discover({...filters,mode:'recommended'});await source.discover({...filters,mode:'all'});
- assert.deepEqual(calls.slice(0,2),['recommended','all'].map(mode=>['marriage_browse',{options:{...filters,mode,includeIneligible:mode==='all'}},'member']));
+ assert.deepEqual(calls.slice(0,2),[
+  ['marriage_browse',{options:{...filters,mode:'recommended',includeIneligible:false,includeCloseRecommendations:true}},'member'],
+  ['marriage_browse',{options:{...filters,mode:'all',includeIneligible:true}},'member']]);
  const inboxReads = () => calls.filter(([name])=>name==='marriage_inbox').length;
  const [first, second] = await Promise.all([source.inbox(), source.inbox()]);
  assert.deepEqual(first,[request]); assert.deepEqual(second,[request]);

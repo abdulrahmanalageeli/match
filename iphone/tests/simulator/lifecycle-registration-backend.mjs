@@ -91,7 +91,7 @@ export async function openRegisteredPair(profiles, identities, portraits) {
       return scalar(sql,args);
     });
     assert.equal((await review('public.marriage_admin_access()')).authorized,true);
-    const users = {}, result = {};
+    const users = {}, result = {}, entry = {};
     for (const profile of profiles) {
       const gender = profile.gender;
       const identity = identities?.[gender];
@@ -107,6 +107,7 @@ export async function openRegisteredPair(profiles, identities, portraits) {
       if (portraits) assert.equal(Boolean(portraits[gender]),profile.signupConsents.photo);
       const photo = profile.signupConsents.photo ? await stagePhoto(db,user,member,service,portraits?.[gender]) : null;
       assert.ok(gender !== 'man' || photo, 'The submitted male profile must include the verified portrait consent');
+      const draft = await member(user,'public.marriage_state()');
       const submitted = await member(user,'public.marriage_apply($1)',[{...profile,consentVersion:profile.signupConsents.version}]);
       assert.equal(submitted.user.applicationStatus,photo?'pending':'approved');
       if (photo) {
@@ -128,12 +129,22 @@ export async function openRegisteredPair(profiles, identities, portraits) {
       assert.equal(application.applicationDecision,'automatic');
       assert.deepEqual(application.applicationReviewReasons,[]);
       const approved = await member(user,'public.marriage_state()');
+      entry[gender] = {draft,pending:submitted,approved,stage:photo};
       assert.equal(approved.user.applicationStatus,'approved');
       assert.equal(approved.membership.active,false);
       const freeDirectory = await member(user,'public.marriage_browse($1)',[{mode:'all',eligibleOnly:true}]);
       assert.ok(Array.isArray(freeDirectory),'Directory must open immediately as a free member');
       const existingPeer = users[gender==='man'?'woman':'man'];
       if (existingPeer) assert.ok(freeDirectory.some(card=>card.id===existingPeer.id),'Free member cannot find the eligible peer');
+      result[gender] = {answers,photo:photo?.status ?? 'skipped',...(photo && {blur:photo.portrait.blur,revealPolicy:photo.portrait.revealPolicy}),approved:true,freeDirectory:true};
+    }
+    for (const [gender,other] of [['man','woman'],['woman','man']]) {
+      const cards = await member(users[gender],'public.marriage_browse($1)',[{mode:'all',eligibleOnly:true}]);
+      assert.ok(cards.some(card => card.id === users[other].id && card.eligible === true));
+      entry[gender].cards=cards;
+    }
+    for(const [gender,user] of Object.entries(users)) {
+      const approved=entry[gender].approved;
       // Start at the trusted boundary after Apple's signed transaction has been verified.
       const productId = 'com.blindmatch.marriage.monthly.'+(gender === 'man' ? 'men' : 'women');
       const receipt = {bundleId:'com.blindmatch.marriage',productId,appAccountToken:approved.user.appAccountToken,
@@ -143,7 +154,7 @@ export async function openRegisteredPair(profiles, identities, portraits) {
       const state = await member(user,'public.marriage_state()');
       assert.equal(state.user.applicationStatus,'approved');
       assert.equal(state.membership.active,true);
-      result[gender] = {answers,photo:photo?.status ?? 'skipped',...(photo && {blur:photo.portrait.blur,revealPolicy:photo.portrait.revealPolicy}),approved:true,freeDirectory:true,productId};
+      result[gender].productId=productId;
     }
     for (const [gender,other] of [['man','woman'],['woman','man']]) {
       const cards = await member(users[gender],'public.marriage_browse($1)',[{mode:'all',eligibleOnly:true}]);
@@ -152,7 +163,7 @@ export async function openRegisteredPair(profiles, identities, portraits) {
       assert.equal(card.eligible,true);
       result[gender].foundPeer = true;
     }
-    return {db,users,result,member};
+    return {db,users,result,member,entry};
   } catch (error) {
     await db.close();
     throw error;

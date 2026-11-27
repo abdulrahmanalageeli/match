@@ -104,11 +104,18 @@ jobs:
           npm run build
           node tests/simulator/lifecycle-signup-build.mjs dist/simulator-tests
           node tests/simulator/build-relationship.mjs
+          node tests/simulator/lifecycle-entry-build.mjs dist/simulator-tests
           test -f dist/simulator-tests/tests/simulator/lifecycle-signup.html
           test -f dist/simulator-tests/tests/simulator/lifecycle-relationship.html
+          test -f dist/simulator-tests/tests/simulator/lifecycle-entry.html
           npx --no-install cap sync ios
+          # The XCTest host talks only to the throwaway backend on runner loopback.
+          plist=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Print :NSAppTransportSecurity" "$plist" >/dev/null 2>&1 || /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$plist"
+          /usr/libexec/PlistBuddy -c "Set :NSAppTransportSecurity:NSAllowsLocalNetworking true" "$plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" "$plist"
           gem list -i xcodeproj || gem install --user-install xcodeproj -v 1.27.0 --no-document
           ruby tests/simulator/add-test-target.rb
+          ruby tests/simulator/lifecycle-wire-storekit.rb SimulatorChecks
       - name: Exercise both member journeys inside Wudayn
         run: |
           set -o pipefail
@@ -124,6 +131,14 @@ jobs:
             -only-testing:SimulatorChecks/SimulatorChecks/testTwoMemberLifecycle \
             -derivedDataPath "$RUNNER_TEMP/WudaynBuild" -resultBundlePath "$results/Lifecycle.xcresult" \
             | tee "$results/xcodebuild.log"
+      - name: Extract iPhone evidence from XCTest
+        if: always()
+        run: |
+          results="$RUNNER_TEMP/lifecycle-results"
+          if [ -d "$results/Lifecycle.xcresult" ]; then
+            xcrun xcresulttool get test-results summary --path "$results/Lifecycle.xcresult" > "$results/test-summary.json"
+            xcrun xcresulttool export attachments --path "$results/Lifecycle.xcresult" --output-path "$results/attachments"
+          fi
       - name: Save XCTest, screenshots, and database evidence
         if: always()
         uses: actions/upload-artifact@v4

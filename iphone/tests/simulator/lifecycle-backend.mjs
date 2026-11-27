@@ -18,7 +18,7 @@ const watched = new Set(['marriage_request','marriage_act','marriage_agreement',
 
 export function startLifecycleServer(port = 18767) {
   const actors = new Map(), events = [], branches = [];
-  let db, users, registered, membership, checkpoint, queue = Promise.resolve();
+  let db, users, registered, entry, membership, checkpoint, queue = Promise.resolve();
   let sequence = 0, branch = 'initial';
   const record = (event, details = {}) => events.push({sequence:++sequence, branch, event, ...details});
   const actorMap = () => users ? {male:users.man.id,female:users.woman.id,man:users.man.id,woman:users.woman.id,membership} : {};
@@ -55,6 +55,7 @@ export function startLifecycleServer(port = 18767) {
       db = pair.db;
       users = pair.users;
       registered = pair.result;
+      entry = pair.entry;
       membership = {};
       for (const user of Object.values(users)) {
         const state = await rpc(db,user,'marriage_state',[]);
@@ -90,6 +91,11 @@ export function startLifecycleServer(port = 18767) {
       return signUp(body.female ?? body.woman);
     }
     if (method==='GET' && path==='/actors') return actorMap();
+    if(method==='GET' && ['/entry/man','/entry/woman'].includes(path)){
+      const gender=path.slice('/entry/'.length);
+      assert.ok(entry?.[gender],'Both signups must be registered first');
+      return {...entry[gender],actor:actors.get(gender)};
+    }
     if (method==='GET' && path==='/results') {
       const current = checkpoint ? await digest(db,checkpoint.id) : null;
       return {ready:Boolean(db),actors:actorMap(),registration:registered,checkpoint:checkpoint?.state,branches,current,events};
@@ -146,12 +152,14 @@ export function startLifecycleServer(port = 18767) {
       const id = body.requestId;
       const state = await digest(db,id);
       assert.equal(state.pact,'accepted','Only a mutually signed, active pact may expire in this fixture');
-      await db.query("update marriage.conversation_agreements set data=jsonb_set(data,'{deadline}',to_jsonb(now()-interval '1 second')) where request_id=$1",[id]);
+      const seconds = body.afterSeconds ?? -1;
+      assert.ok(seconds === -1 || (Number.isInteger(seconds) && seconds >= 1 && seconds <= 30), 'Use a delay of 1 to 30 seconds');
+      const deadline = (await db.query("update marriage.conversation_agreements set data=jsonb_set(data,'{deadline}',to_jsonb(now()+$2::integer * interval '1 second')) where request_id=$1 returning data->>'deadline' deadline",[id,seconds])).rows[0].deadline;
       await db.query('select public.nisfayn_enqueue_deadline_reminders()');
       const expired = await digest(db,id);
-      assert.equal(expired.pact,'expired');
-      record('fixtureDeadline',{requestId:id,pact:expired.pact});
-      return {ok:true,requestId:id,...expired};
+      assert.equal(expired.pact,seconds > 0 ? 'accepted' : 'expired');
+      record('fixtureDeadline',{requestId:id,pact:expired.pact,deadline});
+      return {ok:true,requestId:id,...expired,deadline};
     }
     throw Object.assign(new Error('Unknown audit route'),{status:404});
   }

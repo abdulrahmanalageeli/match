@@ -11,16 +11,30 @@ const named=(selector,expected)=>all(selector).find(node=>visible(node)&&matches
 const button=expected=>named('button',expected);
 const ensure=(ok,reason)=>{if(!ok)throw Error(reason);};
 function step(name) {
+  window.lifecycleSignupStage=name;
   window.lifecycleSignupStep=name;
   console.log('[lifecycle signup] '+name);
 }
+function gesture(label){
+  window.lifecycleSignupStep=window.lifecycleSignupStage+' · '+label;
+}
+function note(event){
+  window.lifecycleSignupDiagnostics.push(event);
+  console.log('[lifecycle signup] '+JSON.stringify(event));
+}
+function evidence(){
+  const form=document.querySelector('form.nf-intake-form');
+  const listed=all('.nf-intake-actions button').map(n=>({type:n.type,tag:n.tagName,form:Boolean(n.form),enabled:!n.disabled,visible:visible(n),text:nameOf(n)}));
+  return JSON.stringify({slide:document.querySelector('.wd-signup-slides')?.dataset.slideIndex,chapter:document.querySelector('main')?.dataset.chapter,form:Boolean(form),alerts:all('[role=alert]').map(n=>normalized(n.textContent)).filter(Boolean),CTA:listed,lastSubmit:window.lifecycleSignupLastSubmit,focused:document.activeElement?.getAttribute('data-field'),secure:window.isSecureContext,uuid:typeof crypto.randomUUID,subtle:Boolean(crypto.subtle)}).slice(0,1200);
+}
 async function until(read,description) {
+  gesture(description);
   for(let i=0;i<350;i++){
     const result=read();
     if(result)return result;
     await sleep(40);
   }
-  throw Error(window.lifecycleSignupStep+' / '+description+' / '+document.body.innerText.slice(-1500));
+  throw Error(window.lifecycleSignupStep+' / '+evidence()+' / '+document.body.innerText.slice(-950));
 }
 async function tap(read,description){
   const node=await until(()=>{const value=read();return visible(value)&&!value.disabled&&value;},description);
@@ -29,26 +43,53 @@ async function tap(read,description){
 }
 const press=name=>tap(()=>button(name),'button '+name);
 const tapCss=selector=>tap(()=>document.querySelector(selector),selector);
-const next=()=>tapCss('.nf-intake-actions > button[type=submit]');
+async function next(){
+  const form=await until(()=>document.querySelector('form.nf-intake-form'),'locate intake form');
+  const cta=await until(()=>all('.nf-intake-actions button',form).find(n=>visible(n)&&!n.disabled&&n.form===form&&n.type==='submit'),'locate enabled Continue within its form');
+  const editable=document.activeElement;
+  if(editable?.matches('input,select,textarea,[contenteditable=true]'))editable.blur();
+  const details={chapter:form.closest('main')?.dataset.chapter,slide:form.querySelector('.wd-signup-slides')?.dataset.slideIndex,clickEvent:false,submitEvent:false,requestSubmit:false};
+  window.lifecycleSignupLastSubmit=details;
+  const clicked=()=>{details.clickEvent=true;},submitted=()=>{details.submitEvent=true;};
+  cta.addEventListener('click',clicked,true);form.addEventListener('submit',submitted,true);
+  try{
+    gesture('activate '+nameOf(cta));cta.click();await sleep(85);
+    if(!details.submitEvent&&cta.isConnected&&cta.form===form&&!cta.disabled){
+      details.requestSubmit=true;gesture('submit with enabled Continue');form.requestSubmit(cta);await sleep(85);
+      note({kind:'form-requestSubmit',...details});
+    }
+    ensure(details.submitEvent,'Continue did not submit through the product form / '+evidence());
+    if(details.chapter==='identity'&&details.slide==='0'){
+      // A native keyboard dismissal can consume the first Continue. Wait for rendering first.
+      await sleep(200);
+      const slide=form.querySelector('.wd-signup-slides[data-chapter=identity][data-slide-index="0"]');
+      const populated=slide&&['firstName','lastName','displayName'].every(key=>slide.querySelector('[data-field="'+key+'"]')?.value.trim())&&slide.querySelector('.nf-gender-segment [aria-pressed=true]');
+      if(populated&&cta.isConnected&&cta.form===form&&!cta.disabled&&!cta.closest('[inert]')&&!all('[role=alert],#wd-slide-error',form).some(n=>visible(n)&&normalized(n.textContent))){
+        note({kind:'same-slide-second-tap',...details});
+        gesture('repeat Continue once on still-complete first identity slide');cta.click();await sleep(100);
+      }
+    }
+  }finally{cta.removeEventListener('click',clicked,true);form.removeEventListener('submit',submitted,true);}
+}
 const chapter=name=>{step(name);return until(()=>document.querySelector('main[data-chapter="'+name+'"]'),name);};
 function setValue(node,value){
   const proto=node instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:node instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype;
   Object.getOwnPropertyDescriptor(proto,'value').set.call(node,value);
   node.dispatchEvent(new Event('input',{bubbles:true}));node.dispatchEvent(new Event('change',{bubbles:true}));
 }
-async function fill(read,value){
-  const node=await until(read,'field '+value);
+async function fill(read,value,label){
+  const node=await until(read,'fill '+label);
   setValue(node,value);
   await sleep(25);
 }
-const field=(selector,value)=>fill(()=>document.querySelector(selector),value);
-const labelField=(name,value)=>fill(()=>named('input:not([type=checkbox]),textarea',name),value);
+const field=(selector,value)=>fill(()=>document.querySelector(selector),value,selector);
+const labelField=(name,value)=>fill(()=>named('input:not([type=checkbox]),textarea',name),value,String(name));
 async function select(label,value){
   await press(label);
   await tap(()=>named('[role=option]',value),'option '+value);
 }
 async function check(read,description) {
-  const input=await until(read,description);
+  const input=await until(()=>{const node=read();return node&&!node.disabled&&node;},description);
   if(!input.checked) {
     ensure(!input.disabled,'Disabled '+description);
     input.click();
@@ -84,8 +125,16 @@ async function upload() {
   const canvas=document.createElement('canvas');canvas.width=500;canvas.height=600;
   const ctx=canvas.getContext('2d');ctx.fillStyle='#bd9a9a';ctx.fillRect(0,0,500,600);
   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
-  const data=new DataTransfer();data.items.add(new File([blob],'fictional.png',{type:'image/png'}));
-  input.files=data.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+  const file=new File([blob],'fictional.png',{type:'image/png'});
+  let transfer;
+  try {transfer=new DataTransfer();}catch{}
+  if(transfer?.items?.add){
+    transfer.items.add(file);input.files=transfer.files;
+  }else{
+    // WebKit ports with a read-only drag data store need a test file picker at the same DOM boundary.
+    Object.defineProperty(input,'files',{configurable:true,value:Object.assign([file],{item:i=>i===0?file:null})});
+  }
+  input.dispatchEvent(new Event('change',{bubbles:true}));
   await press('اعتماد الإطار');
 }
 let running=false;
@@ -93,6 +142,7 @@ window.runLifecycleSignup=async gender=>{
   if(running||!['man','woman'].includes(gender))throw Error('Expected one isolated man or woman registration');
   running=true;
   try {
+    window.lifecycleSignupDiagnostics=[];
     step('account / '+gender);
     isolate(gender);
     sessionStorage.removeItem('qa-account');sessionStorage.removeItem('qa-draft');
@@ -112,8 +162,16 @@ window.runLifecycleSignup=async gender=>{
     await field('.nf-sms-code','424242');await press('تأكيد وإنشاء حسابي');
     const person=gender==='man'?'خالد':'سارة',carry=gender==='woman';
     await chapter('identity');
+    await until(()=>{
+      const form=document.querySelector('main[data-chapter=identity] form.nf-intake-form');
+      const first=form?.querySelector('[data-field=firstName]');
+      const active=first&&visible(first)&&!first.disabled&&!first.closest('[inert],[aria-disabled=true]');
+      return active&&all('.nf-intake-actions button',form).some(n=>n.type==='submit'&&n.form===form&&!n.disabled&&visible(n));
+    },'wait for identity draft recovery and enabled inputs');
     await labelField('الاسم الأول',person);await labelField('اسم العائلة','الناصر');
-    await field('[data-field=displayName]',person);await press(carry?'امرأة':'رجل');await next();
+    await field('[data-field=displayName]',person);await press(carry?'امرأة':'رجل');
+    await until(()=>document.querySelector('.wd-signup-slides[data-slide-index="0"] [data-complete]'),'names and gender accepted by form');
+    await next();
     await field('[data-field=birthDate]',carry?'1997-04-15':'1995-03-02');await next();
     await press('الرياض');await select(/^ما جنسيتك/,'سعودي');await next();
     await press(/^لم يسبق.*الزواج$/);await next();
@@ -166,8 +224,8 @@ window.runLifecycleSignup=async gender=>{
     if(carry)await tap(()=>named('[role=tab]',/صورة بتمويه اختياري/),'female portrait');
     await upload();
     if(carry){await field('#portrait-blur:enabled','100');await field('.nf-photo-reveal select','family');}
-    const permission=await until(()=>document.querySelector('.nf-photo-consent input'),'portrait consent');
-    ensure(!permission.checked,'New portrait consent starts unchecked');await check(()=>permission,'portrait consent');
+    const permission=()=>document.querySelector('.nf-photo-consent input');
+    ensure(!(await until(permission,'portrait consent')).checked,'New portrait consent starts unchecked');await check(permission,'portrait consent');
     await until(()=>document.body.innerText.includes(carry?'صورتك جاهزة بإعدادات الخصوصية التي اخترتِها.':'صورتك جاهزة، اكتملت مطابقة الصورة.'),'processed portrait');
     await next();await chapter('readiness');
     await press('أقدر أبدأ خطوة رسمية قريب');await check(()=>named('input[type=checkbox]',/أوافق على اتفاق العضوية/),'membership agreement');await next();
@@ -183,6 +241,6 @@ window.runLifecycleSignup=async gender=>{
     ensure(profile.signupConsents.assessment&&profile.signupConsents.sensitivePublication===false,'Submitted consent');
     ensure(profile._applicationIntegrity==='wudayn-application-integrity-v1'&&profile._membershipReadiness.family==='early','Submitted integrity or readiness');
     ensure(photoStatus===(carry?'ready':'verified')&&(!carry||photo.blur===100&&photo.revealPolicy==='family'),'Submitted photo status or privacy');
-    step('submitted / '+gender);return {account,profile,photo};
+    step('submitted / '+gender);return {account,profile,photo,...(window.lifecycleSignupDiagnostics.length?{driverDiagnostics:window.lifecycleSignupDiagnostics}:{})};
   }finally{running=false;}
 };

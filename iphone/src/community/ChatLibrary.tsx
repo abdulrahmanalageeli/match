@@ -124,8 +124,8 @@ export function ChatLibrary({ source, requestId, name, onClose, onJump }: {
           {!waiting && error && <div className="cm-library-empty" role="alert"><p>{error}</p><MotionPressButton onClick={() => setRetry(value => value + 1)}>إعادة المحاولة</MotionPressButton></div>}
           {!waiting && !error && !results.length && <MotionReveal className="cm-library-empty" distance={6} duration={220}>
             <span className="cm-library-empty-icon">{settledQuery ? <Search size={25}/> : kind === 'audio' ? <Mic size={25}/> : <Image size={25}/>}</span>
-            <h3>{settledQuery ? 'لا توجد نتائج' : kind === 'photo' ? 'لا توجد صور مشتركة' : kind === 'audio' ? 'لا توجد تسجيلات صوتية' : 'لا توجد وسائط مشتركة'}</h3>
-            <p>{!source.searchMessages ? 'البحث غير متاح لهذه المحادثة حاليًا.' : settledQuery ? 'جرّب كلمة أخرى أو غيّر نوع النتائج.' : null}</p>
+            <h3>{settledQuery ? 'لا توجد نتائج' : kind === 'photo' ? 'ما فيه صور محفوظة هنا' : kind === 'audio' ? 'ما فيه رسائل صوتية في المحادثة' : 'ما فيه صور أو رسائل صوتية هنا'}</h3>
+            <p>{!source.searchMessages ? 'البحث غير متاح لهذه المحادثة حاليًا.' : settledQuery ? 'جرّب كلمة ثانية أو غيّر نوع البحث.' : null}</p>
           </MotionReveal>}
           <div className="cm-library-grid">
             {results.map(message => <MotionReveal key={message.id} as="article" className={`cm-library-card ${message.attachment?.kind || 'text'}`} distance={5} duration={230}>
@@ -139,7 +139,7 @@ export function ChatLibrary({ source, requestId, name, onClose, onJump }: {
           {!waiting && !error && hasOlder && <MotionPressButton className="cm-library-more" disabled={loadingOlder} onClick={() => more.current()}>{loadingOlder ? 'جارٍ تحميل المزيد…' : 'نتائج أقدم'}</MotionPressButton>}
         </>}
       </div>
-      <footer className="cm-library-note"><LockKeyhole size={13}/><span>صور العرض لمرة واحدة لا تُحفظ هنا</span></footer>
+      <footer className="cm-library-note"><LockKeyhole size={13}/><span>الصور اللي تنفتح مرة واحدة ما تنحفظ هنا</span></footer>
     </MotionReveal>
   </dialog>;
 }

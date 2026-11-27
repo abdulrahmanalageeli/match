@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { messagePageSize, withOwnReaction, type CommunitySource, type Message, type ReactionEmoji } from "./data";
 import { chatError, denied, outboxFor } from "./chatOutbox";
-import { mergeMessages } from "./timeline";
+import { mergeMessages, messageOrder } from "./timeline";
 import { refreshHistoricalMessages } from "./messageRefresh";
 
 export type ThreadConnectionState = 'online' | 'offline' | 'reconnecting' | 'unavailable';
@@ -29,6 +29,7 @@ export function useThread(source: CommunitySource, requestId: string, showDraftA
   const epoch = useRef(0);
   const newest = useRef<string | null>(null);
   const requestRefresh = useRef<() => void>(() => {});
+  const requestMessage = useRef<(id: string) => void>(() => {});
   const revoke = useCallback(() => {
     epoch.current++;
     newest.current = null;
@@ -48,22 +49,40 @@ export function useThread(source: CommunitySource, requestId: string, showDraftA
     let active = true;
     let fetching = false;
     let dirty = false;
+    let initialized = false;
+    const changedIds = new Set<string>();
+    const inFlightIds = new Set<string>();
     let retries = 0;
     let accessRevoked = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const clearRetry = () => { clearTimeout(retryTimer); retryTimer = undefined; };
-    async function refresh() {
+    async function refresh(incremental = false) {
       if (!active || document.hidden) return;
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         clearRetry(); setConnectionState('offline'); setLoading(false); return;
       }
       if (retryTimer !== undefined || accessRevoked) return;
-      if (fetching) { dirty = true; return; }
+      if (fetching) { if (!incremental) dirty = true; return; }
       fetching = true;
       try {
         const snapshot = remoteRef.current;
         const reactionSnapshot = reactionRevision.current;
         let generation = epoch.current;
+        const ids = [...changedIds];
+        changedIds.clear();
+        if (incremental && initialized && source.messageChanges && ids.length && ids.length <= 100) {
+          ids.forEach(id => inFlightIds.add(id));
+          const changed = await source.messageChanges(requestId, ids);
+          if (!active || generation !== epoch.current) return;
+          if (changed.length === ids.length) {
+            setRemote(previous => mergeMessages(previous, protectRecentReactions(changed, previous, reactionSnapshot)));
+            outbox.reconcile(changed);
+            setConnectionState('online');
+            setError('');
+            retries = 0;
+            return;
+          }
+        }
         const page = await source.thread(requestId);
         if (!active || generation !== epoch.current) return;
         const gap = page.length === messagePageSize && newest.current !== null && !page.some((m) => m.id === newest.current);
@@ -87,6 +106,7 @@ export function useThread(source: CommunitySource, requestId: string, showDraftA
         setRemote((previous) => historyStarted.current && !gap ? mergeMessages(previous.filter(row => !checkedIds.has(row.id) || retainedIds.has(row.id)), protectRecentReactions([...history, ...page], previous, reactionSnapshot)) : mergeMessages(previous.filter(row => retainedIds.has(row.id)), protectRecentReactions(page, previous, reactionSnapshot)));
         if (!historyStarted.current) setHasOlder(page.length === messagePageSize);
         outbox.reconcile(page);
+        initialized = true;
         setReady(true);
         setError("");
         setAccessDenied(false);
@@ -103,10 +123,14 @@ export function useThread(source: CommunitySource, requestId: string, showDraftA
         } else { setConnectionState('unavailable'); }
         setError(chatError(err));
       } finally {
+        inFlightIds.clear();
         fetching = false;
         if (active) {
           setLoading(false);
-          if (dirty) { dirty = false; void refresh(); }
+          if (dirty || changedIds.size) {
+            const incremental = !dirty;
+            dirty = false; void refresh(incremental);
+          }
         }
       }
     }
@@ -119,7 +143,19 @@ export function useThread(source: CommunitySource, requestId: string, showDraftA
     const offline = () => { clearRetry(); setConnectionState('offline'); };
     requestRefresh.current = recover;
     void refresh();
-    const unwatch = source.watch(refresh);
+    const onMessage = (id: string) => {
+      if (!active || inFlightIds.has(id)) return;
+      changedIds.add(id);
+      void refresh(true);
+    };
+    requestMessage.current = onMessage;
+    const unwatch = source.watch(refresh, {threadId: requestId, onMessage, onReceipt() {
+      if (!initialized || fetching) { void refresh(); return; }
+      for (const row of remoteRef.current) {
+        if (row.senderIsMe && !row.deletedAt && !row.readAt && !row.readByPeer) changedIds.add(row.id);
+      }
+      if (changedIds.size) void refresh(true);
+    }});
     document.addEventListener('visibilitychange', recover);
     window.addEventListener('online', recover);
     window.addEventListener('offline', offline);
@@ -128,8 +164,22 @@ export function useThread(source: CommunitySource, requestId: string, showDraftA
   }, [source, requestId, outbox, revoke]);
 
   // Also repair a missed broadcast or a response lost after the server committed.
-  const lastSettlement = outgoing.filter((m) => m.status !== "sending").map((m) => m.clientId + m.status).join(",");
-  useEffect(() => { if (lastSettlement) requestRefresh.current(); }, [lastSettlement]);
+  const previousSettlements = useRef(new Map<string, string>());
+  useEffect(() => {
+    const next = new Map<string, string>();
+    let uncertain = false;
+    const saved: string[] = [];
+    for (const row of outgoing) {
+      if (row.status === 'sending') continue;
+      next.set(row.clientId, row.status);
+      if (previousSettlements.current.get(row.clientId) === row.status) continue;
+      if (row.status === 'saved') saved.push(row.id);
+      else uncertain = true;
+    }
+    previousSettlements.current = next;
+    if (uncertain) requestRefresh.current();
+    else saved.forEach(id => requestMessage.current(id));
+  }, [outgoing]);
 
   // A poll begun before a successful write must not briefly undo its result.
   function protectRecentReactions(incoming: Message[], previous: Message[], snapshot: number) {
@@ -195,5 +245,6 @@ export function useThread(source: CommunitySource, requestId: string, showDraftA
   const rows = ready ? [...remote, ...outgoing.filter((m) => !saved.has(m.id) && !saved.has(m.clientId)).map(m => m.reply && deleted.has(m.reply.id) ? { ...m, reply: { ...m.reply, body: 'تم حذف هذه الرسالة', deletedAt: deleted.get(m.reply.id) } } : m)]
     .map(message => !message.deletedAt && reactionChoices.has(message.id)
       ? { ...message, reactions: withOwnReaction(message.reactions, reactionChoices.get(message.id) ?? null) } : message) : [];
+  if (outgoing.some(item => item.localFile)) rows.sort(messageOrder);
   return { rows, lastConfirmedId: ready ? remote.at(-1)?.id : undefined, outbox, replyDraft, hasDraft, loading, error, connectionState, accessDenied, hasOlder, loadingOlder, older, ready, reactToMessage, pendingReactionIds: new Set(reactionChoices.keys()), refresh: () => requestRefresh.current() };
 }

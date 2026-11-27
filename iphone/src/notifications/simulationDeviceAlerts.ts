@@ -34,6 +34,6 @@ export function deviceActivityNotice(plan: PlannedDemoActivity | undefined, pref
   }
   const event = {profile_visit:'زيارة جديدة لملفك', interest:'اهتمام جديد بملفك', request:'طلب تعارف جديد', reply:'رسالة جديدة', match:'تعارف متبادل جديد'}[plan.kind];
   const named = plan.kind==='match' ? 'تعارف متبادل مع ' + alias : event + ' من ' + alias;
-  const body = preview === 'name' || preview === 'content' ? named : preview === 'event' ? event : 'لديك تحديث جديد.';
+  const body = preview === 'name' || preview === 'content' ? named : preview === 'event' ? event : 'إشعار جديد';
   return {eventId:plan.id, dueAt:plan.dueAt, sound, body};
 }

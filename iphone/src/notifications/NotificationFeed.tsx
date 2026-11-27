@@ -57,7 +57,7 @@ export function NotificationFeed({ compatibilityUpdates = [], onCompatibilityRea
   const [seen, setSeen] = useState(() => viewedRequests.get(source) || new Set<string>());
   const connectionsRef = useRef(connections); connectionsRef.current = connections;
   const openingRef = useRef(false);
-  const acceptedIds = connections.filter(c => c.status === 'accepted').map(c => c.id).sort().join(',');
+  const acceptedIds = useMemo(()=>connections.filter(c => c.status === 'accepted').map(c => c.id).sort().join(','),[connections]);
   useEffect(()=>{
     setMemberUpdates([]);
     if(!pushOwner)return;
@@ -71,7 +71,7 @@ export function NotificationFeed({ compatibilityUpdates = [], onCompatibilityRea
     };
     void refresh();
     const timer=window.setInterval(refresh,10000);
-    const stop=source.watch(refresh);
+    const stop=source.watch(refresh, 'nonChat');
     window.addEventListener('wudayn:notification-read',refresh);
     document.addEventListener('visibilitychange',refresh);
     return ()=>{active=false;clearInterval(timer);stop();window.removeEventListener('wudayn:notification-read',refresh);document.removeEventListener('visibilitychange',refresh);};
@@ -93,13 +93,13 @@ export function NotificationFeed({ compatibilityUpdates = [], onCompatibilityRea
           acceptedIds ? source.conversationPilotNotices?.().catch(() => []) : [],
         ]);
         if (active) { setItems(events); setProgress(steps); setFeedback(notices ?? []); setError(''); }
-      } catch { if (active) setError('تعذّر تحديث بعض الإشعارات. تظهر طلباتك المتاحة أدناه.'); }
+      } catch { if (active) setError('ما قدرنا نحدّث كل الإشعارات. طلبات التعارف المتاحة لك موجودة هنا.'); }
       finally {
         busy = false;
         if (active) { setLoading(false); if (rerun) { rerun = false; void refresh(); } }
       }
     }
-    void refresh(); const stop = source.watch(() => void refresh());
+    void refresh(); const stop = source.watch(() => void refresh(), 'nonChat');
     const timer = acceptedIds && source.conversationPilotNotices ? window.setInterval(refresh, 5*60*1000) : undefined;
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('online', refresh);
@@ -170,7 +170,7 @@ export function NotificationFeed({ compatibilityUpdates = [], onCompatibilityRea
             item.kind==='exclusive'?'journey:confirmed':'journey:invited',
         });
         else onConversation(item.requestId, item.kind === 'feedback');
-      } else { setError('تغيّرت حالة هذا التعارف. حدّث الإشعارات للاطّلاع على آخر المستجدات.'); return; }
+      } else { setError('تغيّرت حالة التعارف. حدّث الإشعارات عشان تشوف آخر تحديث.'); return; }
       // Navigation must not wait for a read receipt. A failed receipt remains
       // unread on the next refresh, so it can be retried without blocking entry.
       if (item.activityId) void Promise.resolve().then(() => source.readNotifications?.([item.activityId!])).catch(() => {});
@@ -196,7 +196,7 @@ export function NotificationFeed({ compatibilityUpdates = [], onCompatibilityRea
         style&&style[2]==='step'?Route:style&&style[2]==='account'?ShieldCheck:
         style&&style[1]==='membership'?Gift:HeartHandshake;
       const unread=entry.type==='curated'||entry.row.unread;
-      const title=item?.title ?? (style ? style[0] : entry.type==='fit' ? `تحدّثت قراءة التوافق مع ${entry.row.name}` :
+      const title=item?.title ?? (style ? style[0] : entry.type==='fit' ? `تحديث على توافقك مع ${entry.row.name}` :
         entry.type==='curated' ? `قُبل التعارف مع ${entry.row.name}` : '');
       const detail=item?.detail ?? (update ? actionLabel(update.event) : entry.type==='fit' ? 'عرض ما تغيّر' : 'عرض التعارف');
       const activate=async()=>{

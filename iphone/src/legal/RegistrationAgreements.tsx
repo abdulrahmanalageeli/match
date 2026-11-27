@@ -2,8 +2,8 @@ import type { RegistrationChoices } from '../auth/signupReturn';
 import './consent.css';
 
 const choices = {
-  sensitiveProfile: ['أوافق على استخدام تفاصيلي الحساسة للتوافق', 'درجة بشرتي وما أذكره عن القبيلة والمذهب والممارسة الدينية، وتفضيلاتي المتصلة بها.'],
-  assessment: ['أوافق على تحليل إجاباتي للتوافق', 'تستخدم لونا OpenAI لاقتراح إجابات من رسائلي. أراجعها قبل حساب التوافق.'],
+  sensitiveProfile: ['أوافق على استخدام تفاصيلي الحساسة للتوافق', 'يشمل هذا درجة بشرتي، وما أذكره عن قبيلتي ومذهبي وممارستي الدينية، وتفضيلاتي المتعلقة بهذه التفاصيل.'],
+  assessment: ['أوافق على تحليل إجاباتي للتوافق', 'تحلّل لونا رسائلي باستخدام OpenAI وتقترح إجابات أراجعها قبل حساب التوافق.'],
 } as const;
 
 export function RegistrationAgreements({ value, change, onPrivacy, disabled = false }: {
@@ -21,7 +21,7 @@ export function RegistrationAgreements({ value, change, onPrivacy, disabled = fa
     <div className="wd-entry-required">
       <label className="nf-consent-choice"><input type="checkbox" required checked={value.adult && value.terms && value.privacy}
         onChange={event => change({...value,adult:event.target.checked,terms:event.target.checked,privacy:event.target.checked})}/>
-        <span><strong>عمري ١٨ عامًا فأكثر وأسجّل لنفسي بقصد الزواج</strong><small>أوافق على شروط العضوية واطّلعت على إشعار الخصوصية.</small></span>
+        <span><strong>عمري ١٨ سنة أو أكثر، وأسجّل لنفسي بقصد الزواج</strong><small>أوافق على شروط العضوية واطّلعت على إشعار الخصوصية.</small></span>
       </label>
       {choice('sensitiveProfile')}
       {choice('assessment')}

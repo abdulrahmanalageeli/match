@@ -71,6 +71,30 @@ test("failed sends retry with the same key and reconcile if the response was los
   assert.equal(attempts.length, 2);
 });
 
+test('attachment retries reuse the blob and identity, keep the next draft and reconcile a lost response', async () => {
+  const attempts = [];
+  const source = {
+    pendingSends:{put(){ assert.fail('attachment bytes must stay out of the text journal'); }},
+    async sendMedia(...args){ attempts.push(args); throw Error('انقطع الاتصال'); },
+  };
+  const box = outboxFor(source,'room'), file = new Blob(['voice'],{type:'audio/mp4'});
+  box.write('my next message');
+  box.enqueueMedia(file,'audio','voice-id',3,false);
+  box.enqueueMedia(file,'audio','voice-id',3,false);
+  assert.equal(box.read().outgoing[0].status,'sending');
+  await settle();
+  assert.equal(box.read().outgoing[0].status,'failed');
+  box.retry('voice-id'); box.retry('voice-id');
+  assert.deepEqual(attempts,[['room',file,'audio','voice-id',3,false],['room',file,'audio','voice-id',3,false]]);
+  box.reconcile([{id:'server-id',senderIsMe:true,clientId:'voice-id'}]);
+  await settle();
+  assert.deepEqual(box.read(),{draft:'my next message',outgoing:[]});
+  box.enqueueMedia(file,'audio','next-id',3,false);
+  await settle();
+  box.discardAttachment('next-id');
+  assert.equal(box.read().outgoing.length,0);
+});
+
 test("closing an accepted request clears its draft and queued messages, including unfinished responses", async () => {
   let finish;
   const source = { send: () => new Promise((resolve) => { finish = resolve; }) };

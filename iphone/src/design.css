@@ -14,6 +14,7 @@
   --muted: #716b70;
   --gold: #c2b59f;
   --line: #e5e2de;
+  --nf-chrome-divider: linear-gradient(to right, transparent, var(--line) 4px, var(--line) calc(100% - 4px), transparent);
   --nf-faded-divider: linear-gradient(to right, transparent, var(--line) 20%, var(--line) 80%, transparent);
   --nf-page-gutter: clamp(18px, 5.9vw, 30px);
   --control-line: #a39c9f;
@@ -31,7 +32,7 @@
   --nf-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--nf-native-safe-bottom, 0px));
   --safe-bottom: var(--nf-safe-bottom);
   --font-ui: Tajawal, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-chat: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --font-chat: system-ui, -apple-system, sans-serif;
   --font-weight-medium: 400;
   --font-weight-heading: 700;
   --text-title: 24px;
@@ -75,16 +76,16 @@ body:has(.phone-app > :is(.app-screen, .flow-frame, .wd-welcome))::before {
 }
 body:has(.phone-app > .nf-auth-frame)::before { --nf-safe-surface: #f8f6f5; }
 body:has(.phone-app .mi-tabbar)::before,
-.phone-app .mi-tabbar::before {
+.phone-app :is(.mi-tabbar, .cm-chat-head, .cm-chat-plan[data-ready])::before {
   background:
     url("/brand/nisfayn-rose-ivory-waves.svg") left -28px bottom -8px / var(--nf-wave-width, min(72vw, 320px)) auto no-repeat,
     linear-gradient(to bottom, color-mix(in srgb, var(--blush) 52%, var(--paper)), var(--paper));
 }
-.phone-app .mi-tabbar::before {
+.phone-app :is(.mi-tabbar, .cm-chat-plan[data-ready])::before {
   content: "";
   position: absolute;
   inset: auto 0 0;
-  height: var(--nf-safe-bottom);
+  height: var(--nf-dock-art-height, var(--nf-safe-bottom));
   --nf-wave-width: min(72vw, 320px, calc(var(--nf-safe-bottom) * 5.5));
   -webkit-mask-image: linear-gradient(to top, transparent, #000 min(14px, var(--nf-safe-bottom)));
   mask-image: linear-gradient(to top, transparent, #000 min(14px, var(--nf-safe-bottom)));
@@ -99,8 +100,7 @@ body:has(.phone-app > .wd-welcome)::before {
   body:has(.phone-app > .wd-welcome)::before { --wd-welcome-photo: url('/brand/welcome/shared-future-mobile.webp'); }
 }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion="reduced"]) body:has(.phone-app .mi-tabbar)::before,
-  html:not([data-nf-motion="reduced"]) .phone-app .mi-tabbar::before {
+  html:not([data-nf-motion="reduced"]) body:has(.phone-app .mi-tabbar)::before {
     background-position-x: calc(-28px + 6px * var(--nf-safe-scroll, 0)), 0%;
   }
 }

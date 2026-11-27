@@ -7,11 +7,11 @@ import './notification-setup.css';
 const previewChoices: {value:PushPreview;title:string;example:string}[] = [
   {value:'private',title:'خاص',example:'إشعار جديد'},
   {value:'name',title:'الاسم فقط',example:'رسالة من نورة'},
-  {value:'content',title:'معاينة الرسالة',example:'نورة: يسعدني أن نتعرّف أكثر.'},
+  {value:'content',title:'معاينة الرسالة',example:'نورة: ودي نتعرّف أكثر.'},
 ];
 
 const groups: {key:keyof Pick<PushControls,'connections'|'message'|'family'|'reminder'>;label:string;detail:string;icon:typeof Bell}[] = [
-  {key:'connections',label:'طلبات التعارف',detail:'الطلبات الجديدة والقبول',icon:ShieldCheck},
+  {key:'connections',label:'طلبات التعارف',detail:'الطلبات الجديدة وقبول التعارف',icon:ShieldCheck},
   {key:'message',label:'المحادثات',detail:'الرسائل الجديدة',icon:MessageCircle},
   {key:'family',label:'جسر الأهل',detail:'الدعوات والرسائل',icon:UsersRound},
   {key:'reminder',label:'المواعيد',detail:'تذكير بالموعد المتفق عليه',icon:Bell},
@@ -44,13 +44,13 @@ export function NotificationSetup({owner,onDone,onExit}:{owner:string;onDone:()=
         connections:controls.connections,message:controls.message,family:controls.family,reminder:controls.reminder,
       })]);
       onDone();
-    }catch{setError('لم تُحفظ اختياراتك. حاول مجددًا.');}
+    }catch{setError('ما انحفظت اختياراتك. جرّب مرة ثانية.');}
     finally{setBusy(false);}
   }
 
   return <Frame title="تنبيهاتك" back={onExit} backDisabled={busy} className="nf-notification-setup">
     {loading?<p className="flow-note" role="status">جارٍ تجهيز اختياراتك…</p>:<div className="ns-body">
-      <header className="ns-intro"><span className="ns-bell"><Bell size={24}/></span><h1>كيف تحب أن تصلك التنبيهات؟</h1><p>اختر ما يظهر على شاشة القفل وما يهمك متابعته. يمكنك تغييره لاحقًا.</p></header>
+      <header className="ns-intro"><span className="ns-bell"><Bell size={24}/></span><h1>كيف تبي توصلك التنبيهات؟</h1><p>اختر وش يظهر على شاشة القفل وأي تنبيهات تبي توصلك. تقدر تغيّرها من الإعدادات.</p></header>
       <fieldset className="ns-previews" role="radiogroup"><legend>معاينة شاشة القفل</legend>{previewChoices.map(choice=><button key={choice.value} type="button" role="radio" aria-checked={preview===choice.value} className={preview===choice.value?'is-selected':''} onClick={()=>setPreview(choice.value)}>
         <span><strong>{choice.title}</strong><small>{choice.value==='private'?'لا يظهر الاسم أو المحتوى':choice.value==='name'?'يظهر المرسل فقط':'يظهر المرسل ونص الرسالة'}</small></span><em>{choice.example}</em>
       </button>)}</fieldset>

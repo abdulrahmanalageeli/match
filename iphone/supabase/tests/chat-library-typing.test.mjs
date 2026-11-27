@@ -28,9 +28,15 @@ test('member search/read anchors and private typing respect connection gates, pa
   assert.deepEqual(await search(a),[],'text-only messages do not appear in the media library');
   assert.deepEqual(await call(a,'public.marriage_thread_read_state($1)',[request]),{firstUnreadId:ids[0],unreadCount:56});
   const receipts=u=>call(u,'public.marriage_message_changes($1,$2)',[request,[ids[15],ids[16]]]);
+  const wakes=async(kind)=>(await db.query("select topic,payload-'id' payload from realtime.messages where event='changed' and private and payload->>'kind'=$1",[kind])).rows;
+  const lastInsert=(await wakes('message')).filter(row=>row.payload.messageId===ids[55]);
+  assert.deepEqual(lastInsert.map(row=>row.topic).sort(),[a,b].map(u=>'marriage:member:'+u.id).sort());
+  for (const row of lastInsert) assert.deepEqual(row.payload,{kind:'message',requestId:request,messageId:ids[55]});
   assert((await receipts(b)).every(row=>!row.readByPeer && !row.deliveredAt));
   await assert.rejects(call(other,'public.marriage_mark_thread_read($1,$2)',[request,ids[16]]));
   await call(a,'public.marriage_mark_thread_read($1,$2)',[request,ids[15]]);
+  assert.deepEqual(await wakes('ownRead'),[{topic:'marriage:member:'+a.id,payload:{kind:'ownRead',requestId:request}}]);
+  assert.deepEqual(await wakes('receipt'),[{topic:'marriage:member:'+b.id,payload:{kind:'receipt',requestId:request}}]);
   assert.deepEqual((await receipts(b)).map(row=>row.readByPeer),[true,false]);
   assert((await receipts(a)).every(row=>!row.readByPeer));
   assert.equal(await call(a,'public.marriage_mark_thread_read($1,$2)',[request,ids[14]]),false);
@@ -43,7 +49,7 @@ test('member search/read anchors and private typing respect connection gates, pa
   const peerTyping=u=>call(u,'public.marriage_typing_state($1)',[request]);
   await typing(a,true);assert.equal(await peerTyping(b),true);assert.equal(await peerTyping(a),false);
   await typing(a,true);assert.equal((await db.query('select count(*)::int n from realtime.messages')).rows[0].n,1,'TTL renewals do not wake whole app');
-  const event=(await db.query('select topic,payload from realtime.messages')).rows[0];assert.equal(event.topic,'marriage:member:'+b.id);assert.deepEqual(Object.keys(event.payload),['id']);
+  assert.deepEqual(await wakes('typing'),[{topic:'marriage:member:'+b.id,payload:{kind:'typing',requestId:request}}]);
   await typing(a,false);assert.equal(await peerTyping(b),false);
   await typing(a,true);await db.query("update marriage.chat_typing set expires_at=now()-interval '1 second'");assert.equal(await peerTyping(b),false);
   await assert.rejects(search(other,'family'));await assert.rejects(typing(other,true));await assert.rejects(peerTyping(other));

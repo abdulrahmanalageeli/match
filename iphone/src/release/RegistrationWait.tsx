@@ -63,11 +63,11 @@ export function RegistrationWait({owner, subscribed, onSettings, onRefresh}: Pro
       </section>
       <div className="wd-wait-actions">
         {enabled ? <>
-          <p className="wd-wait-success" role="status"><Check size={19} aria-hidden="true"/>سنرسل لك تنبيهًا عند الإطلاق.</p>
+          <p className="wd-wait-success" role="status"><Check size={19} aria-hidden="true"/>بننبّهك يوم نفتح التعارف.</p>
           <button className="wd-wait-cancel" type="button" disabled={busy} onClick={toggle}>إلغاء تنبيه الإطلاق</button>
         </> : <>
           <button className="wd-wait-cta" aria-describedby="wd-wait-alert-note" type="button" disabled={busy} onClick={toggle}><Bell size={18} aria-hidden="true"/>{busy ? 'جارٍ التفعيل…' : 'نبّهني عند الإطلاق'}</button>
-          <small id="wd-wait-alert-note" className="wd-wait-alert-note">تنبيه واحد يوم نفتح الاكتشاف.</small>
+          <small id="wd-wait-alert-note" className="wd-wait-alert-note">يوصلك تنبيه واحد يوم نفتح التعارف.</small>
         </>}
         {error && <p className="wd-wait-error" role="alert">{error}</p>}
       </div>

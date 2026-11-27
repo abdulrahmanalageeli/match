@@ -9,7 +9,8 @@ export type FeedItem = {
   at?: string; unread: boolean; attention?: boolean; activityId?: string;
   target: 'profile' | 'request' | 'conversation' | null; requestId?: string;
 };
-export const feedTime = (value?: string) => value && Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0;
+const number = new Intl.NumberFormat('ar');
+export const feedTime = (value?: string) => value ? Date.parse(value) || 0 : 0;
 
 export function isRecentNotification(at: string | undefined, now: number): boolean {
   const stamp = feedTime(at);
@@ -32,7 +33,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
       id: n.id, activityId: n.id, person: n.person, kind: interest ? 'interest' : visit ? 'visit' : 'exclusive',
       at: n.createdAt, unread: !n.readAt && !seen.has(n.id), requestId: n.requestId,
       title: interest ? `${memberAr.interest} من ${n.person.alias}` : visit ? `${memberAr.visit} من ${n.person.alias}` : `اتفقت مع ${n.person.alias} على التعارف الحصري`,
-      detail: interest ? 'تعرّف على الملف، وأرسل طلب تعارف إذا ناسبك' : visit ? 'يمكنك الاطّلاع على الملف أيضًا' : open ? 'يمكنكما متابعة الحديث في محادثتكما' : 'إشعار من تعارف سابق',
+      detail: interest ? 'شوف الملف، وإذا ناسبك تقدر ترسل طلب تعارف.' : visit ? 'تقدر تشوف الملف من هنا.' : open ? 'تقدرون تكمّلون حديثكم في المحادثة.' : 'إشعار من تعارف سابق',
       target: visit || interest ? 'profile' : open ? 'conversation' : null,
     };
   });
@@ -44,13 +45,13 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
       const id = `request:${c.id}:${date || ''}`;
       rows.push({ id, kind: 'request', person: c.person, at: date, target: 'request', requestId: c.id,
         title: incoming ? `طلب تعارف من ${c.person.alias}` : `طلب تعارف إلى ${c.person.alias}`,
-        detail: incoming ? 'اطّلع على الملف واقبل الطلب أو اعتذر' : 'طلبك بانتظار الرد',
+        detail: incoming ? 'شوف الملف، وبعدها تقدر تقبل الطلب أو تعتذر.' : 'طلبك بانتظار الرد',
         unread: incoming && !seen.has(id), attention: incoming });
     } else {
       if (c.unreadCount) {
         rows.push({ id: `message:${c.id}`, kind: 'message', person: c.person,
           at: c.latestUnreadAt ?? (c.lastMessage && !c.lastMessage.senderIsMe ? c.lastMessage.createdAt : undefined),
-          title: `رسائل من ${c.person.alias}`, detail: `${new Intl.NumberFormat('ar').format(c.unreadCount)} غير مقروءة · متابعة الحديث`,
+          title: `رسائل من ${c.person.alias}`, detail: `${number.format(c.unreadCount)} غير مقروءة · متابعة الحديث`,
           unread: true, target: 'conversation', requestId: c.id });
       }
       if ((c.celebrationKey || !c.unreadCount && !c.lastMessage) && !p?.exclusive && !exclusive.has(c.id)) {
@@ -63,7 +64,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
       if (p && (p.rewindPeer || commitment || (p.exclusive && p.peer && !p.mine))) {
         rows.push({ id: `journey:${c.id}`, kind: 'journey', person: c.person, at: p.updatedAt,
           title: `اقتراح من ${c.person.alias}: ${p.rewindPeer ? 'العودة إلى المرحلة السابقة' : commitment ? 'التعارف الحصري' : 'الخطوة العائلية'}`,
-          detail: 'راجع الاقتراح واختر ما يناسبك', unread: true, attention: true,
+          detail: 'شوف الاقتراح وردّ باللي يناسبك.', unread: true, attention: true,
           target: 'conversation', requestId: c.id });
       }
     }
@@ -74,7 +75,7 @@ export function buildFeed(connections: Connection[], notifications: ActivityNoti
     if (!person) continue;
     const id = `feedback:${notice.stage}:${notice.requestId}`;
     rows.push({id, kind:'feedback', person, at:notice.at, target:'conversation', requestId:notice.requestId,
-      unread:!seen.has(id), title:notice.stage === 'day2' ? 'كيف كان أول تواصل بينكما؟' : 'كيف مضى أسبوع التعارف؟',
+      unread:!seen.has(id), title:notice.stage === 'day2' ? 'كيف كان أول تواصل بينكم؟' : 'كيف كان أسبوع التعارف؟',
       detail:`متابعة اختيارية لتعارفك مع ${person.alias}`});
   }
   return rows.sort((a, b) => feedTime(b.at) - feedTime(a.at) || a.id.localeCompare(b.id));

@@ -26,7 +26,7 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
     func setupActions() {
         let reply = UNTextInputNotificationAction(identifier:"NISFAYN_REPLY",title:"رد",options:[.foreground,.authenticationRequired],textInputButtonTitle:"إرسال",textInputPlaceholder:"رسالتك…")
         let read = UNNotificationAction(identifier:"NISFAYN_READ",title:"تحديد كمقروء",options:[.foreground,.authenticationRequired])
-        let category = UNNotificationCategory(identifier:"NISFAYN_MESSAGE",actions:[reply,read],intentIdentifiers:[],hiddenPreviewsBodyPlaceholder:"لديك تحديث جديد.",options:[])
+        let category = UNNotificationCategory(identifier:"NISFAYN_MESSAGE",actions:[reply,read],intentIdentifiers:[],hiddenPreviewsBodyPlaceholder:"إشعار جديد",options:[])
         UNUserNotificationCenter.current().setNotificationCategories([category])
     }
     let installation: String = {

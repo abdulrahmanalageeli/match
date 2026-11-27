@@ -61,9 +61,9 @@ export function PushSettings({ owner, demo, testerSession, folded=false }: { own
     finally { setBusy(false); }
   }
   const switches = [
-    ['connections','طلبات التوافق والقبول'], ['message','رسائل المحادثات'], ['family','رسائل جسر الأهل'],
+    ['connections','طلبات التعارف والقبول'], ['message','رسائل المحادثات'], ['family','رسائل جسر الأهل'],
     ['reminder','تذكير بالموعد المتفق عليه'], ['agreement','ميثاق ومسار التعارف'],
-    ['account','الحساب والأمان والدعم'], ['membership','العضوية والهدايا'], ['interest','اهتمام بملفك'], ['screenshot','لقطات الشاشة'], ['analysis','دعوات التحليل وجاهزية التقرير'],
+    ['account','الحساب والأمان والدعم'], ['membership','العضوية والهدايا'], ['interest','اهتمام بملفك'], ['screenshot','لقطات الشاشة'], ['analysis','دعوات التحليل وصدور التقرير'],
     ['sound','صوت التنبيهات'], ['quiet','ساعات الهدوء'],
   ] as const;
   const contents = <>
@@ -71,7 +71,7 @@ export function PushSettings({ owner, demo, testerSession, folded=false }: { own
       <button className="st-row st-switch" type="button" role="switch" aria-label="إشعارات التعارف والرسائل" aria-checked={enabled}
         disabled={!available || busy} onClick={() => void toggle()}>
         <span className="st-icon" aria-hidden="true"><Bell /></span>
-        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح وُدَين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل وُدَين.' : 'يسري على أجهزتك.'}</small></span>
+        <span className="st-row-copy"><strong>إشعارات التعارف والرسائل</strong><small>{demo && !(testerSession && nativePush) ? 'تنبيهات داخل التجربة فقط؛ لا تُرسل إشعارات نظام.' : !nativePush && needsHomeScreen() ? 'على iPhone: من قائمة المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح وُدَين منها لتفعيل الإشعارات.' : !pushConfigured ? 'لم تُفعّل خدمة الإشعارات بعد.' : !pushSupported() ? 'هذا المتصفح لا يدعم الإشعارات. تبقى تنبيهاتك متاحة داخل وُدَين.' : 'هذا الإعداد يشمل كل أجهزتك.'}</small></span>
         <span className="st-switch-track" aria-hidden="true"><i /></span>
       </button>
       {owner && !demo && <NewsPreference key={owner} owner={owner}/>}
@@ -92,7 +92,7 @@ export function PushSettings({ owner, demo, testerSession, folded=false }: { own
       {preview&&<div className="st-lock-preview" role="status" aria-label="مثال لإشعار على شاشة القفل">
         <small><Bell size={14} aria-hidden="true"/> وُدَين · مثال توضيحي</small>
         <strong>{preview==='private'?'إشعار جديد':preview==='event'?'لديك رسالة جديدة': 'رسالة من نورة'}</strong>
-        {preview==='content'&&<span>يسعدني أن نتعرّف أكثر.</span>}
+        {preview==='content'&&<span>ودي نتعرّف أكثر.</span>}
       </div>}</>}
       {available && enabled && controls && <div className="st-push-controls" role="group" aria-labelledby="st-push-groups-title">
         <p className="st-push-controls-title" id="st-push-groups-title">ما يصلك</p>

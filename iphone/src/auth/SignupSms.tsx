@@ -7,14 +7,14 @@ import './signup-sms.css';
 export function normalizeSignupPhone(value:string){
  const digits=value.replace(/[٠-٩]/g,c=>String(c.charCodeAt(0)-1632)).replace(/[۰-۹]/g,c=>String(c.charCodeAt(0)-1776)).replace(/[\s()-]/g,'');
  const phone=digits.startsWith('05')?'+966'+digits.slice(1):digits.startsWith('5')?'+966'+digits:digits.startsWith('00966')?'+'+digits.slice(2):digits.startsWith('966')?'+'+digits:digits;
- if(!/^\+9665\d{8}$/.test(phone))throw Error('أدخل رقم جوال سعودي صالحًا، مثل 05XXXXXXXX.');return phone;
+ if(!/^\+9665\d{8}$/.test(phone))throw Error('اكتب رقم جوال سعودي، مثل 05XXXXXXXX.');return phone;
 }
 async function api(body:Record<string,unknown>){
  let response:Response;
  try{response=await fetch('https://nisfayn-admin.vercel.app/api/signup-sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});}
  catch{throw Error('تعذّر الاتصال بخدمة الرسائل. حاول مجددًا.');}
  const value=await response.json().catch(()=>({}));
- if(!response.ok)throw Error(value.error==='wrong_code'?'الرمز غير صحيح. تحقق من الرسالة وأعد المحاولة.':value.error==='rate_limited'?'طلبات كثيرة. انتظر قبل طلب رمز جديد.':value.error==='expired'?'انتهت صلاحية المحاولة أو تجاوزت عدد المحاولات. اطلب رمزًا جديدًا.':'تعذّر إرسال أو تأكيد الرمز حاليًا. حاول لاحقًا.');
+ if(!response.ok)throw Error(value.error==='wrong_code'?'رمز التحقق غير صحيح. تأكد من الرمز في الرسالة وجرّب مرة ثانية.':value.error==='rate_limited'?'طلبت الرمز أكثر من مرة. انتظر شوي قبل ما تطلب رمزًا جديدًا.':value.error==='expired'?'انتهت صلاحية الرمز أو وصلت للحد المسموح من المحاولات. اطلب رمزًا جديدًا.':'تعذّر إرسال أو تأكيد الرمز حاليًا. حاول لاحقًا.');
  return value;
 }
 function SmsDialog({email,deviceId,done,correction=false}:{email:string;deviceId:string;correction?:boolean;done:(result:SignupVerification|null)=>void}){
@@ -38,8 +38,8 @@ function SmsDialog({email,deviceId,done,correction=false}:{email:string;deviceId
  return <dialog ref={dialog} className="nf-sms-dialog" dir="rtl" aria-labelledby="signup-sms-title" aria-describedby="signup-sms-description" onCancel={e=>{e.preventDefault();if(!busy)done(null);}}>
   <button type="button" className="nf-sms-close" aria-label="إلغاء تأكيد الجوال" disabled={busy} onClick={()=>done(null)}><X size={20}/></button>
   <h2 id="signup-sms-title">{proof?'أدخل رمز التحقق':'تأكيد رقم الجوال'}</h2>
-  <p id="signup-sms-description">{proof?<>أرسلنا الرمز إلى <bdi dir="ltr">{phone}</bdi>.</>:'رقمك لا يظهر للأعضاء.'}</p>
-  {duplicate&&<div className="nf-sms-duplicate" role="status"><strong>سبق التسجيل من هذا الجهاز</strong><span>يمكنك المتابعة وإنشاء حساب آخر.</span></div>}
+  <p id="signup-sms-description">{proof?<>أرسلنا الرمز إلى <bdi dir="ltr">{phone}</bdi>.</>:'رقم جوالك ما يظهر للأعضاء.'}</p>
+  {duplicate&&<div className="nf-sms-duplicate" role="status"><strong>سبق التسجيل من هذا الجهاز</strong><span>تقدر تكمّل وتفتح حسابًا ثانيًا.</span></div>}
   <form onSubmit={e=>{e.preventDefault();void(proof?verify():send());}}>
    {!proof && <label>رقم الجوال<input ref={phoneInput} type="tel" dir="ltr" inputMode="tel" autoComplete="tel" enterKeyHint="next" placeholder="05XXXXXXXX" required value={phone} disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setPhone(e.target.value);setError('');}}/></label>}
    {proof&&<label>رمز التحقق<input ref={codeInput} className="nf-sms-code" inputMode="numeric" autoComplete="one-time-code" enterKeyHint="done" dir="ltr" value={code} maxLength={8} minLength={4} required disabled={busy} aria-describedby={error ? 'signup-sms-error' : undefined} onChange={e=>{setCode(e.target.value.replace(/[^0-9٠-٩]/g,''));setError('');}}/></label>}

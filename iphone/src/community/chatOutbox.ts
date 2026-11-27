@@ -1,9 +1,10 @@
-import type { CommunitySource, Message, MessageReply } from "./data";
+import type { ChatAttachment, CommunitySource, Message, MessageReply } from "./data";
 
 export type Outgoing = Message & {
   clientId: string;
   status: "sending" | "failed" | "saved";
   error?: string;
+  localFile?: Blob;
 };
 type Snapshot = { draft: string; outgoing: Outgoing[]; reply?: MessageReply };
 
@@ -86,10 +87,36 @@ class Outbox {
     this.dispatch(clientId);
     return clientId;
   }
+  enqueueMedia(file: Blob, kind: ChatAttachment['kind'], clientId: string, duration?: number, viewOnce = false) {
+    if (!this.source.sendMedia || this.state.outgoing.some(row => row.clientId === clientId)) return;
+    const item: Outgoing = {
+      id: clientId, clientId, senderIsMe: true, createdAt: new Date().toISOString(), status: 'sending',
+      body: kind === 'audio' ? 'رسالة صوتية' : viewOnce ? 'صورة لمرة واحدة' : 'صورة',
+      attachment: {id: clientId, kind, mime:file.type, size:file.size, duration, viewOnce}, localFile:file,
+    };
+    this.update({...this.state, outgoing:[...this.state.outgoing, item]});
+    void this.upload(item);
+  }
+  private async upload(item: Outgoing) {
+    const {attachment, localFile, clientId} = item;
+    if (!attachment || !localFile || !this.source.sendMedia) return;
+    try {
+      const id = await this.source.sendMedia(this.requestId, localFile, attachment.kind, clientId, attachment.duration, attachment.viewOnce);
+      this.replace(clientId, {id, status:'saved'});
+    } catch (error) {
+      this.replace(clientId, {status:'failed', error:chatError(error)});
+    }
+  }
+  discardAttachment(clientId: string) {
+    this.update({...this.state, outgoing:this.state.outgoing.filter(row =>
+      row.clientId !== clientId || !row.localFile || row.status !== 'failed')});
+  }
   retry(clientId: string) {
-    if (this.state.outgoing.find((m) => m.clientId === clientId)?.status !== "failed") return;
+    const item = this.state.outgoing.find(m => m.clientId === clientId);
+    if (item?.status !== "failed") return;
     this.replace(clientId, { status: "sending", error: undefined });
-    this.dispatch(clientId);
+    if (item.localFile) void this.upload(item);
+    else this.dispatch(clientId);
   }
   private replace(clientId: string, patch: Partial<Outgoing>) {
     if (!this.state.outgoing.some((item) => item.clientId === clientId)) return;
@@ -123,7 +150,8 @@ class Outbox {
     const outgoing = this.state.outgoing.filter((m) => !ids.has(m.id) && !clients.has(m.clientId));
     if (outgoing.length !== this.state.outgoing.length) {
       const settled = this.state.outgoing.filter(row => ids.has(row.id) || clients.has(row.clientId));
-      void this.source.pendingSends?.remove(new Set(settled.map(row => row.clientId))).catch(() => {});
+      const journalIds = new Set(settled.filter(row => !row.localFile).map(row => row.clientId));
+      if (journalIds.size) void this.source.pendingSends?.remove(journalIds).catch(() => {});
       this.update({ ...this.state, outgoing });
     }
   }

@@ -38,16 +38,16 @@
 .phone-app .cm-shell .df-feed-tabs button[aria-pressed="true"] {
   color: var(--accent); background: transparent; box-shadow: none; font-weight: 600;
 }
-.phone-app .cm-shell .df-feed-tabs::after {
+.phone-app .cm-shell .wd-paired-tabs::after {
   --ink-width: 3.75rem;
   content: ""; position: absolute; pointer-events: none;
   inset-block-end: -1px; inset-inline-start: 25%; margin-inline-start: calc(var(--ink-width) / -2);
   width: var(--ink-width); height: 2.5px; border-radius: 100%;
   background: var(--accent);
 }
-.phone-app .cm-shell .df-feed-tabs:has(> button:last-child[aria-pressed="true"])::after { inset-inline-start: 75%; }
+.phone-app .cm-shell .wd-paired-tabs:has(> button:last-child[aria-pressed="true"])::after { inset-inline-start: 75%; }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-nf-motion=reduced]) .phone-app .cm-shell .df-feed-tabs::after {
+  html:not([data-nf-motion=reduced]) .phone-app .cm-shell .wd-paired-tabs::after {
     transition: inset-inline-start 250ms cubic-bezier(.22,.8,.25,1);
   }
 }

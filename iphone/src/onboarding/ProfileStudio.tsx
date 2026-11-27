@@ -69,7 +69,7 @@ export function ProfileStudio({ answers: p, withCompatibility, open, review, bus
     <section className="pe-section" key={section}><p className="pe-section-note">{group.note}</p><div className="nf-studio-sections">
       {group.items.map(item=><button type="button" className="nf-studio-section" key={item.key} disabled={busy} onClick={()=>open(item.key as Chapter)}><span className="nf-studio-section-icon"><item.icon size={20} strokeWidth={1.6}/></span><span><strong>{item.title}</strong><small>{item.note}</small></span><ChevronLeft size={17}/></button>)}
     </div></section>
-    {section===0&&<MotionPressButton className="pe-prompt-invite" disabled={busy} onClick={()=>open('story')}><Feather size={20} aria-hidden="true"/><span><strong>{promptCount?'إجابات تحكي عنك':'دع التفاصيل الصغيرة تحكي عنك'}</strong><small>{promptCount?`${arabicNumber(promptCount)} من ٣ إجابات اختيارية · راجعها أو أضف إليها`:'يومكما المثالي، وما تتمنى أن يفهمه شريكك'}</small></span><ChevronLeft size={17} aria-hidden="true"/></MotionPressButton>}
+    {section===0&&<MotionPressButton className="pe-prompt-invite" disabled={busy} onClick={()=>open('story')}><Feather size={20} aria-hidden="true"/><span><strong>{promptCount?'إجابات تحكي عنك':'وش تحب يعرف عنك شريك حياتك؟'}</strong><small>{promptCount?`${arabicNumber(promptCount)} من ٣ إجابات اختيارية · راجعها أو أضف إليها`:'مثلًا، كيف تتخيّل يومكم مع بعض؟'}</small></span><ChevronLeft size={17} aria-hidden="true"/></MotionPressButton>}
     <footer className="nf-studio-actions"><button type="button" className="f-primary" onClick={review} disabled={busy||!changed}>مراجعة وحفظ التعديلات<ArrowLeft size={18}/></button><small>{changed?'التعديلات مسودة حتى تؤكد حفظها.':'ملفك محفوظ. اختر أي قسم لتحديثه.'}</small></footer>
   </div>;
 }

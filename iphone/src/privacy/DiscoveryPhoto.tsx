@@ -53,11 +53,19 @@ function visibleCoverRects() {
       root.matches('[data-portrait-pending],[data-capture-pending],[data-capture-hidden],[data-capture-native-hidden]') ||
       document.querySelector('dialog[open],[aria-modal="true"]:not([hidden])') ||
       (window.visualViewport?.scale ?? 1) !== 1) return null;
-  return Array.from(document.querySelectorAll(covers), cover => cover.getBoundingClientRect());
+  const rects: DOMRect[] = [];
+  let footer: DOMRect | undefined;
+  for (const cover of document.querySelectorAll(covers)) {
+    const rect = cover.getBoundingClientRect();
+    rects.push(rect);
+    if (cover.matches('.mi-tabbar')) footer = rect;
+  }
+  return { rects, footer };
 }
 
-function placement(node: HTMLElement, compact: boolean, coverRects: DOMRect[] | null) {
-  if (!coverRects) return;
+type CoverGeometry = ReturnType<typeof visibleCoverRects>;
+function placement(node: HTMLElement, compact: boolean, covers: CoverGeometry) {
+  if (!covers) return;
   const rect = node.getBoundingClientRect();
   if (!rect.width || !rect.height || rect.bottom <= -preloadDistance || rect.top >= innerHeight + preloadDistance ||
       rect.right <= 0 || rect.left >= innerWidth) return;
@@ -66,7 +74,9 @@ function placement(node: HTMLElement, compact: boolean, coverRects: DOMRect[] | 
     if (r.width && r.height && r.left < rect.right && r.right > rect.left && r.top < rect.bottom && r.bottom > rect.top)
       cutouts.push([r.x, r.y, r.width, r.height]);
   }
-  coverRects.forEach(exclude);
+  // UIKit clips the entire portrait plane at the dock during scrolling.
+  // Only occluders that move relative to a portrait need a per-image mask.
+  covers.rects.forEach(rect => { if (rect !== covers.footer) exclude(rect); });
   node.closest('.dr-row-avatar')?.querySelectorAll('.wd-member-badge,.dr-online-dot')
     .forEach(cover => exclude(cover.getBoundingClientRect()));
   const centerX = Math.max(0, (Math.max(0, rect.left) + Math.min(innerWidth, rect.right)) / 2);
@@ -74,14 +84,15 @@ function placement(node: HTMLElement, compact: boolean, coverRects: DOMRect[] | 
   const card = node.closest('.df-recommendation,.dr-person-row');
   if (!card) return;
   if (rect.bottom > 0 && rect.top < innerHeight) {
-    const underChrome = coverRects.some(r => centerX >= r.left && centerX < r.right && centerY >= r.top && centerY < r.bottom);
+    const underChrome = covers.rects.some(r => centerX >= r.left && centerX < r.right && centerY >= r.top && centerY < r.bottom);
     if (!underChrome && !card.contains(document.elementFromPoint(centerX, centerY))) return;
   }
-  return { scrollOrigin: [window.scrollX, window.scrollY], box: [rect.x, rect.y, rect.width, rect.height], radius: compact ? rect.width / 2 : 12, cutouts };
+  return { scrollOrigin: [window.scrollX, window.scrollY], box: [rect.x, rect.y, rect.width, rect.height], radius: compact ? rect.width / 2 : 12,
+    footerHeight: covers.footer?.height ?? 0, cutouts };
 }
 
 // Share observers across visible cards. A settled feed has no animation loop.
-type Update = (covers: DOMRect[] | null) => void;
+type Update = (covers: CoverGeometry) => void;
 const visible = new Map<HTMLElement, Update>();
 const motions = new Set<Animation>();
 let frame = 0;
@@ -170,7 +181,7 @@ export function DiscoveryPhoto({ src, name, compact = false, illustrated = false
       // The native views scroll with the outer UIScrollView. Only content-space
       // movement and changes to the mask relative to the portrait need a call.
       const [x, y, width, height] = geometry.box;
-      const signature = JSON.stringify([x + window.scrollX, y + window.scrollY, width, height,
+      const signature = JSON.stringify([x + window.scrollX, y + window.scrollY, width, height, geometry.footerHeight,
         geometry.cutouts.map(([left, top, w, h]) => [left - x, top - y, w, h])]);
       if (placed && signature === last) return;
       const current = request ??= new AbortController();

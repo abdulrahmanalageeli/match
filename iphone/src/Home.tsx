@@ -183,6 +183,23 @@ export function MemberTabs({
 }: TabsProps) {
   const relationships = useRelationshipCounts(source);
   const marker = useRef<HTMLSpanElement>(null);
+  const dock = useRef<HTMLElement>(null);
+  const spacer = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const bar = dock.current, slot = spacer.current;
+    if (!bar || !slot) return;
+    const fit = () => {
+      const width = slot.getBoundingClientRect().width + 'px';
+      if (bar.style.width !== width) bar.style.width = width;
+      const height = bar.getBoundingClientRect().height + 'px';
+      if (slot.style.height !== height) slot.style.height = height;
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(slot);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
   const device = useDevicePreferences();
   const systemReduced = useSystemReducedMotion();
   const reduced = systemReduced || device.value.reducedMotion;
@@ -220,7 +237,8 @@ export function MemberTabs({
     { id: "settings", text: "الإعدادات", icon: Settings2, open: onAccount },
   ];
   return (
-    <nav className="mi-tabbar" aria-label="التنقل الرئيسي">
+    <><div ref={spacer} className="mi-tabbar-space" aria-hidden="true" />
+    <nav ref={dock} className="mi-tabbar" aria-label="التنقل الرئيسي">
       {items.map(({ id, text, icon: Icon, open }) => {
         if (!open && active !== id) return null;
         const count = id === "chats" ? chatUnread : id === "home" ? requestUnread ?? relationships.incoming : 0;
@@ -242,7 +260,7 @@ export function MemberTabs({
               open?.();
             }}>{label}</button>;
       })}
-    </nav>
+    </nav></>
   );
 }
 

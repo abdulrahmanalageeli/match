@@ -11,14 +11,19 @@ export function useRelationshipCounts(source?: CommunitySource | null) {
       const current = ++sequence;
       try {
         const rows = await source.inbox();
-        if (active && current === sequence) setSnapshot({source,
-          accepted: rows.filter(row => row.status === 'accepted').length,
-          incoming: rows.filter(row => row.status === 'pending' && row.direction === 'incoming').length,
-        });
+        if (active && current === sequence) {
+          let accepted = 0, incoming = 0;
+          for (const row of rows) {
+            if (row.status === 'accepted') accepted++;
+            else if (row.status === 'pending' && row.direction === 'incoming') incoming++;
+          }
+          setSnapshot(previous => previous?.source === source && previous.accepted === accepted && previous.incoming === incoming
+            ? previous : {source, accepted, incoming});
+        }
       } catch { /* Keep the last known counts while reconnecting. */ }
     };
     void refresh();
-    const stop = source.watch(() => void refresh());
+    const stop = source.watch(() => void refresh(), 'nonChat');
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('online', refresh);
     return () => {

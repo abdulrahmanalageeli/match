@@ -64,7 +64,7 @@ function SupportDialog({ source, subject: initialSubject, context, close, focusT
   async function shareDirectory(ticket:string) {
     if(!source.shareDirectory||sending)return;
     setSending(true);setError('');
-    try{await source.shareDirectory(ticket);await load();setReceipt('وصل عدد النتائج قبل التصفية وبعدها إلى فريق المتابعة.');}
+    try{await source.shareDirectory(ticket);await load();setReceipt('أرسلنا لفريق الدعم عدد النتائج قبل التصفية وبعدها.');}
     catch(e){setError(e instanceof Error?e.message:'تعذّرت مشاركة عدد النتائج.');}finally{setSending(false);}
   }
   async function confirmRepair(ticket:string) {
@@ -94,7 +94,7 @@ function SupportDialog({ source, subject: initialSubject, context, close, focusT
       if (ticketGeneration !== generation.current) return;
       feedback('success');
       setItems(old => [ticket, ...old.filter(item => item.id !== ticket.id)]); setBody(''); attempt.current = null;
-      setReceipt('استلمنا طلبك. يمكنك متابعة حالته ورد الفريق هنا.');
+      setReceipt('وصلنا طلبك. هنا تقدر تتابع حالته وتشوف رد الفريق.');
     } catch (e) { if (ticketGeneration === generation.current) setError(e instanceof Error ? e.message : 'تعذّر تأكيد الإرسال. حاول مجددًا.'); }
     finally { if (ticketGeneration === generation.current) setSending(false); }
   }

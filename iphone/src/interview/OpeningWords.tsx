@@ -30,7 +30,7 @@ export function OpeningWords({ text, highlights, proposals, fields, saved, rende
     trigger.current?.focus();
   }
   return <div className="wi-opening-words">
-    <div className="wi-opening-words-caption"><strong>من كلامك</strong><span>اضغط على عبارة لمراجعة اقتراح لونا وتعديله</span></div>
+    <div className="wi-opening-words-caption"><strong>من كلامك</strong><span>اختر عبارة عشان تشوف اقتراح لونا وتعدّله</span></div>
     <p className="wi-opening-transcript" dir="auto">{highlights.map((part, index) => <Fragment key={part.start}>
       {text.slice(index ? highlights[index - 1].end : 0, part.start)}
       <span role="button" tabIndex={0} className="wi-opening-phrase" aria-expanded={part === active}
@@ -46,7 +46,7 @@ export function OpeningWords({ text, highlights, proposals, fields, saved, rende
         }}>{text.slice(part.start, part.end)}</span>
     </Fragment>)}{text.slice(highlights[highlights.length - 1].end)}</p>
     {active && <div className="wi-opening-interpretation" id={editorId} key={active.start}>
-      <div className="wi-opening-interpretation-head"><h3 tabIndex={-1} ref={title}>ما فهمته لونا من عبارتك</h3>
+      <div className="wi-opening-interpretation-head"><h3 tabIndex={-1} ref={title}>وش فهمت لونا من كلامك؟</h3>
         <button type="button" aria-label="العودة إلى عبارتي" onClick={close}><X size={17} aria-hidden="true"/></button>
       </div>
       {Array.from(new Set(active.sources.map(source => source.id))).map(id => {

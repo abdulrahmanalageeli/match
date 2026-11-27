@@ -77,11 +77,13 @@
 .mi-privacy { display: flex; align-items: flex-start; gap: 7px; margin: 13px 2px 0; }
 .mi-privacy svg { color: var(--brass); margin-top: 3px; flex: none; }
 .mi-privacy p { font-size: .85rem; }
+.mi-tabbar-space { flex: none; align-self: stretch; }
 .mi-tabbar {
   --tab-shoulder: clamp(20px, 6vw, 28px);
   --tab-rise: 12px;
   --tab-rim: transparent calc(100% - .5px), var(--tab-surface, var(--chrome)) calc(100% + .5px);
-  position: sticky; bottom: 0; z-index: 3; display: flex; justify-content: space-around;
+  position: fixed; inset: auto 0 0; margin-inline: auto; width: 100%; max-width: 100%;
+  z-index: 15; isolation: isolate; display: flex; justify-content: space-around;
   padding: 0 var(--nf-page-right, 10px) max(5px, var(--nf-safe-bottom)) var(--nf-page-left, 10px);
   background: linear-gradient(transparent, var(--paper)) bottom / 100% var(--nf-safe-bottom) no-repeat, var(--tab-surface, var(--chrome));
 }
@@ -92,7 +94,7 @@
   padding-right: var(--nf-page-right, var(--nf-page-gutter));
   pointer-events: none;
   background:
-    linear-gradient(to right, transparent, var(--line) 4px, var(--line) calc(100% - 4px), transparent) center bottom / 100% 1px no-repeat content-box,
+    var(--nf-chrome-divider) center bottom / 100% 1px no-repeat content-box,
     radial-gradient(ellipse var(--tab-shoulder) var(--tab-rise) at 100% 0, var(--tab-rim)) left top / var(--tab-shoulder) 100% no-repeat,
     radial-gradient(ellipse var(--tab-shoulder) var(--tab-rise) at 0 0, var(--tab-rim)) right top / var(--tab-shoulder) 100% no-repeat;
 }

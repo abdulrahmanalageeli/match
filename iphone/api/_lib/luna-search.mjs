@@ -1,4 +1,5 @@
 import { completeLuna } from './luna-safety.mjs';
+import {lunaResultCard} from '../../src/community/lunaResultCard.mjs';
 import OpenAI from 'openai';
 import interestLabels from '../../src/compatibility/interests.json' with {type:'json'};
 import profileCatalog from '../../src/interview/profile-catalog.json' with {type:'json'};
@@ -140,7 +141,7 @@ export function createLunaSearch({env=process.env,fetcher=fetch,clientFactory=op
     const options={mode:'all',...filters,lunaFields,luna:plan.criteria,offset:0};
     const people=await rpc('marriage_browse',{options});
     if (headers.accept === 'application/vnd.wudayn.search-cards+json') {
-      return {options,people:people.map(({id,alias,portrait,publicAvatar}) => ({id,alias,portrait,publicAvatar}))};
+      return {options,people:people.map(person => lunaResultCard(person, options))};
     }
     return {options,summary:plan.summary,criteria:plan.criteria.map(({label,kind})=>({label,kind})),people};
   };

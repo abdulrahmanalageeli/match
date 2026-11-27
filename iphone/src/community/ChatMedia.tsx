@@ -164,12 +164,16 @@ function PhotoViewer({ url, close }: { url: string; close: () => void }) {
   </dialog>;
 }
 
-export function MessageMedia({ source, requestId, attachment, senderIsMe = false }: { source: CommunitySource; requestId: string; attachment: ChatAttachment; senderIsMe?: boolean }) {
+export function MessageMedia({ source, requestId, attachment, senderIsMe = false, localFile }: { source: CommunitySource; requestId: string; attachment: ChatAttachment; senderIsMe?: boolean; localFile?: Blob }) {
   const [url, setUrl] = useState(''), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [viewer, setViewer] = useState(''), [opening, setOpening] = useState(false), [spent, setSpent] = useState(false);
   const alive = useRef(true), generation = useRef(0), displayed = useRef('');
   const [viewed, setViewed] = useState(false);
   const once = attachment.viewOnce === true;
+  // Keep the displayed preview through acknowledgement. After a photo is
+  // hidden its URL is revoked, and its next load uses the authorized source.
+  const uploadFile = useRef(localFile);
+  uploadFile.current = localFile;
   function closeViewer() {
     generation.current++;
     if (once && displayed.current) closePrivatePhoto();
@@ -203,7 +207,7 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
       if (!active || photo && document.hidden) return;
       const ticket = ++epoch; setError('');
       try {
-        const value = await source.mediaUrl?.(requestId, attachment.id);
+        const value = uploadFile.current ? URL.createObjectURL(uploadFile.current) : await source.mediaUrl?.(requestId, attachment.id);
         if (!value) return;
         if (!active || ticket !== epoch || photo && document.hidden) { if (value.startsWith('blob:')) URL.revokeObjectURL(value); return; }
         if (loaded.startsWith('blob:')) URL.revokeObjectURL(loaded);
@@ -261,15 +265,14 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
     : <VoicePlayer memory={{source,key:requestId+":"+attachment.id}} url={url} duration={attachment.duration} failed={() => setError('تعذّر تحميل التسجيل.')}/>;
 }
 
-export function ChatMediaComposer({ source, requestId, disabled, callActive, onRecording, sent }: {
-  source: CommunitySource; requestId: string; disabled: boolean; callActive: boolean; onRecording: (active: boolean) => void; sent: () => void;
+export function ChatMediaComposer({ source, disabled, callActive, onRecording, onSend }: {
+  source: CommunitySource; disabled: boolean; callActive: boolean; onRecording: (active: boolean) => void; onSend: (draft: Draft) => void;
 }) {
   const [draft, setDraft] = useState<Draft | null>(null), [busy, setBusy] = useState(false), [recording, setRecording] = useState(false), [elapsed, setElapsed] = useState(0), [error, setError] = useState('');
   const [locked, setLocked] = useState(false), [drag, setDrag] = useState({ x: 0, y: 0 }), [micStream, setMicStream] = useState<MediaStream | null>(null);
   const picker = useRef<HTMLInputElement>(null), recorder = useRef<MediaRecorder | null>(null), stream = useRef<MediaStream | null>(null);
   const alive = useRef(true), capturing = useRef(false), generation = useRef(0), stopTimer = useRef<number | undefined>(undefined), lastUrl = useRef(''), chunks = useRef<Blob[]>([]), recordingStart = useRef(0);
   const lockedRef = useRef(false), suppressClick = useRef(false);
-  const sending = useRef(false);
   const gesture = useRef<{ id: number; x: number; y: number; at: number } | null>(null);
   const blocked = useRef(disabled || callActive); blocked.current = disabled || callActive;
   const onRecordingRef = useRef(onRecording); onRecordingRef.current = onRecording;
@@ -344,13 +347,11 @@ export function ChatMediaComposer({ source, requestId, disabled, callActive, onR
     gesture.current = { id: event.pointerId, x: event.clientX, y: event.clientY, at: Date.now() };
     void record(false);
   }
-  async function send() {
-    if (!draft || !source.sendMedia || busy || disabled || sending.current) return;
+  function send() {
+    if (!draft || lastUrl.current !== draft.url || !source.sendMedia || busy || disabled) return;
     if (navigator.onLine === false) { setError('أنت غير متصل. المرفق باقٍ هنا؛ أعد الإرسال عند عودة الشبكة.'); return; }
-    sending.current = true; setBusy(true); setError('');
-    try { await source.sendMedia(requestId, draft.blob, draft.kind, draft.clientId, draft.duration, draft.viewOnce === true); if (alive.current) { clearDraft(); sent(); } }
-    catch (e) { if (alive.current) setError(safeError(e)); }
-    finally { sending.current = false; if (alive.current) setBusy(false); }
+    onSend(draft);
+    clearDraft();
   }
   if (!source.sendMedia || !source.mediaUrl) return null;
   return <div className="cm-media-composer" data-capturing={recording || capturing.current || undefined} data-draft={Boolean(draft) || undefined}>
@@ -368,11 +369,10 @@ export function ChatMediaComposer({ source, requestId, disabled, callActive, onR
       : draft ? <div className="cm-media-preview" aria-busy={busy}>
         <div className="cm-media-preview-content">{draft.kind === 'photo' ? <img src={draft.url} alt="معاينة الصورة قبل الإرسال"/> : <VoicePlayer url={draft.url} duration={draft.duration}/>}</div>
         {draft.kind === 'photo' && <div className="cm-once-setting"><label><input type="checkbox" checked={draft.viewOnce === true} disabled={busy} onChange={event => setDraft(current => current ? {...current, viewOnce: event.target.checked} : current)}/><CircleDashed size={19}/><span><strong>عرض لمرة واحدة</strong><small>{draft.viewOnce ? 'تُفتح مرة واحدة في تطبيق وُدَين على الآيفون.' : 'يستطيع الطرف الآخر العودة إلى الصورة.'}</small></span></label><p>يمكن للطرف الآخر الاحتفاظ بنسخة أو تصوير الشاشة بجهاز آخر، حتى مع العرض لمرة واحدة.</p></div>}
-        {busy && <div className="cm-upload-status" role="status"><progress aria-label="إرسال المرفق"/><span>جارٍ رفع المرفق وتأكيد إرساله…</span></div>}
         <div className="cm-media-preview-actions">
-          <span>{busy ? 'يمكن أن يستغرق قليلًا بحسب اتصالك' : error ? 'المرفق محفوظ هنا، ويمكنك إعادة المحاولة' : draft.kind === 'photo' ? 'جاهزة للإرسال' : 'استمع قبل الإرسال'}</span>
+          <span>{draft.kind === 'photo' ? 'جاهزة للإرسال' : 'استمع قبل الإرسال'}</span>
           <MotionPressButton type="button" disabled={busy} aria-label="إزالة المرفق" onClick={clearDraft}><Trash2 size={18}/></MotionPressButton>
-          <MotionPressButton type="button" className="cm-media-send" disabled={busy || disabled} aria-label={error ? 'إعادة إرسال المرفق' : 'إرسال المرفق'} onClick={() => void send()}>{busy ? <LoaderCircle className="cm-spin" size={18}/> : error ? <RotateCcw size={18}/> : <Send size={18}/>}</MotionPressButton>
+          <MotionPressButton type="button" className="cm-media-send" disabled={busy || disabled} aria-label="إرسال المرفق" onClick={send}><Send size={18}/></MotionPressButton>
         </div>
       </div>
         : <div className="cm-media-tools"><button type="button" aria-label="إرفاق صورة" title="إرفاق صورة" disabled={disabled || busy} onClick={() => picker.current?.click()}><PhotoIcon size={23}/></button><button type="button" className="cm-record-trigger" aria-label="رسالة صوتية" title="اضغط مطولًا للتسجيل، أو اضغط مرة للتسجيل الحر" disabled={disabled || busy || callActive} onPointerDown={startHold} onContextMenu={event => event.preventDefault()} onClick={event => { if (event.detail > 0 && suppressClick.current) { suppressClick.current = false; return; } void record(true); }}><AudioLines size={23}/></button>{busy && <span role="status">جارٍ التجهيز…</span>}</div>}

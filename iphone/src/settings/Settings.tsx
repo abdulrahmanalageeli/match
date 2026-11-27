@@ -64,7 +64,7 @@ function DirectoryWork({source}: {source: CommunitySource}) {
   useEffect(()=>{
     let current=true;
     setChoice(null); setStatus('');
-    source.directoryWork?.().then(value=>{if(current)setChoice(value ?? '');},()=>{if(current)setStatus('تعذّر تحميل الاختيار.');});
+    source.directoryWork?.().then(value=>{if(current)setChoice(value ?? '');},()=>{if(current)setStatus('ما قدرنا نعرض اختيارك المحفوظ.');});
     return ()=>{current=false;};
   },[source]);
   async function save() {
@@ -148,9 +148,18 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   const [familyRoomTarget,setFamilyRoomTarget]=useState<string>();
   const [profilePanel,setProfilePanel]=useState<'preview'|'photos'|'readiness'|'family'|'verification'|'exclusions'|'history'|null>(null);
   useCapturePrivacy(profilePanel === 'photos' ? 'profile' : null);
-  const [ownClaims,setOwnClaims]=useState<ManualVerificationClaim[]>([]);
-  const [hasPreviousVerification,setHasPreviousVerification]=useState(false);
-  useEffect(()=>{let current=true;setOwnClaims([]);setHasPreviousVerification(false);if(source?.verification)void source.verification('state').then(result=>{if(current){setOwnClaims(result.claims);setHasPreviousVerification(result.requests.length>0);}}).catch(()=>{});return()=>{current=false;};},[source,profilePanel]);
+  const [verified, setVerified] = useState<{source: CommunitySource; claims: ManualVerificationClaim[]; hasRequests: boolean}>();
+  const ownClaims = verified && verified.source === source ? verified.claims : [];
+  const hasPreviousVerification = verified?.source === source && verified?.hasRequests;
+  const inVerification = profilePanel === 'verification';
+  useEffect(()=>{
+    if (!source?.verification || inVerification) return;
+    let current = true;
+    void source.verification('state').then(result => {
+      if (current) setVerified({source, claims:result.claims, hasRequests:result.requests.length > 0});
+    }).catch(()=>{if(current)setVerified(undefined);});
+    return ()=>{current=false;};
+  }, [source, inVerification]);
   const returnScroll=useRef(0);
   useLayoutEffect(()=>{if(profilePanel)window.scrollTo(0,0);},[profilePanel]);
   useEffect(()=>{
@@ -219,7 +228,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
     return <main className="app-screen st-profile-view" dir="rtl">{preview ?
     <MemberProfile key={owner} person={{...preview,manualVerifications:ownClaims,membershipTier:tier}} source={state?.user.profileReviewPending ? undefined : source} preview back={closePanel} backText="الإعدادات"/> :
     <div className="screen-content"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/>الإعدادات</button>
-      <p role="status">{summary.error ? 'تعذّر تحميل النسخة المعتمدة.' : summary.data ? 'لا تتوفر نسخة معتمدة للمعاينة حتى اكتمال المراجعة.' : 'جارٍ تحميل النسخة المعتمدة…'}</p>{summary.error&&<button className="btn-secondary" onClick={summary.refresh}>إعادة المحاولة</button>}</div>}</main>;
+      <p role="status">{summary.error ? 'تعذّر تحميل النسخة المعتمدة.' : summary.data ? 'تقدر تعاين ملفك بعد ما تكتمل مراجعته.' : 'جارٍ تحميل النسخة المعتمدة…'}</p>{summary.error&&<button className="btn-secondary" onClick={summary.refresh}>إعادة المحاولة</button>}</div>}</main>;
   }
   if(profilePanel==='photos')return <main className="app-screen st-profile-view" dir="rtl"><div className="screen-content st-photo-manager">
     <header className="mp-navigation"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header>

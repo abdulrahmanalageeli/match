@@ -279,6 +279,11 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
       window.clearTimeout(timer);
     }
   }
+  function acknowledgeReceived(requestId: string, rows: Message[]) {
+    const received = rows.filter(row => !row.senderIsMe && !row.deletedAt && !row.deliveredAt).map(row => row.id);
+    if (received.length) void timedRpc("marriage_confirm_thread_delivery", {request_id: requestId, message_ids: received}).catch(() => {});
+    return rows;
+  }
   return {
     watch: privateUpdates(userId),
     pendingSends,
@@ -433,11 +438,12 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     },
     async thread(requestId, beforeId) {
       const rows = await timedRpc<Message[]>("marriage_thread_page", { request_id: requestId, before_id: beforeId ?? null });
-      const received = rows.filter(row => !row.senderIsMe && !row.deletedAt && !row.deliveredAt).map(row => row.id);
-      if (received.length) void timedRpc("marriage_confirm_thread_delivery", { request_id: requestId, message_ids: received }).catch(() => {});
-      return rows;
+      return acknowledgeReceived(requestId, rows);
     },
-    messageChanges: (requestId, messageIds) => timedRpc("marriage_message_changes", { request_id: requestId, message_ids: messageIds }),
+    async messageChanges(requestId, messageIds) {
+      const rows = await timedRpc<Message[]>("marriage_message_changes", {request_id: requestId, message_ids: messageIds});
+      return acknowledgeReceived(requestId, rows);
+    },
     searchMessages: (requestId, query, beforeId, kind) => timedRpc('marriage_search_messages', { request_id: requestId, search_query: query, before_id: beforeId ?? null, media_kind: kind ?? null }),
     readState: requestId => timedRpc('marriage_thread_read_state', { request_id: requestId }),
     async setTyping(requestId, active) { await timedRpc('marriage_set_typing', { request_id: requestId, active }); },
@@ -753,8 +759,10 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   }
   function threadRows(id: string) {
     if (open(id).status !== 'accepted') throw new CloudError('المحادثة غير متاحة.', 403);
-    return (messages.get(id) ?? []).map(message => {
-      const original = message.reply ? messages.get(id)?.find(row => row.id === message.reply?.id) : undefined;
+    const rows = messages.get(id) ?? [];
+    const deleted = new Map(rows.filter(row => row.deletedAt).map(row => [row.id, row]));
+    return rows.map(message => {
+      const original = message.reply && deleted.get(message.reply.id);
       return sanitizeMessage(original?.deletedAt && message.reply ? { ...message, reply: { ...message.reply, deletedAt: original.deletedAt } } : message);
     });
   }
@@ -883,7 +891,12 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       if (closeOtherConnections(null, new Date().toISOString())) notify();
     },
     watch(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    async notifications(){return activityRows.filter(row=>!blockedPeople.has(row.person.id)).slice().reverse().map(row=>({...row,person:candidates().find(p=>p.id===row.person.id)||row.person}));},
+    async notifications(){
+      const visible = activityRows.filter(row => !blockedPeople.has(row.person.id));
+      if (!visible.length) return [];
+      const byId = new Map(candidates().map(person => [person.id, person]));
+      return visible.reverse().map(row => ({...row, person:byId.get(row.person.id) ?? row.person}));
+    },
     async readNotifications(ids){const selected=new Set(ids);const time=new Date().toISOString();activityRows.forEach(row=>{if(selected.has(row.id))row.readAt??=time;});notify();},
     async acknowledgeMatch(key){celebrationsSeen.add(key);notify();},
     async relocationCities(next){if(next){relocationCities=[...next];notify();}return [...relocationCities];},

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from 'typescript';
+import {lunaResultCard} from '../src/community/lunaResultCard.mjs';
 import { describeFit, dimensions,interests } from '../src/compatibility/model.ts';
 import * as profileOptions from '../src/profile/profileOptions.ts';
 import {languageOptions,marriageTimelineLabels} from '../src/compatibility/marriage.ts';
@@ -15,6 +16,21 @@ const communityCode = compile(await readFile(new URL('../src/community/Community
 const lunaCode = compile(await readFile(new URL('../src/community/LunaSearch.tsx', import.meta.url), 'utf8'));
 const insightsCode = compile(await readFile(new URL('../src/community/ChatInsights.tsx', import.meta.url), 'utf8'));
 const relationshipCountsCode = compile(await readFile(new URL('../src/community/useRelationshipCounts.ts', import.meta.url), 'utf8'));
+const updatesCode = compile(await readFile(new URL('../src/community/updates.ts', import.meta.url), 'utf8'));
+test('chat traffic updates its own consumers while access and reconnect signals refresh every scope',()=>{
+  const module={exports:{},require:()=>({})};
+  vm.runInNewContext(updatesCode,module);
+  const {routeUpdate}=module.exports;
+  let account=0, inbox=0, typing=0;
+  const messages=[];
+  const listeners=[routeUpdate(()=>account++,'nonChat'),routeUpdate(()=>inbox++),
+    routeUpdate(()=>typing++,{threadId:'one',typing:true}),
+    routeUpdate(()=>{}, {threadId:'one',onMessage:id=>messages.push(id)})];
+  for(const kind of ['typing','message','receipt','ownRead'])for(const listener of listeners)listener({kind,requestId:'one',messageId:'m'});
+  assert.deepEqual([account,inbox,typing,messages],[0,3,1,['m']]);
+  for(const listener of listeners)listener();
+  assert.deepEqual([account,inbox,typing],[1,4,2]);
+});
 function compile(source) { return ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText; }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 const noop = () => {};
@@ -38,7 +54,7 @@ function mount(code, component, initialProps, membership={premium:true,upgrade:n
   let nextTimer = 0, cardScans = 0;
   const schedule = (fn, delay) => { timeouts.set(++nextTimer, {fn, delay}); return nextTimer; };
   const windowEvents = new Map();
-  const browser = { setTimeout: schedule, setInterval: noop, scrollTo: noop, scrollY: 0,
+  const browser = { setTimeout: schedule, clearTimeout: id => timeouts.delete(id), setInterval: noop, scrollTo: noop, scrollY: 0,
     addEventListener: (name, fn) => { if (!windowEvents.has(name)) windowEvents.set(name, new Set()); windowEvents.get(name).add(fn); },
     removeEventListener: (name, fn) => windowEvents.get(name)?.delete(fn) };
   const doc = { hidden: false, addEventListener: noop, removeEventListener: noop, querySelector: () => null, querySelectorAll: selector => { if (selector === '[data-weekly-person]') cardScans++; return []; } };
@@ -56,6 +72,7 @@ function mount(code, component, initialProps, membership={premium:true,upgrade:n
     if (name === '../compatibility/conversation-insights') return { conversationInsights };
     if (name === './discoveryMemory') return { readBrowseMemory, saveBrowseMemory };
     if (name === './visibilityOrder') return { shuffleWithVisibility };
+    if (name === './lunaResultCard.mjs') return {lunaResultCard};
     if (name === './useWeeklyCardTransition') return { useWeeklyCardTransition: () => (_origin, apply) => apply() };
     if (name === './chatOutbox') return { discardClosedDrafts: noop, denied: error => [401, 403].includes(error?.status) };
     if (!modules.has(name)) modules.set(name, new Proxy({}, { get: (cache, key) => cache[key] ??= key === 'numericOptions' ? () => [] : key === 'preferencePercentage' ? fit => fit?.preference : Object.defineProperty(() => null, 'name', { value: key }) }));

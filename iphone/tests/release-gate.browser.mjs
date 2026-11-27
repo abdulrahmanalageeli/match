@@ -97,7 +97,7 @@ try {
   });
   await mkdir(shots, { recursive: true });
   const member = page.getByTestId('member');
-  const mandatory = page.getByRole('heading', { name: 'تحديث مطلوب للمتابعة' });
+  const mandatory = page.getByRole('heading', { name: 'حدّث وُدَين عشان تكمّل' });
   const button = name => page.getByRole('button', { name, exact: true });
   const visit = platform => page.goto(origin + '/' + platform);
   const foreground = () => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));

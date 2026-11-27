@@ -59,10 +59,10 @@ export function ReleaseScreen({ state, platform, storeUrl, maintenanceUntil, bus
   const required = state === 'required';
   const end = maintenanceUntil ? new Date(maintenanceUntil) : null;
   const showTime = maintenance && end && Number.isFinite(end.getTime());
-  const title = required ? 'تحديث مطلوب للمتابعة' : maintenance ? 'نعود بعد الصيانة' : 'تعذّر التحقق من الإصدار';
+  const title = required ? 'حدّث وُدَين عشان تكمّل' : maintenance ? 'نعود بعد الصيانة' : 'تعذّر التحقق من الإصدار';
   const message = required
     ? (isWeb ? 'حدّث الصفحة لفتح الإصدار الجديد من وُدَين.' : 'حدّث وُدَين من المتجر، ثم ارجع إلى التطبيق للمتابعة.')
-    : maintenance ? 'نتوقف مؤقتًا لصيانة الخدمة.' : 'تحقّق من اتصالك بالإنترنت، ثم حاول مرة أخرى.';
+    : maintenance ? 'وُدَين متوقف مؤقتًا للصيانة.' : 'تحقّق من اتصالك بالإنترنت، ثم حاول مرة أخرى.';
 
   return <main className="wd-release-screen" dir="rtl" aria-labelledby={titleId}>
     <div className="wd-release-layout">

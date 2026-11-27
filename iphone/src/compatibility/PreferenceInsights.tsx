@@ -64,7 +64,7 @@ export function PreferenceInsights({ fit }: { fit: MatchFit }) {
       </button>)}
     </div>
     {agreement && <p className="nf-pref-count-note">تحقّق الاتفاق المتبادل في {ar.format(agreement.agreed)} من {ar.format(agreement.total)} موضوعًا ({ar.format(agreement.percentage)}٪).</p>}
-    <div className="nf-pref-selection"><span>{selected ? selected.key === 'aligned' ? 'نقاط يمكن البناء عليها' : selected.key === 'discussion' ? 'مواضيع لفهم أعمق' : 'مساحة لم تتضح بعد' : 'من ملامح توافقكما'}</span>{view !== 'all' && <button type="button" onClick={() => setView('all')}>العودة للملخّص</button>}</div>
+    <div className="nf-pref-selection"><span>{selected ? selected.key === 'aligned' ? 'أمور تتوافق فيها تفضيلاتكم' : selected.key === 'discussion' ? 'أمور تستاهل تتكلمون عنها' : 'أمور ما توضّحت من إجاباتكم' : 'من ملامح توافقكما'}</span>{view !== 'all' && <button type="button" onClick={() => setView('all')}>العودة للملخّص</button>}</div>
     <MotionReveal id={topicsId} className="nf-pref-topic-list" key={view} duration={280} distance={6}>
       {preview.length ? preview.map(topic => <TopicCard topic={topic} version={fit.version} key={topic.id} />) : <p className="nf-pref-empty">{view === 'aligned' ? 'لا توجد مواضيع مكتملة تحقق توافقًا في الاتجاهين حتى الآن.' : view === 'discussion' ? 'لا تظهر نقاط اختلاف في المواضيع المكتملة حاليًا.' : 'اكتملت الإجابات المطلوبة لمقارنة جميع المواضيع.'}</p>}
       {rest.length > 0 && <details className="nf-pref-more"><summary>عرض {view === 'all' ? 'بقية المواضيع' : 'المزيد'}<span>{ar.format(rest.length)}</span></summary><div>{rest.map(topic => <TopicCard key={topic.id} topic={topic} version={fit.version} />)}</div></details>}

@@ -125,7 +125,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   },[check,source,person.id,attempt]);
   if(access !== 'allowed') return <article className="mp-profile screen-content" dir="rtl">
     <button className="mp-back" type="button" onClick={back}><ArrowRight size={18}/>{backText}</button>
-    {access === 'error' ? <p role="alert">تعذّر التحقق من إتاحة الملف. تحقّق من اتصالك وحاول مجددًا.</p>
+    {access === 'error' ? <p role="alert">ما قدرنا نفتح الملف. تأكد من اتصالك وجرّب مرة ثانية.</p>
       : access === 'denied' ? <p role="status">الملف غير متاح.</p>
       : <BrandWait label="جارٍ فتح الملف…"/>}
     {access === 'error' && <button className="btn-secondary" onClick={()=>{setVisible(null);setAttempt(value=>value+1);}}>إعادة المحاولة</button>}
@@ -212,7 +212,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
         <section className="mp-story">
           <h2><Feather size={16} aria-hidden="true"/>عنّي</h2>
           <div className="mp-story-body">
-            {person.bio ? <p dir="auto">{person.bio}</p> : <p className="mp-empty">لم تُضف نبذة شخصية بعد.</p>}
+            {person.bio ? <p dir="auto">{person.bio}</p> : <p className="mp-empty">ما فيه نبذة في هذا الملف إلى الآن.</p>}
             {person.interests.length > 0 && <ul className="mp-hero-interests" aria-label="الاهتمامات">
               {person.interests.map(item=><li key={item}>{interests.find(interest=>interest.id===item)?.label??item}</li>)}
             </ul>}

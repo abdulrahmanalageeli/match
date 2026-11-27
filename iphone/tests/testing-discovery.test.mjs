@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import ts from 'typescript';
 import {readFileSync} from 'node:fs';
 import {demoLunaScore} from '../src/community/demoLunaSearch.ts';
+import {lunaResultCard} from '../src/community/lunaResultCard.mjs';
 const fixtures=Array.from({length:15},(_,i)=>({id:'sample-'+i,online:true}));
 const code=ts.transpileModule(readFileSync(new URL('../src/community/testingDiscovery.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
 const localRows=[];
@@ -10,7 +11,7 @@ const local={discover:async()=>fixtures,inbox:async()=>localRows,request:async i
 function loadTestingModule(samples){
   samples={inbox:async()=>[],exclusiveConnection:()=>null,...samples};
   const module={};
-  new Function('require','exports',code)(name=>name==='./demoLunaSearch'?{demoLunaScore}:{demoCommunity:()=>samples,demoPeople:fixtures},module);
+  new Function('require','exports',code)(name=>name==='./demoLunaSearch'?{demoLunaScore}:name==='./lunaResultCard.mjs'?{lunaResultCard}:{demoCommunity:()=>samples,demoPeople:fixtures},module);
   return {withTestingDiscovery:(real,...args)=>module.withTestingDiscovery({inbox:async()=>[],...real},...args)};
 }
 const exports=loadTestingModule(local);
@@ -32,6 +33,7 @@ test('Luna searches eligible tester cards before pagination and refreshes with t
   const result=await source.lunaSearch('نورة',{mode:'all'});
   assert.deepEqual(result.people.map(p=>p.id),['live-member','demo-25','demo-26','demo-28']);
   assert.equal(result.people[1].isDemo,true);
+  assert.deepEqual(result.people[1].matchReasons,['الاسم في الملف: نورة']);
   cards[26].eligible=false;
   assert.deepEqual((await source.discover(result.options)).map(p=>p.id),['live-member','demo-25','demo-28']);
   assert.equal(reservations,1);
@@ -55,6 +57,21 @@ test('directory fills empty slots with labeled fixtures without skipping real pa
   await assert.rejects(source.request('sample-0'),/توضيحي/);
   await source.request('member-0');assert.deepEqual(requests,['member-0']);
 });
+test('sequential scrolling reads each full live page once and paginates the sample tail correctly',async()=>{
+  let members=Array.from({length:96},(_,i)=>({id:'live-'+i}));
+  const samples=Array.from({length:65},(_,i)=>({id:'fixture-'+i}));
+  const offsets=[];
+  const source=loadTestingModule({discover:async({offset})=>samples.slice(offset,offset+24)})
+    .withTestingDiscovery({discover:async({offset})=>{offsets.push(offset);return members.slice(offset,offset+24);}},()=>({}));
+  const read=async()=>{const rows=[];for(const offset of [0,24,48,72])rows.push(...await source.discover({mode:'all',offset}));return rows.map(row=>row.id);};
+  assert.deepEqual(await read(),members.map(row=>row.id));
+  assert.deepEqual(offsets,[0,24,48,72]);
+  for (const count of [0,24,30,48]) {
+    members=Array.from({length:count},(_,i)=>({id:'live-'+i}));
+    assert.deepEqual(await read(),[...members,...samples].slice(0,96).map(row=>row.id));
+  }
+});
+
 test('a live visibility failure cannot silently expose a replacement directory',async()=>{
   const source=exports.withTestingDiscovery({discover:async()=>{throw Error('not authorized');}},()=>({}));
   await assert.rejects(source.discover({mode:'all'}),/not authorized/);

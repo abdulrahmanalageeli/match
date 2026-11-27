@@ -9,7 +9,7 @@ import { createDatabase, addUser, asMember, asService } from "./harness.mjs";
 
 // Run the actual phone-side matching reference with Node's test runner.
 const catalogUrl=new URL("../../src/compatibility/catalog-v3.json",import.meta.url);
-const {rankPreferences,comparePreferences}=await import(new URL("../../src/compatibility/model.ts",import.meta.url));
+const {rankPreferences,comparePreferences,describeFit}=await import(new URL("../../src/compatibility/model.ts",import.meta.url));
 
 function setup(db) {
   const rpc = async (expression, args=[]) =>
@@ -149,7 +149,16 @@ test("paged chat, sender retry receipts and private refresh signals stay within 
     assert.deepEqual(await call(b,"public.marriage_thread_page($1,$2)",[id,randomUUID()]),[]);
     const topics=(await db.query("select distinct topic, payload, event, private from realtime.messages")).rows;
     assert.deepEqual(new Set(topics.map(x=>x.topic)),new Set([a,b].map(x=>"marriage:member:"+x.id)));
-    assert(topics.every(x=>x.event==="changed" && x.private===true && Object.keys(x.payload).join(",")==="id"));
+    const insertedIds=new Set(sends.rows.map(row=>row.id));
+    for(const signal of topics) {
+      assert.equal(signal.event,'changed');assert.equal(signal.private,true);
+      const {id:transportId,...routing}=signal.payload;
+      assert(transportId);
+      if(routing.kind==='message') {
+        assert(insertedIds.has(routing.messageId));
+        assert.deepEqual(routing,{kind:'message',requestId:id,messageId:routing.messageId});
+      } else assert.deepEqual(routing,{});
+    }
     const topic="marriage:member:"+b.id;
     await db.query("select set_config('realtime.topic',$1,false)",[topic]);
     for(const [who,allowed] of [[b,true],[outsider,false]]) {
@@ -210,7 +219,10 @@ test("unread cursors are private, monotonic across devices, and count only eligi
     const {rows:signals}=await db.query("select topic,event,payload-'id' as payload,private from realtime.messages");
     assert.equal(signals.length,2);
     assert.deepEqual(new Set(signals.map(x=>x.topic)),new Set([a,b].map(u=>"marriage:member:"+u.id)));
-    assert(signals.every(x=>x.event==="changed" && x.private && Object.keys(x.payload).length===0));
+    for(const signal of signals) {
+      assert.equal(signal.event,'changed');assert.equal(signal.private,true);
+      assert.deepEqual(signal.payload,{kind:signal.topic.endsWith(a.id)?'ownRead':'receipt',requestId:ab});
+    }
     assert.equal(await count(b),1);                  // the other member's independent read state
     assert.equal(await mark(a,ab,tied[3]),true);
     assert.equal(await count(a),1);
@@ -342,17 +354,18 @@ test("legacy full assessment matches the phone score in both directions and reta
         ({id,partnerId,category,hardAllowed,codes:options.map(option=>option.code)}))});
     assert.deepEqual(matchingCatalog(catalog),matchingCatalog(JSON.parse(await readFile(catalogUrl,"utf8"))));
     for(const {profile,user} of members){
-      const simulated=comparePreferences(fullViewer,{...profile,id:user.id});
+      const simulated=describeFit(fullViewer,{...profile,id:user.id});
       const sql=(await db.query("select marriage.compatible($1,$2) as eligible, f.* from marriage.pair_fit($1,$2) f",[a.id,user.id])).rows[0];
-      assert.equal(sql.eligible,!!simulated);
-      if(simulated){ assert.deepEqual(sql.fit,simulated.fit);assert(Math.abs(sql.rank_value-simulated.rankValue)<1e-10); }
-      else await assert.rejects(call(a,"public.marriage_request($1)",[user.id]),/غير متاح/);
+      assert.equal(sql.eligible,true,"preference differences do not prevent an introduction");
+      assert.deepEqual(sql.fit,simulated.fit);
+      assert(Math.abs(sql.rank_value-simulated.rankValue)<1e-10);
     }
     const aState=await call(a,"public.marriage_state()");
     const submit=(body)=>{const {signupConsents,...legacyBody}=body;return call(a,"public.marriage_apply($1)",[legacyBody]);};
     await assert.rejects(submit({...aState.profile,consentVersion:"2026-11-05"}),/الموافقة/);
     await assert.rejects(submit({...aState.profile,hardRequirements:["early_openness"],consentVersion:"2026-11-06-assessment"}),/الاهتمامات/);
-    const peer=members[0].user;
+    const peer=members.find(({profile,user})=>!comparePreferences(fullViewer,{...profile,id:user.id}))?.user;
+    assert.ok(peer,"exercise a direct request outside the legacy recommendation criteria");
     const thread=await call(a,"public.marriage_request($1)",[peer.id]);
     await call(peer,"public.marriage_act($1,'accept')",[thread]);
     const updated=await submit({...aState.profile,consentVersion:"2026-11-06-assessment",

@@ -7,6 +7,11 @@ import {nativePrivatePhoto} from './privatePhoto';
 import {PersonAvatar} from '../avatars/PersonAvatar';
 import './luna-search.css';
 
+async function refreshCards(source:CommunitySource, options:LunaResults['options']) {
+  const [people,{lunaResultCard}] = await Promise.all([source.discover(options),import('./lunaResultCard.mjs')]);
+  return people.map(person=>lunaResultCard(person,options));
+}
+
 export function LunaSearch({source,filters,open}:{source:CommunitySource;filters:Filters;open:(person:PublicPerson,mode:Filters['mode'])=>void}) {
   const {tier,upgrade}=useMembershipAccess();
   const accessId=useId();
@@ -24,18 +29,23 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
   const options=result?.options;
   useEffect(()=>{
     if(!options)return;
-    let revision=0;
+    let active=true, reading=false, queued=false;
     const refresh=async()=>{
-      const token=++revision;
+      if (!active || document.hidden) return;
+      if (reading) { queued=true; return; }
+      reading=true; queued=false;
       try {
-        const people=await source.discover(options);
-        if(token===revision)setResult(current=>current?.options===options?{...current,people}:current);
+        const people=await refreshCards(source,options);
+        if(active && !queued)setResult(current=>current?.options===options?{...current,people}:current);
       } catch {
-        if(token===revision){setResult(null);setError('تعذّر تحديث أهلية النتائج. أعد البحث.');}
+        if(active && !queued){setResult(null);setError('ما قدرنا نتأكد من الملفات المتاحة لك الآن. جرّب البحث مرة ثانية.');}
+      } finally {
+        reading=false;
+        if(active && queued)void refresh();
       }
     };
-    const stop=source.watch(()=>void refresh());
-    return ()=>{revision++;stop();};
+    const stop=source.watch(()=>void refresh(), 'nonChat');
+    return ()=>{active=false;stop();};
   },[source,options]);
   async function search(allEligible=false) {
     if(lock.current || !source.lunaSearch || tier!=='seriousness') return;
@@ -46,7 +56,7 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
       let next:LunaResults;
       if(allEligible && result) {
         const options={...result.options,mode:'all' as const,eligibleOnly:true,offset:0};
-        next={...result,options,people:await source.discover(options)};
+        next={...result,options,people:await refreshCards(source,options)};
       } else {
         next=await source.lunaSearch(query,filters);
       }
@@ -100,17 +110,19 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
         {error&&<p role="alert" className="flow-error">{error}</p>}
         {busy&&<p role="status" className="luna-search-loading">جارٍ البحث…</p>}
         {result&&<section className="luna-search-results" aria-live="polite" aria-label="نتائج البحث">
-          <header><h3>{result.people.length?'ملفات تناسب بحثك':'لم نجد ملفًا بهذا الوصف'}</h3>
-            {result.people.length>0&&<small>{result.options.mode==='recommended'?'من ترشيحاتك':'من اكتشف'}</small>}
+          <header><h3>{result.people.length?'ملفات تناسب بحثك':'ما لقينا ملف بهالوصف'}</h3>
+            {result.people.length>0&&<small>{result.options.mode==='recommended'?'من ترشيحاتك':result.options.eligibleOnly?'ضمن جميع الملفات المؤهلة':'من اكتشف'}</small>}
           </header>
           {result.people.length===0
             ? <>{result.options.mode==='recommended'
               ? <button className="btn-secondary" type="button" onClick={()=>void search(true)}>ابحث في جميع الملفات المؤهلة</button>
-              : <p>جرّب وصفًا أوسع.</p>}</>
+              : <p>جرّب تبحث بتفاصيل أقل.</p>}</>
             : <ul>{result.people.map(person=><li key={person.id}>
                 <button type="button" className="luna-search-person" aria-busy={opening===person.id||undefined} disabled={opening!==null} onClick={()=>void openResult(person.id)}>
                   <PersonAvatar person={person} source={source} protectedDiscovery={nativePrivatePhoto()} showMembership={false}/>
-                  <strong>{person.alias}</strong>{opening===person.id?<small role="status">جارٍ الفتح…</small>:<ChevronLeft size={16} aria-hidden="true"/>}
+                  <span className="luna-result-copy"><strong>{person.alias}</strong>
+                    <small>{person.matchReasons?.length ? person.matchReasons.join(' · ') : 'الملف ضمن نتائج بحثك، لكن تفاصيله الظاهرة ما توضّح السبب.'}</small>
+                  </span>{opening===person.id?<small role="status">جارٍ الفتح…</small>:<ChevronLeft size={16} aria-hidden="true"/>}
                 </button>
               </li>)}</ul>}
         </section>}

@@ -81,7 +81,11 @@ export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, te
     lunaSearch:real.lunaSearch && (async(query,filters)=>{
       await requireDiscovery();
       const result=await real.lunaSearch!(query,filters);
-      return {...result,people:await appendSamples(result.people,result.options)};
+      const people = await appendSamples(result.people,result.options);
+      if(!people.some(person=>person.isDemo))return {...result,people};
+      const {lunaResultCard}=await import('./lunaResultCard.mjs');
+      return {...result,people:people.map(person => person.isDemo
+        ? lunaResultCard(person as PublicPerson,result.options) : person)};
     }),
     demoInteractions:testingOwnerId?samples:undefined,
     inbox: readConnections,
@@ -102,8 +106,8 @@ export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, te
       if (testingOwnerId && samples.exclusiveConnection()) return samples.unreadCount();
       return await real.unreadCount()+(testingOwnerId?await samples.unreadCount():0);
     },
-    watch(listener){
-      const stopReal=real.watch(listener);
+    watch(listener,scope){
+      const stopReal=real.watch(listener,scope);
       const stopLocal=testingOwnerId?samples.watch(listener):()=>{};
       if(testingOwnerId&&watchers++===0)samples.simulation.start();
       return()=>{stopReal();stopLocal();if(testingOwnerId&&--watchers===0)samples.simulation.pause();};
@@ -115,6 +119,25 @@ export function withTestingDiscovery(real:CommunitySource,viewer:()=>Profile, te
 
     async discover(filters){
       if (await restricted()) return [];
+      const offset = filters.offset ?? 0;
+      if (filters.mode === 'all' && offset >= 24 && offset % 24 === 0) {
+        const readPage = (start: number) => real.discover({...filters, offset:start, afterId:undefined});
+        const page = await readPage(offset);
+        if (page.length) return appendSamples(page, {...filters, offset:0});
+        // Locate the live/sample boundary without redownloading the entire prefix.
+        let lo = 0, hi = offset / 24, liveCount = 0;
+        while (lo < hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const length = (await readPage(mid * 24)).length;
+          if (!length) hi = mid;
+          else {
+            liveCount = mid * 24 + length;
+            if (length < 24) break;
+            lo = mid + 1;
+          }
+        }
+        return appendSamples<PublicPerson>([], {...filters, offset:offset-liveCount});
+      }
       return appendSamples(await readMembersThrough(filters, filters.offset ?? 0), filters);
     },
     async discoverPages(filters, pageCount) {

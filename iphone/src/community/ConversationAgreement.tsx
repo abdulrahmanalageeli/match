@@ -147,7 +147,7 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
     <span className="cm-agreement-mark"><CalendarDays size={25}/></span>
     <h2>{memberAr.agreementTitle}</h2>
     <p className="cm-agreement-deadline">{agreement.status==='family'?'اتفقتما على التواصل العائلي':`مدة التعارف حتى ${date}`}</p>
-    <SuccessNotice title={agreement.status==='family'?'خطوتكما العائلية، باتفاقكما':'وقّعتما على بداية واضحة'} detail={agreement.status==='family'?'اتفقا على الشخص والوسيلة والموعد. تبقى تفاصيل التواصل قراركما.':'تبدأ المدة من القبول المتبادل. راجعا اتجاه الحديث قبل موعدها.'}/>
+    <SuccessNotice title={agreement.status==='family'?'اتفقتوا على التواصل مع الأهل':'اكتمل توقيع ميثاق التعارف'} detail={agreement.status==='family'?'اختاروا مع بعض مين بيتواصل مع الأهل، وكيف ومتى.':'تبدأ المدة من موافقتكم على الميثاق. قبل ما تنتهي، تكلموا عن الخطوة الجاية.'}/>
     <p>عند انتهاء المدة، تقرّران معًا الانتقال إلى الخطوة التالية في مسار التعارف أو إنهاء التعارف باحترام.</p>
     {familyActions}
     {agreement.status==='accepted'&&<div className="cm-extension-actions">
@@ -178,10 +178,10 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
      ? <p>اقتراح التمديد بانتظار الطرف الآخر.</p>
      : <button className="btn-secondary" disabled={busy} onClick={()=>void submit('extension_accept')}>الموافقة على تمديد المدة {durationLabel(agreement.extension.days)}</button>
      : <button className="btn-secondary" disabled={busy} onClick={()=>void submit('extend')}>اقتراح أسبوع إضافي</button>}
-    <div className="cm-agreement-family"><Users size={21}/><span>الانتقال للتواصل العائلي يحتاج موافقتكما معًا.</span></div>
+    <div className="cm-agreement-family"><Users size={21}/><span>التواصل مع الأهل يحتاج موافقة الطرفين.</span></div>
     {familyActions}
    </details>
-   <p className="cm-agreement-wait">تُستأنف المراسلة بعد اتفاقكما على التمديد أو التواصل العائلي.</p>
+   <p className="cm-agreement-wait">تقدرون ترجعون للمحادثة بعد ما تتفقون على تمديد المدة أو التواصل مع الأهل.</p>
   </div> : <>
    <div className="cm-agreement-terms" aria-label="أسس ميثاق التعارف">
     <p><span className="cm-agreement-term-mark"><HeartHandshake size={17}/></span><span><strong>تعارف جاد بهدف الزواج</strong></span></p>

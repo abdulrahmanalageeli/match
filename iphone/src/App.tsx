@@ -136,13 +136,11 @@ function MemberRouteArrival({view, pending}: {view: View; pending: {current: num
     const content = page?.querySelector<HTMLElement>(':scope > .screen-content, :scope > .flow-body, :scope > .cm-view') ?? page;
     if (!content?.animate) return;
     // Animate the live destination. Browser snapshots can retain private profile or chat pixels.
-    const x = direction * -32;
-    const edge = direction > 0 ? '0 12% 0 0' : '0 0 0 12%';
+    const x = direction * -16;
     const arrival = content.animate([
-      { opacity: .16, transform: `translate3d(${x}px,8px,0) scale(.988)`, filter: 'blur(5px)', clipPath: `inset(${edge} round 18px)` },
-      { opacity: .9, transform: `translate3d(${x * -.08}px,-1px,0) scale(1.002)`, filter: 'blur(0)', clipPath: 'inset(0 round 0)', offset: .7 },
-      { opacity: 1, transform: 'translate3d(0,0,0) scale(1)', filter: 'blur(0)', clipPath: 'inset(0 round 0)' },
-    ], { duration: 430, easing: 'cubic-bezier(.18,.78,.2,1)' });
+      { opacity: .76, transform: `translate3d(${x}px,0,0)` },
+      { opacity: 1, transform: 'translate3d(0,0,0)' },
+    ], { duration: 230, easing: 'cubic-bezier(.2,.8,.2,1)' });
     return () => arrival.cancel();
   }, [view, pending]);
   return null;
@@ -473,12 +471,13 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     version.current++;
   }
   function go(next: View, fromNotification=false) {
-    if (routeExit.current && fromNotification) {
+    const interrupted = Boolean(routeExit.current);
+    if (routeExit.current) {
       const previous=routeExit.current;
       routeExit.current=null;
       previous.cancel();
     }
-    if (next === view || routeExit.current) return;
+    if (next === view) return;
     // Capture the outgoing tab before replacing it; never visibly scroll that page.
     window.dispatchEvent(new Event('nisfayn:before-navigation'));
     const tab = (value: View) => value === 'main' ? 'discover' : value;
@@ -498,13 +497,13 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     const content = page?.querySelector<HTMLElement>(':scope > .screen-content, :scope > .flow-body, :scope > .cm-view') ?? page;
     const reduced = document.hidden || document.documentElement.dataset.nfMotion === 'reduced' ||
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (fromNotification || !memberAccess || !routeDirection.current || !content?.animate || reduced) { commit(); return; }
-    const x = routeDirection.current * 13;
-    const duration = 145;
+    if (interrupted || fromNotification || !memberAccess || !routeDirection.current || !content?.animate || reduced) { commit(); return; }
+    const x = routeDirection.current * 7;
+    const duration = 80;
     const navigationOwner = tokenRef.current;
     const animation = content.animate([
-      { opacity: 1, transform: 'translate3d(0,0,0) scale(1)', filter: 'blur(0)', clipPath: 'inset(0 round 0)' },
-      { opacity: .72, transform: `translate3d(${x}px,-2px,0) scale(.994)`, filter: 'blur(2px)', clipPath: `inset(0 ${routeDirection.current > 0 ? '0 0 4%' : '4% 0 0'} round 14px)` },
+      { opacity: 1, transform: 'translate3d(0,0,0)' },
+      { opacity: .86, transform: `translate3d(${x}px,0,0)` },
     ], { duration, easing: 'cubic-bezier(.4,0,.75,.3)', fill: 'forwards' });
     routeExit.current = animation;
     const finish = () => {
@@ -718,7 +717,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         } finally { reading = false; }
       })();
     };
-    const stop = source?.watch(tick);
+    const stop = source?.watch(tick, 'nonChat');
     const timer = window.setInterval(tick, 20000);
     document.addEventListener("visibilitychange", tick);
     window.addEventListener("focus", tick);

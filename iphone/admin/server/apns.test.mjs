@@ -16,7 +16,7 @@ test('update alerts use the exact destination and honor privacy and sound settin
  assert.equal(agreement.event,'agreement:proposed');
  assert.equal(agreement.aps.sound,'wudayn-step.wav');
  const privacy=pushPayload({kind:'update',requestId:null,details:{...details,preview:'private'}});
- assert.equal(privacy.aps.alert.body,'لديك تحديث جديد.');
+ assert.equal(privacy.aps.alert.body,'إشعار جديد');
  assert.equal(privacy.aps.sound,'default');
  const screenshot=pushPayload({kind:'update',requestId:job.requestId,details:{...details,event:'screenshot:received'}});
  assert.equal(screenshot.aps.sound,undefined);
@@ -33,7 +33,7 @@ test('APNs provider token is signed ES256 P1363 and payload contains only generi
  assert.equal(payload.aps.sound,'default');
  for (const kind of ['request','mutual','message','reminder','family','analysis']) {
    const alert = pushPayload({...job,kind,details:{preview:'private',sender:'سارة',body:'سر',badge:1}});
-   assert.deepEqual(alert.aps.alert,{title:'وُدَين',body:'لديك تحديث جديد.'});
+   assert.deepEqual(alert.aps.alert,{title:'وُدَين',body:'إشعار جديد'});
    assert.equal(alert.aps.category,undefined);
  }
  const launch=pushPayload({...job,kind:'publication',details:{preview:'private',launch:true,badge:0}});
@@ -67,7 +67,7 @@ test('notification payload honors privacy, groups messages and bounds content',(
  const receipt={job:job.id,proof:randomUUID()};
  const tracked=pushPayload({...job,details:{...details,receipt}});
  assert.equal(tracked.aps['mutable-content'],1);assert.deepEqual(tracked.receipt,receipt);
- assert.equal(tracked.aps.alert.body,'لديك تحديث جديد.');
+ assert.equal(tracked.aps.alert.body,'إشعار جديد');
  const other=pushPayload({...job,kind:'request',details:{...details,receipt}});
  assert.equal(other.aps['mutable-content'],undefined);assert.equal(other.receipt,undefined);
  let payload=pushPayload({...job,details});assert.equal(payload.aps.alert.title,'وُدَين');assert(!JSON.stringify(payload).includes('Hidden'));

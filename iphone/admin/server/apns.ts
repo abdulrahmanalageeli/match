@@ -12,14 +12,14 @@ export type CallPushJob = {callId:string;installation:string;token:string;enviro
 
 export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>) {
   const copy: Record<PushKind, string> = {
-    publication: 'لديك تحديث جديد من وُدَين.',
-    update: 'لديك تحديث جديد.',
-    analysis: 'لديك تحديث في تحليل التوافق.',
-    family: 'لديك رسالة جديدة في جسر الأهل.',
-    reminder: 'لديك تذكير خاص. افتح وُدَين للاطلاع عليه.',
-    request: 'لديك طلب تعارف جديد. افتح وُدَين للاطلاع عليه.',
-    mutual: 'تم القبول المتبادل. يمكنك بدء الحديث في وُدَين.',
-    message: 'لديك رسالة جديدة في وُدَين.',
+    publication: 'وصلك تحديث من وُدَين.',
+    update: 'إشعار جديد',
+    analysis: 'وصلك تحديث عن تحليل التوافق.',
+    family: 'وصلتك رسالة في جسر الأهل.',
+    reminder: 'وصلك تذكير خاص. افتح وُدَين لعرضه.',
+    request: 'وصلك طلب تعارف جديد.',
+    mutual: 'صار بينكم قبول. افتح وُدَين لمتابعة التعارف.',
+    message: 'وصلتك رسالة في وُدَين.',
   };
   const target = job.requestId || job.details?.target;
   if (!copy[job.kind] || !target || !/^[0-9a-f-]{36}$/i.test(target)) throw new Error('Invalid push event');
@@ -33,7 +33,7 @@ export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>
   const style = event ? updateEvents[event] : undefined;
   const passive = job.kind === 'reminder' || details?.passive === true || style?.[2] === 'silent' || details?.analysisPhase === 'shared';
   const sound = style?.[2] || (job.kind === 'message' ? 'message' : job.kind === 'analysis' ? 'account' : job.kind === 'mutual' ? 'celebration' : job.kind === 'request' || job.kind === 'family' ? 'step' : null);
-  const body=job.kind==='publication' && details?.launch === true ? 'انطلق وُدَين. افتح التطبيق للاطلاع على الجديد.' : discreet ? 'لديك تحديث جديد.' : details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160): style?.[0] ?? (details?.analysisPhase === 'shared' ? 'قراءة لونا جاهزة' : details?.analysisPhase === 'requested' ? 'لديك دعوة لمراجعة التوافق مع لونا' : copy[job.kind]);
+  const body=job.kind==='publication' && details?.launch === true ? 'انطلق وُدَين. افتح التطبيق وشوف الجديد.' : discreet ? 'إشعار جديد' : details?.preview==='content'&&details.body&&job.kind==='message'?clean(details.body,160): style?.[0] ?? (details?.analysisPhase === 'shared' ? 'قراءة لونا جاهزة' : details?.analysisPhase === 'requested' ? 'وصلتك دعوة لمراجعة التوافق مع لونا' : copy[job.kind]);
   return { aps: { alert: { title, body }, ...(passive ? {'interruption-level':'passive'} : {}), ...(!passive && details?.sound !== false ? {sound:!discreet && sound ? `wudayn-${sound}.wav` : 'default'} : {}), 'thread-id':target,
     ...(details?{badge:Math.max(0,Math.min(999,Math.floor(details.badge)||0))}:{}),
     ...(receipt ? {'mutable-content':1} : {}),

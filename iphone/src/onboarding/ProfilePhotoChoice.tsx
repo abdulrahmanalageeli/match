@@ -59,7 +59,7 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
     {mode==='photo'&&<>
       <p className="nf-photo-intro">لمحة أقرب لكِ، بالقدر الذي ترتاحين له. يمكنكِ إظهار انطباع عن حضورك مع اختيار درجة التمويه، أو الاكتفاء بصورة رمزية.</p>
       <details className="nf-photo-privacy"><summary><LockKeyhole size={16} aria-hidden="true"/> كيف تُحفظ صورتي ومن يراها؟</summary>
-        <p>يرى الأعضاء المؤهلون الصورة بدرجة التمويه التي تختارينها. نحتفظ بنسخة واضحة خاصة فقط إذا اخترتِ إزالة التمويه تلقائيًا. نزيل بيانات الموقع من الصور.</p>
+        <p>الأعضاء المؤهلون يشوفون صورتك بدرجة التمويه اللي تختارينها. نحتفظ بنسخة واضحة وخاصة فقط إذا اخترتِ إزالة التمويه تلقائيًا. نحذف بيانات الموقع من الصور.</p>
       </details>
       <div className="nf-photo-picker-row">
         <div className="nf-photo-stage">{change?<img src={change.url} alt="صورتك كما ستظهر للأعضاء"/>:showingExisting?<PortraitPhoto portrait={existing!} source={source} alt="صورة ملفك الحالية"/>:<div><Camera size={34}/><span>صورتك، باختيارك</span></div>}{preparing&&<span className="nf-photo-processing" role="status">تجهيز التمويه…</span>}</div>
@@ -75,7 +75,7 @@ export function ProfilePhotoChoice({avatar,onAvatar,inferred,change,onChange,exi
         <label htmlFor="portrait-reveal">إزالة التمويه تلقائيًا<select id="portrait-reveal" value={policy} disabled={blur===0||preparing} onChange={e=>choosePolicy(e.target.value as PortraitRevealPolicy)}>
           <option value="never">إبقاء التمويه دائمًا</option><option value="matched" disabled={!canReveal}>بعد قبول طلب التعارف</option><option value="serious" disabled={!canReveal}>عند مناقشة أساسيات الزواج</option><option value="family" disabled={!canReveal}>عند الاتفاق على التواصل مع الأهل</option>
         </select></label>
-        {blur===0?<p className="nf-photo-reveal-note">صورتك واضحة بالفعل للأعضاء المؤهلين. اختاري تمويهًا أعلى لتخصيص وقت إزالته.</p>:!canReveal?<p className="nf-photo-reveal-note">الصورة الحالية محفوظة بتمويه فقط. أعيدي اختيار الصورة لتفعيل الإزالة التلقائية؛ لا يمكن استعادة التفاصيل من النسخة المموّهة.</p>:<p className="nf-photo-reveal-note">{policy==='never'?'تبقى الصورة بالتمويه الذي اخترته للجميع. لا نحتفظ بنسخة واضحة لهذا الخيار.':'تظهر النسخة الواضحة للطرف الذي وصل معكِ إلى هذا الموعد فقط. يبقى التمويه ظاهرًا لبقية الأعضاء. مراحل المسار تحتاج اتفاقكما معًا.'}</p>}
+        {blur===0?<p className="nf-photo-reveal-note">صورتك واضحة بالفعل للأعضاء المؤهلين. اختاري تمويهًا أعلى لتخصيص وقت إزالته.</p>:!canReveal?<p className="nf-photo-reveal-note">المحفوظ عندنا هو الصورة المموّهة فقط، وما نقدر نسترجع منها الصورة الواضحة. اختاري الصورة من جديد إذا تبين تفعيل إزالة التمويه تلقائيًا.</p>:<p className="nf-photo-reveal-note">{policy==='never'?'تبقى الصورة بالتمويه الذي اخترته للجميع. لا نحتفظ بنسخة واضحة لهذا الخيار.':'تظهر النسخة الواضحة للطرف الذي وصل معكِ إلى هذا الموعد فقط. يبقى التمويه ظاهرًا لبقية الأعضاء. مراحل المسار تحتاج اتفاقكما معًا.'}</p>}
         {policy!=='never'&&<div className="nf-photo-reveal-detail"><LockKeyhole size={15}/><span>باختيار هذا الموعد، توافقين على حفظ نسخة واضحة خاصة ومشاركتها تلقائيًا مع الطرف المؤهل. يعود التمويه عند التراجع عن المرحلة أو إنهاء التعارف أو إلغاء هذا الخيار. لا يمكن سحب صورة حفظها الطرف الآخر سابقًا.</span></div>}
         <small>يسري اختيارك بعد مراجعة اختياراتك وحفظ التغييرات.</small>
       </section></>}

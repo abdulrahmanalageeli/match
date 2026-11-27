@@ -45,7 +45,7 @@ test('exclusivity is reviewed intentionally and cannot be approved before its ex
   assert(button(tree, 'مراجعة التعارف الحصري'));
   assert.equal(nodes(tree).filter(node => node.type === 'details' && node.props.className === 'nf-journey-option').length, 1);
   button(tree, 'مراجعة التعارف الحصري').props.onClick(); tree = m.render();
-  assert(text(tree).includes('تُغلق طلبات التعارف والمحادثات الأخرى لكليكما'));
+  assert(text(tree).includes('تُغلق طلبات التعارف والمحادثات الأخرى عند كل طرف'));
   assert(text(tree).includes('المحادثات المغلقة لا تُفتح تلقائيًا'));
   assert.equal(button(tree, 'اقتراح التعارف الحصري').props.disabled, true);
   assert.equal(m.calls.length, 0);

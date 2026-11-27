@@ -13,7 +13,7 @@ try {
   browser=await chromium.launch({headless:true,channel:'chrome'});
   for(const [actor,peer,event,title,setup] of [
     ['abdulrahman','رهام','agreement:proposed','ميثاق التعارف بانتظار توقيعك','useProposal'],
-    ['reham','عبدالرحمن','agreement:extension','لديك طلب لتمديد مدة التعارف','useExtension'],
+    ['reham','عبدالرحمن','agreement:extension','وصلك طلب لتمديد التعارف','useExtension'],
   ]) {
     const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
     const page=await context.newPage(), errors=[];
@@ -54,10 +54,10 @@ try {
     assert.deepEqual(errors,[]);
     await page.getByRole('button',{name:'العودة للمحادثات'}).click();
     await alertsTab();
-    await page.locator('.cm-notification-row[data-unread=true]').filter({hasText:'تم تمديد مدة التعارف'}).waitFor();
+    await page.locator('.cm-notification-row[data-unread=true]').filter({hasText:'تم تمديد التعارف'}).waitFor();
     const room='c0000000-0000-4000-8000-000000000055';
     const roomEvent=actor==='reham'?'family_room:active':'family_room:invited';
-    const roomTitle=actor==='reham'?'محادثتكما العائلية جاهزة':'مساحة عائلية بانتظار موافقتك';
+    const roomTitle=actor==='reham'?'محادثتكم العائلية جاهزة':'دعوة لمحادثة عائلية تنتظر موافقتك';
     await page.evaluate(({room,roomEvent})=>window.qaAlerts.add(roomEvent,'c0000000-0000-4000-8000-000000000099',room),{room,roomEvent});
     await page.locator('.cm-notification-row').filter({hasText:roomTitle}).click({timeout:30000});
     if(actor==='reham'){

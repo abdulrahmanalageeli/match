@@ -9,7 +9,7 @@ const plan = {id:'da042b07-4f72-48a2-8004-c09af6ce52d9', kind:'interest', person
 const alias = 'نوف';
 test('notification previews use the scheduled Riyadh time, category switch and chosen privacy', () => {
   const render=(patch={}, preview='private', event=plan)=>deviceActivityNotice(event,{controls:{...controls,...patch},preview},alias,0);
-  assert.deepEqual(render(),{eventId:plan.id,dueAt:plan.dueAt,body:'لديك تحديث جديد.',sound:false});
+  assert.deepEqual(render(),{eventId:plan.id,dueAt:plan.dueAt,body:'إشعار جديد',sound:false});
   assert.equal(render({},'event').body,'اهتمام جديد بملفك');
   assert.equal(render({},'name').body,'اهتمام جديد بملفك من نوف');
   assert.equal(render({},'content').body,'اهتمام جديد بملفك من نوف');

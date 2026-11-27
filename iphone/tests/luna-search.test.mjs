@@ -1,7 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {lunaResultCard} from '../src/community/lunaResultCard.mjs';
 import {parseSearch,validatePlan,createLunaSearch,searchRequest} from '../api/_lib/luna-search.mjs';
 const plan={summary:'الرياض',minAge:25,maxAge:35,city:'الرياض',smoking:'never',maritalStatus:null,criteria:[{kind:'prefer',label:'القراءة',terms:['قراءة','reading']}]};
+test('each result distinguishes selected interests, literal mentions, and unmatched preferences',()=>{
+  const options={luna:[
+    {field:'interest',kind:'prefer',terms:['التصوير']},
+    {field:'profileText',kind:'prefer',terms:['الفلك'],label:'عالمة فلك'},
+    {field:'heightCm',kind:'prefer',terms:['165..180']},
+  ],lunaFields:{}};
+  const card=fields=>lunaResultCard({id:'p',alias:'ريم',...fields},options);
+  assert.deepEqual(card({interests:['التصوير'],bio:'أقرأ عن الفلك',marriageBasics:{heightCm:170}}).matchReasons,
+    ['من الاهتمامات: التصوير','ورد في الملف «الفلك»']);
+  assert.deepEqual(card({marriageBasics:{heightCm:170}}).matchReasons,['الطول ١٧٠ سم']);
+  assert.deepEqual(card({internalNotes:'الفلك',marriageBasics:{heightCm:159}}).matchReasons,[]);
+});
 test('input and generated filters are bounded',()=>{
  assert.equal(parseSearch({query:'  أحب القراءة  '}),'أحب القراءة');
  assert.throws(()=>parseSearch({query:'x'.repeat(601)}));
@@ -71,11 +84,11 @@ test('an unrecognized description never turns into an unrestricted directory lis
   await assert.rejects(search({query:'طلب غير واضح'},{authorization:'Bearer test'}),/ما قدرت أحدد/);
 });
 
-test('the compact search response exposes only profile identifiers and public portrait choices',async()=>{
-  const row={id:'p',alias:'ريم',publicAvatar:null,portrait:null,bio:'public biography',internalNotes:'private sentinel'};
+test('compact results include the published reason without returning biography or internal notes',async()=>{
+  const row={id:'p',alias:'ريم',publicAvatar:null,portrait:null,bio:'public biography',internalNotes:'private sentinel',marriageBasics:{nationality:'مصري'}};
   const search=createLunaSearch({env:{},fetcher:async url=>({ok:true,json:async()=>url.endsWith('reserve')?{}:[row]})});
   const response=await search({query:'بنت مصرية'},{authorization:'Bearer test',accept:'application/vnd.wudayn.search-cards+json'});
-  assert.deepEqual(response.people,[{id:'p',alias:'ريم',publicAvatar:null,portrait:null}]);
+  assert.deepEqual(response.people,[{id:'p',alias:'ريم',publicAvatar:null,portrait:null,matchReasons:['الجنسية: مصري']}]);
   assert.equal(response.summary,undefined);
   assert.equal(response.criteria,undefined);
 });

@@ -504,15 +504,22 @@ function PersonCard({
   </div>;
 }
 
+const sparkVisibility = new WeakMap<Element,(visible:boolean)=>void>();
+let sparkObserver:IntersectionObserver|undefined;
+
 function MembershipRowSpark() {
   const gradientId=useId();
   const ref=useRef<HTMLSpanElement>(null);
   const [visible,setVisible]=useState(false);
   useEffect(()=>{
-    if(!ref.current||typeof IntersectionObserver==='undefined') return;
-    const observer=new IntersectionObserver(([entry])=>setVisible(entry.isIntersecting),{threshold:.15});
-    observer.observe(ref.current);
-    return ()=>observer.disconnect();
+    const element=ref.current;
+    if(!element||typeof IntersectionObserver==='undefined') return;
+    const observer=sparkObserver??=new IntersectionObserver(entries=>{
+      for(const entry of entries)sparkVisibility.get(entry.target)?.(entry.isIntersecting);
+    },{threshold:.15});
+    sparkVisibility.set(element,setVisible);
+    observer.observe(element);
+    return ()=>{observer.unobserve(element);sparkVisibility.delete(element);};
   },[]);
   return <span ref={ref} className="wd-row-orbit" aria-hidden="true">
     <svg width="100%" height="100%" focusable="false">
@@ -777,8 +784,15 @@ function Discovery({
     const position = () => ({filters, order, query, scroll:window.scrollY, pages:Math.max(1, Math.ceil(listRef.current.length / 24))});
     const remember = () => {
       if (restoreBrowse.current || leaving) return;
-      const cards = [...document.querySelectorAll<HTMLElement>('[data-weekly-person]')];
-      const first = cards.find(card => card.getBoundingClientRect().bottom > 100);
+      const cards = (directorySurface.current ?? document).querySelectorAll<HTMLElement>('[data-weekly-person]');
+      // Both directory modes render a vertical list in reading order.
+      let low = 0, high = cards.length;
+      while (low < high) {
+        const mid = Math.floor((low + high) / 2);
+        if (cards[mid].getBoundingClientRect().bottom <= 100) low = mid + 1;
+        else high = mid;
+      }
+      const first = cards[low];
       saveBrowseMemory(source,{...position(),
         anchor:first?.dataset.weeklyPerson?{id:first.dataset.weeklyPerson,top:first.getBoundingClientRect().top}:undefined});
     };
@@ -854,7 +868,7 @@ function Discovery({
       } while(active&&dirty&&!document.hidden);
       } finally {fetching=false;}
     }
-    const unwatch=source.watch(()=>{needsRefresh.current=true;void updatePresence();});
+    const unwatch=source.watch(()=>{needsRefresh.current=true;void updatePresence();}, 'nonChat');
     const timer=window.setInterval(()=>void updatePresence(),60000);
     const resumeDiscovery = () => {
       if (document.hidden) return;
@@ -975,7 +989,7 @@ function Discovery({
   async function refreshDirectory() {
     if (!canRefreshDirectory) return;
     setPullRefreshing(true); updatePullDistance.current?.(48);
-    try { await Promise.all([refresh(), new Promise(resolve => window.setTimeout(resolve, 450))]); }
+    try { await refresh(); }
     finally { setPullRefreshing(false); updatePullDistance.current?.(0); }
   }
   function startDirectoryPull(event: TouchEvent<HTMLElement>) {
@@ -1026,7 +1040,7 @@ function Discovery({
         onRequest={id=>onInbox({id,featured:false})} onConversation={onConversation} onStateChange={setAvailability}/>
       {availability.exclusive ? <Panel icon={<LockKeyhole/>} title="أنتما في تعارف حصري" description="توقّف ظهوركما في الاكتشاف، وأُغلقت طلبات التعارف والمحادثات الأخرى."/> : <>
       <div className="df-feed-controls">
-        <div className="df-feed-tabs" role="group" aria-label="ترتيب الملفات">
+        <div className="df-feed-tabs wd-paired-tabs" role="group" aria-label="ترتيب الملفات">
           <button type="button" aria-pressed={order === "recommended"} onClick={() => setOrder("recommended")}><Sparkles size={16}/> ترشيحات لك</button>
           <button type="button" aria-pressed={order === "all"} onClick={() => setOrder("all")}><Compass size={16} /> جميع الملفات</button>
         </div>
@@ -1084,11 +1098,11 @@ function Discovery({
       {!error && !loading && !list.length && (
         <Panel
           icon={<Compass />}
-          title={count || query.trim() ? 'لنوسّع مساحة البحث' : 'كل بداية لها وقتها'}
+          title={count || query.trim() ? 'ما لقينا ملفات بهالبحث' : 'ما فيه ملفات جديدة حاليًا'}
           description={
             count > 0 || query.trim()
-              ? "لم تظهر ملفات بهذه التصفية. جرّب توسيع البحث."
-              : availability.acceptedCount >= (connectionLimit??(premium?2:1)) ? 'اكتمل عدد الارتباطات المتاح لعضويتك. يمكنك تصفّح الملفات، وتتاح دعوة جديدة عند انتهاء ارتباط قائم.' : order==='recommended' ? 'انتهت ترشيحات هذا الأسبوع أو لم يعد بينها ملف مؤهل. يمكنك تصفّح بقية الملفات.' : 'لا تتوفر ملفات جديدة الآن.'
+              ? "جرّب تغيّر كلمة البحث أو تخفّف شروط التصفية."
+              : availability.acceptedCount >= (connectionLimit??(premium?2:1)) ? 'وصلت لحدّ التعارفات في عضويتك. تقدر تتصفّح الملفات وترسل طلبًا جديدًا إذا انتهى أحد تعارفاتك.' : order==='recommended' ? 'ما بقيت ترشيحات متاحة لك هالأسبوع. تقدر تتصفّح بقية الملفات من «جميع الملفات».' : 'تقدر ترجع لاحقًا وتشوف الجديد.'
           }
           action={
             <div className="cm-empty-actions">
@@ -1744,11 +1758,11 @@ export function Chat({
                 {!deleted && msg.reply && <button type="button" className="cm-reply-quote" aria-label="الانتقال إلى الرسالة الأصلية" onClick={() => { setReplyNotice(''); atBottom.current = false; setJumpToId(msg.reply!.id); }}>
                   <strong>{msg.reply.senderIsMe ? 'أنت' : connection.person.alias}</strong><span dir="auto">{msg.reply.deletedAt || deletedIds.has(msg.reply.id) ? "تم حذف هذه الرسالة" : msg.reply.body}</span>
                 </button>}
-                {deleted ? <p className="cm-deleted-message"><Ban size={16}/>تم حذف هذه الرسالة</p> : msg.attachment ? <MessageMedia source={source} requestId={connection.id} attachment={msg.attachment} senderIsMe={msg.senderIsMe}/> : <p dir="auto">{msg.body}</p>}
+                {deleted ? <p className="cm-deleted-message"><Ban size={16}/>تم حذف هذه الرسالة</p> : msg.attachment ? <MessageMedia source={source} requestId={connection.id} attachment={msg.attachment} senderIsMe={msg.senderIsMe} localFile={status?.localFile}/> : <p dir="auto">{msg.body}</p>}
                 <div className="cm-message-meta">
                   <time dateTime={msg.createdAt}>{day ? time.format(new Date(msg.createdAt)) : ""}</time>
                   {!deleted && msg.senderIsMe && (status?.status === "sending" ?
-                    <span role="img" aria-label="جارٍ الإرسال"><Clock3 size={12} aria-hidden="true"/></span> :
+                    <span role="img" aria-label="جارٍ الإرسال"><Clock3 size={12} aria-hidden="true"/>{msg.attachment && <span className="cm-receipt-label"> جارٍ الإرسال</span>}</span> :
                     status?.status !== "failed" && <span role="img" data-receipt={read ? 'read' : msg.deliveredAt ? 'delivered' : 'sent'} aria-label={read ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}>
                       {read || msg.deliveredAt ? <CheckCheck size={14} aria-hidden="true"/> : <Check size={13} aria-hidden="true"/>}
                       <span className="cm-receipt-label">{read ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}</span></span>)}
@@ -1760,6 +1774,7 @@ export function Chat({
               </SwipeReply>
               {status?.status === "failed" && <div className="cm-message-retry" role="status">
                 <span>{status.error}</span><button disabled={!canSend} onClick={() => { composer.current?.focus({preventScroll:true}); thread.outbox.retry(status.clientId); }}><RotateCcw size={13} /> إعادة الإرسال</button>
+                {status.localFile && <button onClick={() => thread.outbox.discardAttachment(status.clientId)}>إزالة المرفق</button>}
               </div>}
             </div>;
             return i === deepEventIndex ? [deepTimelineMarker, messageNode] : messageNode;
@@ -1779,7 +1794,11 @@ export function Chat({
       </div>}
       {canDraft && <ChatComposer outbox={thread.outbox} composer={composer} canSend={canSend} conversationAllowed={conversationAllowed}
         typing={typing} onSubmit={submit} name={connection.person.alias}>
-        <ChatMediaComposer source={source} requestId={connection.id} disabled={!canSend || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} sent={() => { atBottom.current = true; thread.refresh(); }}/>
+        <ChatMediaComposer source={source} disabled={!canSend || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} onSend={draft => {
+          atBottom.current = true;
+          composedId.current = draft.clientId;
+          thread.outbox.enqueueMedia(draft.blob, draft.kind, draft.clientId, draft.duration, draft.viewOnce);
+        }}/>
       </ChatComposer>}
       <div className="cm-chat-plan" data-ready>
         {conversationAllowed && source.progress && <JourneySummary progress={journey} name={connection.person.alias} open={() => setGuide(true)}/>}
@@ -2316,15 +2335,12 @@ function Requests({
       onRequest={id => { listScroll.current = window.scrollY; navigation.current++; setSelected(id); setChat(false); setActionError(''); setNotice(''); window.scrollTo(0,0); }} />
     {error && <button className="btn-text" onClick={() => void refresh()}>إعادة المحاولة</button>}
   </section>;
-  const filtered = list.filter(
-    (c) => conversations ? c.status === "accepted" && (!onlyUnread || !!c.unreadCount) :
-      filter === "all" ||
-      (filter === "accepted"
-        ? c.status === "accepted"
-        : c.status === "pending" && c.direction === filter),
-  );
   const search = query.trim().normalize("NFKC");
-  const rows = filtered.filter((c) => !search || c.person.alias.normalize("NFKC").includes(search));
+  const rows = list.filter(c => {
+    const included = conversations ? c.status === "accepted" && (!onlyUnread || !!c.unreadCount)
+      : filter === "all" || (filter === "accepted" ? c.status === "accepted" : c.status === "pending" && c.direction === filter);
+    return included && (!search || c.person.alias.normalize("NFKC").includes(search));
+  });
   return (
     <section className="screen-content cm-view cm-conversations-view">
       {exitFeedback}
@@ -2336,7 +2352,7 @@ function Requests({
       {pushOwner && <NativePushAction key={pushOwner} owner={pushOwner}/>}
       {reportSent && <ReportReceipt demo={reportSent==='local'} close={()=>setReportSent(null)}/>}
 
-      {conversations ? <div className="cm-segments" role="group" aria-label="عرض المحادثات">
+      {conversations ? <div className="cm-segments wd-paired-tabs" role="group" aria-label="عرض المحادثات">
         <button aria-pressed={!onlyUnread} onClick={() => setOnlyUnread(false)}>الكل</button>
         <button aria-pressed={onlyUnread} onClick={() => setOnlyUnread(true)}>غير المقروءة</button>
       </div> : <div className="cm-segments" role="group" aria-label="عرض الطلبات">
@@ -2372,7 +2388,7 @@ function Requests({
           }
           description={
             search ? "جرّب اسمًا آخر أو امسح البحث." : conversations && onlyUnread ? undefined : conversations || filter === "accepted"
-              ? "اختر ملفًا مناسبًا وأرسل طلب تعارف. تبدأ المراسلة بعد قبول الطلب والموافقة على شروط التعارف ومدته."
+              ? "إذا ناسبك ملف، أرسل طلب تعارف. تبدأ المراسلة بعد قبول الطلب وموافقتكم على الميثاق والمدة."
               : memberAr.requestsEmpty
           }
           action={search ? <button className="btn-secondary" onClick={() => setQuery('')}>مسح البحث</button> :

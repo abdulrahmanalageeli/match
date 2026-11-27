@@ -20,7 +20,7 @@ export function PersonalityAnalysis({fit,id,panelRef}:{fit:MatchFit;id:string;pa
   return <details ref={panelRef} id={id} className="nf-personality-reading">
     <summary tabIndex={0}><span className="nf-personality-seal"><Fingerprint size={22} strokeWidth={1.5}/></span><span><strong>ما وراء انسجام الشخصية</strong></span></summary>
     <div className="nf-personality-body">
-      {percentage===null?<div className="nf-personality-pending"><ScanLine size={24} strokeWidth={1.5}/><h3>{unverifiable?'نحتاج قراءة محدّثة':'نحتاج صوتكما معًا'}</h3>{unverifiable?<p>تعذّر التحقق من تفاصيل النتيجة. حدّث الملف للمحاولة مجددًا.</p>:<><p>تظهر النسبة وقراءتها عندما يجيب كلاكما عن عبارات الشخصية {fit.personality?.version === 'personality-v2' ? 'الخمس عشرة' : 'الاثنتي عشرة'}.</p><small>يمكن استكمال التقييم من الإعدادات ← ملفي وتفضيلاتي.</small></>}</div>
+      {percentage===null?<div className="nf-personality-pending"><ScanLine size={24} strokeWidth={1.5}/><h3>{unverifiable?'نحتاج نحدّث النتيجة':'تقييم الشخصية غير مكتمل'}</h3>{unverifiable?<p>ما قدرنا نتحقق من تفاصيل النتيجة. حدّث الملف وجرّب مرة ثانية.</p>:<><p>تظهر النسبة وقراءتها عندما يجيب كلاكما عن عبارات الشخصية {fit.personality?.version === 'personality-v2' ? 'الخمس عشرة' : 'الاثنتي عشرة'}.</p><small>تقدر تكمّل التقييم من «ملفي وتفضيلاتي» في الإعدادات.</small></>}</div>
         : evidence&&analysis?<>
           <div className="nf-personality-lead"><h3>{arabic.format(close)} من {arabic.format(total)} عبارة متقاربة</h3></div>
           <div className="nf-personality-domains" aria-label="تقارب الإجابات في محاور الشخصية">

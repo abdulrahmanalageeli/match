@@ -3,7 +3,7 @@ import {cloud, cloudConnection} from '../cloud';
 import {marriageProjectUrl} from '../deployment';
 import type {Filters, PublicPerson} from './data';
 
-export type LunaPerson = Pick<PublicPerson, 'id' | 'alias' | 'portrait' | 'publicAvatar' | 'demoPhoto'>;
+export type LunaPerson = Pick<PublicPerson, 'id' | 'alias' | 'portrait' | 'publicAvatar' | 'isDemo' | 'demoPhoto'> & {matchReasons?: string[]};
 export type LunaResults = {options:Filters & {luna:unknown[];lunaFields:Record<string,unknown>};people:LunaPerson[]};
 export async function searchWithLuna(userId:string, query:string, filters:Filters):Promise<LunaResults> {
   const session=(await cloud?.auth.getSession())?.data.session;

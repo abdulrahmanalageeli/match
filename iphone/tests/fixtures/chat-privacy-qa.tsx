@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { VoiceCallsProvider } from '../../src/voice/VoiceCalls';
 import { createRoot } from 'react-dom/client';
-import { ActivityAlerts } from '../../src/notifications/ActivityAlerts';
+import { useMemberActivity } from '../../src/notifications/ActivityAlerts';
 import { NotificationFeed } from '../../src/notifications/NotificationFeed';
 import type { ActivityNotification } from '../../src/community/data';
 import { Chat } from '../../src/community/Community';
+import { routeUpdate, type ChatSignal } from '../../src/community/updates';
 import { CapturePrivacyHost } from '../../src/privacy/CapturePrivacy';
 import { demoCommunity, searchMessageRows, type CommunitySource, type Message, type Connection, type SeriousnessAgreement } from '../../src/community/data';
 import { testProfile } from '../../src/testing/pair';
@@ -26,10 +27,15 @@ const seed:Row[] = [
 ];
 if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(seed));
 let permission: {status:'none'|'pending';direction?:'outgoing'} = {status:'none'};
-const listeners = new Set<()=>void>();
+const listeners = new Set<(signal?: ChatSignal)=>void>();
 const read = ():Row[] => JSON.parse(localStorage.getItem(key)||'[]');
-const write = (rows:Row[]) => {localStorage.setItem(key,JSON.stringify(rows));listeners.forEach(fn=>fn());};
-window.addEventListener('storage',event=>{if(event.key===key)listeners.forEach(fn=>fn());});
+const deliveryTest = params.has('delivery');
+function wake(before: Row[], after: Row[]) {
+  const appended = deliveryTest && after.length === before.length + 1 ? after.at(-1) : undefined;
+  listeners.forEach(fn=>fn(appended ? {kind:'message', requestId:connection.id, messageId:appended.id} : undefined));
+}
+const write = (rows:Row[]) => {const before=read();localStorage.setItem(key,JSON.stringify(rows));wake(before,rows);};
+window.addEventListener('storage',event=>{if(event.key===key)wake(JSON.parse(event.oldValue||'[]'),JSON.parse(event.newValue||'[]'));});
 const asMessage = (row:Row):Message => {const {sender,media:_,...message}=row;return {...message,senderIsMe:sender===actor};};
 const imageUrl = async (path:string) => URL.createObjectURL(await (await fetch(path)).blob());
 const base = demoCommunity(()=>testProfile(actor),false);
@@ -55,7 +61,7 @@ const source:CommunitySource = {...base,
      return response.json();
    }
  } : {}),
- watch:fn=>{listeners.add(fn);return()=>{listeners.delete(fn);};},
+ watch:(fn,scope)=>{const listener=routeUpdate(fn,scope);listeners.add(listener);return()=>{listeners.delete(listener);};},
  callPermission:async()=>permission,
  requestCallPermission:async()=>{await new Promise(resolve=>setTimeout(resolve,600));permission={status:'pending',direction:'outgoing'};return permission;},
  setTyping:async()=>{},typingState:async()=>false,
@@ -66,16 +72,34 @@ const source:CommunitySource = {...base,
   if(action==='accept')agreement={...agreement,status:'accepted',manSignedAt:new Date().toISOString(),deadline:new Date(Date.now()+agreement.days!*86400000).toISOString()};
   return {...agreement};
  },
- thread:async()=>params.has('agreement')?[]:read().map(asMessage),
+ thread:async()=>{if(deliveryTest)performance.mark('qa-thread-page');return params.has('agreement')?[]:read().map(asMessage);},
+ messageChanges:async(_room,ids)=>{if(deliveryTest)performance.mark('qa-thread-rows',{detail:ids});return read().filter(row=>ids.includes(row.id)).map(asMessage);},
  markRead:async()=>{},unreadCount:async()=>0,
  send:async(_room,body,clientId,replyToId)=>{if(failNextSend){failNextSend=false;throw Error('تعذّر إرسال الرسالة.');}await new Promise(resolve=>setTimeout(resolve,800));const id=crypto.randomUUID(),rows=read(),original=rows.find(row=>row.id===replyToId);rows.push({id,clientId,sender:actor,body,createdAt:new Date().toISOString(),...(original?{reply:{id:original.id,body:original.deletedAt?'تم حذف هذه الرسالة':original.body,senderIsMe:original.sender===actor}}:{})});write(rows);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.deliveredAt=new Date().toISOString();write(rows);}},1400);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.readAt=new Date().toISOString();write(rows);}},2800);return id;},
  async mediaUrl(_room,id){const row=read().find(item=>item.attachment?.id===id);if(!row?.media||row.deletedAt||row.attachment?.viewOnce)throw Error('الصورة غير متاحة.');return imageUrl(row.media);},
  async openMedia(_room,id){const rows=read(),row=rows.find(item=>item.attachment?.id===id);if(!row?.media||row.deletedAt||row.sender===actor||row.attachment?.openedAt)throw Error('تم فتح هذه الصورة بالفعل.');if(row.attachment?.viewOnce){row.attachment.openedAt=new Date().toISOString();write(rows);}return imageUrl(row.media);},
  async deleteMessage(_room,id){const rows=read(),row=rows.find(item=>item.id===id);if(!row||row.sender!==actor)throw Error('يمكنك حذف رسائلك فقط.');row.deletedAt=new Date().toISOString();row.body='تم حذف هذه الرسالة';row.attachment=null;delete row.media;row.reply=null;for(const other of rows)if(other.reply?.id===id)other.reply={...other.reply,body:'تم حذف هذه الرسالة',deletedAt:row.deletedAt};write(rows);},
- async sendMedia(_room,file,kind,clientId,duration,viewOnce){const media=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file);});const id=crypto.randomUUID(),rows=read();rows.push({id,sender:actor,clientId,body:kind==='photo'?'صورة':'رسالة صوتية',createdAt:new Date().toISOString(),attachment:{id:crypto.randomUUID(),kind,mime:file.type,size:file.size,duration,viewOnce},media});write(rows);return id;},
+ async sendMedia(_room,file,kind,clientId,duration,viewOnce){
+   const media=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file);});
+   const rows=read(), id=clientId;
+   if (!rows.some(row=>row.id===id)) {
+     rows.push({id,sender:actor,clientId,body:kind==='photo'?'صورة':'رسالة صوتية',createdAt:new Date().toISOString(),attachment:{id,kind,mime:file.type,size:file.size,duration,viewOnce},media});
+     write(rows);
+   }
+   return id;
+ },
 };
 const connection:Connection={id:'local-privacy-qa',status:'accepted',direction:'incoming',person:{id:peer,alias:peer==='reham'?'رهام':'عبدالرحمن',age:29,city:'الرياض',occupation:'ملف اختبار',bio:'شخصية اختبار محلية.',interests:[],reasons:[]}};
 const captures = params.has('captures');
+if (deliveryTest) {
+  const upload = source.sendMedia!;
+  source.sendMedia = async (...args) => {
+    const response = await fetch('/__qa/upload/'+args[3],{method:'POST'});
+    if (!response.ok) throw Error('تعذّر إرسال المرفق.');
+    return upload(...args);
+  };
+  window.addEventListener('qa-chat-wake',event=>listeners.forEach(fn=>fn((event as CustomEvent<ChatSignal>).detail)));
+}
 const secondConnection = {...connection, id:'second-room', person:{...connection.person,id:'second-person',alias:'عضو ثانٍ'}};
 const connections = [connection, secondConnection];
 if (captures) {
@@ -95,11 +119,12 @@ if (captures) {
 }
 initializeDevicePreferences();
 function Fixture() {
+ const activity = useMemberActivity(captures ? source : null);
  const [room,setRoom]=useState<string|null>(null);
  const selected=connections.find(c=>c.id===room);
  return <VoiceCallsProvider source={source} owner={null} demo><div className="phone-app" dir="rtl" lang="ar"><main className="cm-shell">{selected?<Chat key={selected.id} source={source} connection={selected} back={()=>setRoom(null)} close={()=>setRoom(null)} backLabel="رجوع"/>:<section className="cm-view"><h1>تعارف متبادل · اختبار محلي</h1>
    {(captures?connections:[connection]).map(c=><button key={c.id} className="cm-request" onClick={()=>setRoom(c.id)}>فتح المحادثة مع {c.person.alias}</button>)}
-   {captures && <NotificationFeed source={source} connections={connections} onProfile={()=>{}} onRequest={()=>{}} onConversation={setRoom}/>}
- </section>}</main></div>{captures&&<ActivityAlerts source={source} onOpen={setRoom} onNotifications={()=>setRoom(null)}/>}</VoiceCallsProvider>;
+   {captures && <NotificationFeed source={source} connections={connections} compatibilityUpdates={activity.changes} onCompatibilityRead={activity.read} onProfile={()=>{}} onRequest={()=>{}} onConversation={setRoom}/>}
+ </section>}</main></div></VoiceCallsProvider>;
 }
 createRoot(document.getElementById('root')!).render(<><Fixture/><CapturePrivacyHost/></>);

@@ -86,7 +86,7 @@ try {
  const select=memberPage.getByRole('combobox',{name:'معاينة الإشعارات'}), sample=memberPage.locator('.st-lock-preview');
  await sample.getByText('إشعار جديد').waitFor();assert(!(await sample.innerText()).includes('نورة'));
  await select.selectOption('name');await sample.getByText('رسالة من نورة').waitFor();assert(!(await sample.innerText()).includes('يسعدني'));
- await select.selectOption('content');await sample.getByText('يسعدني أن نتعرّف أكثر.').waitFor();
+ await select.selectOption('content');await sample.getByText('ودي نتعرّف أكثر.').waitFor();
  await memberPage.getByRole('button',{name:'عرض ملفي كما يراه الآخرون'}).click();
  await memberPage.getByRole('heading',{name:/الاسم المعتمد/}).waitFor();assert.equal(await memberPage.getByText('مسودة للاختبار').count(),0);
  await memberPage.locator('.mp-back').click();await memberPage.locator('.st-member-photos').click();

@@ -130,7 +130,7 @@ export function GiftMembership({owner,target,back,attention,settle,refreshAccoun
         const code=(cause as {code?:string})?.code;
         if(code==='CANCELLED'||code==='OFFER_CHANGED'||code==='OFFER_UNAVAILABLE'){
           await callRpc('wudayn_release_gift_checkout',{order_token:order.orderToken},owner).catch(()=>{});
-          if(code==='CANCELLED'){setNotice('أُغلق الدفع. يمكنك العودة للهدية لاحقًا.');return;}
+          if(code==='CANCELLED'){setNotice('ما اكتمل الدفع. تقدر ترجع للهدية لاحقًا.');return;}
           if(code==='OFFER_UNAVAILABLE')throw Error('تعذّر تأكيد سعر الهدية في App Store. حدّث السعر وحاول مجددًا.');
           throw Error('تغيّر السعر في App Store. راجع السعر المحدّث قبل الشراء.');
         }
@@ -161,7 +161,7 @@ export function GiftMembership({owner,target,back,attention,settle,refreshAccoun
     {tab==='create'?<>
       <div className="wd-gift-paper" data-tier={tier} aria-label={plans[tier]+' لمدة ٣٠ يومًا'}>
         <div className="wd-gift-stationery"><BrandWordmark/><span>بطاقة إهداء</span></div>
-        <div className="wd-gift-inscription"><h1>{plans[tier]}</h1><p>ثلاثون يومًا من العضوية</p></div>
+        <div className="wd-gift-inscription"><h1>{plans[tier]}</h1><p>عضوية لمدة ٣٠ يوم</p></div>
         <img className="wd-gift-seal" src={seals[tier]} width="75" height="75" alt=""/>
       </div>
       <form className="wd-gift-form" onSubmit={invite}>
@@ -188,7 +188,7 @@ export function GiftMembership({owner,target,back,attention,settle,refreshAccoun
     </>:<section className="wd-gift-history">
       <div className="wd-gift-history-heading"><h1>هداياي</h1><button type="button" aria-label="تحديث الهدايا" onClick={reload}><RefreshCw size={17}/></button></div>
       {listStatus==='loading'&&<p role="status">جارٍ تحميل الهدايا…</p>}
-      {listStatus==='error'&&<p role="alert">تعذّر تحميل الهدايا. حدّث القائمة للمحاولة مجددًا.</p>}
+      {listStatus==='error'&&<p role="alert">ما قدرنا نعرض هداياك. جرّب تحدّث القائمة.</p>}
       {listStatus==='ready'&&!inbox.length&&!outbox.length&&<div className="wd-gift-empty"><Gift size={28}/><h2>لا توجد هدايا بعد</h2><button className="wd-gift-text" onClick={()=>changeTab('create')}>اختيار هدية</button></div>}
       {inbox.length>0&&<h2>دعوات وصلتني</h2>}
       {inbox.map(row=><article key={row.id} id={`gift-${row.id}`} className="wd-gift-record"><img src={seals[row.tier]} alt=""/><div><h3>{plans[row.tier]}</h3><p>دعوة من <bdi>{row.senderName}</bdi> · ٣٠ يومًا</p><small>بقبولك يظهر اسمك في وُدَين للمُهدي ليُكمل الشراء.</small><div className="wd-gift-row-actions"><button disabled={busy} onClick={()=>respond(row,true)}>قبول الدعوة</button><button disabled={busy} onClick={()=>respond(row,false)}>اعتذار</button></div></div></article>)}

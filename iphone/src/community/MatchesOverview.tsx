@@ -1,6 +1,6 @@
 import memberAr from '../member-copy.ts';
 import {useMembershipAccess,MembershipPrompt} from '../membership/access';
-import { useId, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { ArrowLeft, Check, CircleMinus, LockKeyhole, MessageCircle, Ring, Search } from '../BrandIcons';
 import { Brand } from '../Brand';
 import { PersonAvatar } from '../avatars/PersonAvatar';
@@ -28,11 +28,14 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
   const logoMaskId = useId();
   const [filter, setFilter] = useState<'all' | 'incoming' | 'outgoing'>('all');
   const [query, setQuery] = useState('');
-  const current = connections.filter(row => row.status === 'accepted').sort((a,b) => stamp(b)-stamp(a));
-  const pending = connections.filter(row => row.status === 'pending');
+  const {current, pending, incoming} = useMemo(() => {
+    const current = connections.filter(row => row.status === 'accepted').sort((a,b) => stamp(b)-stamp(a));
+    const pending = connections.filter(row => row.status === 'pending')
+      .sort((a,b) => Number(b.direction === 'incoming')-Number(a.direction === 'incoming') || stamp(b)-stamp(a));
+    return {current, pending, incoming:pending.filter(row => row.direction === 'incoming').length};
+  }, [connections]);
   const search = query.trim().normalize('NFKC');
-  const requests = pending.filter(row => (filter === 'all' || row.direction === filter) && (!search || row.person.alias.normalize('NFKC').includes(search)))
-    .sort((a,b) => Number(b.direction === 'incoming')-Number(a.direction === 'incoming') || stamp(b)-stamp(a));
+  const requests = pending.filter(row => (filter === 'all' || row.direction === filter) && (!search || row.person.alias.normalize('NFKC').includes(search)));
   const filters = [{id:'all',label:'الكل'}, {id:'incoming',label:'بانتظارك'}, {id:'outgoing',label:'المرسلة'}] as const;
   return <section className="screen-content cm-view mo-view">
     <header className="cm-header"><Brand /></header>
@@ -100,7 +103,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
       </section>
       <section className="mo-requests" aria-labelledby="mo-requests-title">
         <div className="mo-section-heading"><h2 id="mo-requests-title">طلبات التعارف</h2><span>{number.format(pending.length)}</span></div>
-        {pending.length > 0 && <div className="mo-filters" role="group" aria-label="تصفية الطلبات">{filters.map(item=><MotionPressButton key={item.id} aria-pressed={filter===item.id} onClick={()=>setFilter(item.id)}>{item.label}<span>{number.format(item.id==='all'?pending.length:pending.filter(row=>row.direction===item.id).length)}</span></MotionPressButton>)}</div>}
+        {pending.length > 0 && <div className="mo-filters" role="group" aria-label="تصفية الطلبات">{filters.map(item=><MotionPressButton key={item.id} aria-pressed={filter===item.id} onClick={()=>setFilter(item.id)}>{item.label}<span>{number.format(item.id==='all'?pending.length:item.id==='incoming'?incoming:pending.length-incoming)}</span></MotionPressButton>)}</div>}
         {(pending.length>4 || query) && <label className="mo-search"><Search size={16}/><input type="search" aria-label="البحث بالاسم" placeholder="ابحث بالاسم" value={query} onChange={event=>setQuery(event.target.value)}/></label>}
         <div className="mo-request-list" aria-busy={loading}>{requests.map((row,index)=>{
           const incoming=row.direction==='incoming';
@@ -116,7 +119,7 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
             </div> : <MotionPressButton className="mo-action" onClick={()=>onProfile(row.id)}>عرض الطلب<ArrowLeft size={14}/></MotionPressButton>}{date && <time dateTime={date}>{dates.format(new Date(date))}</time>}</div>
           </MotionReveal>;
         })}</div>
-        {!requests.length && !error && <p className="mo-quiet-empty">{search?'لا توجد نتائج لهذا الاسم.':filter==='incoming'?'لا توجد طلبات بانتظار قرارك.':filter==='outgoing'?'لا توجد طلبات مرسلة.':memberAr.requestsEmpty}</p>}
+        {!requests.length && !error && <p className="mo-quiet-empty">{search?'ما لقينا طلبات بهالاسم.':filter==='incoming'?'ما عندك طلبات تنتظر ردّك.':filter==='outgoing'?'ما عندك طلبات مرسلة.':memberAr.requestsEmpty}</p>}
       </section>
     </>}
     <MembershipPrompt detail="قبول الطلبات متاح لك مجانًا. مع العضوية المميزة يمكنك المبادرة واكتشاف تفاصيل التوافق."/>

@@ -40,7 +40,7 @@ export function useTyping(source: CommunitySource, id: string, enabled: boolean)
     };
     const hide = () => { if (document.hidden) { finish(); setPeerTyping(false); } else void refresh(); };
     setPeerTyping(false); void refresh();
-    const unwatch = enabled ? source.watch(changed) : () => {};
+    const unwatch = enabled ? source.watch(changed, {threadId:id, typing:true}) : () => {};
     const timer = enabled && source.typingState ? window.setInterval(() => void refresh(), 2500) : undefined;
     document.addEventListener('visibilitychange', hide);
     window.addEventListener('blur', finish);

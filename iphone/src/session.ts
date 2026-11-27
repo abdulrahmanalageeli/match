@@ -8,7 +8,7 @@ export type DeviceLockStatus = {
 };
 export type DeviceAppearance = { icon: string; supported: boolean; callerName: boolean };
 
-type PortraitPlacement = { id: string; box?: number[]; scrollOrigin?: number[]; radius?: number; cutouts?: number[][]; image?: string };
+type PortraitPlacement = { id: string; box?: number[]; scrollOrigin?: number[]; radius?: number; footerHeight?: number; cutouts?: number[][]; image?: string };
 interface SecureSessionPlugin {
   read(options?: { key?: string }): Promise<{ token: string | null }>;
   save(options: { token: string; key?: string }): Promise<void>;

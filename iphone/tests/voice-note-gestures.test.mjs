@@ -27,7 +27,7 @@ function mount() {
     start() { this.state = 'recording'; starts++; }
     stop() { this.state = 'inactive'; queueMicrotask(() => { this.ondataavailable?.({ data: new Blob(['voice']) }); this.onstop?.(); }); }
   }
-  const exports = {}, props = { source: { sendMedia: async () => sends++, mediaUrl: async () => '' }, requestId: 'room', disabled: false, callActive: false, onRecording: value => activity.push(value), sent() {} };
+  const exports = {}, props = { source: { sendMedia: async () => {}, mediaUrl: async () => '' }, disabled: false, callActive: false, onRecording: value => activity.push(value), onSend: () => sends++ };
   const noop = () => {};
   vm.runInNewContext(compiled, { exports, document: doc, navigator: { mediaDevices: { getUserMedia: () => new Promise(resolve => { grant = resolve; }) } },
     window: { addEventListener, removeEventListener, setInterval: fn => { intervals.set(1, fn); return 1; } }, clearInterval: id => intervals.delete(id), MediaRecorder: Recorder,
@@ -78,17 +78,16 @@ test('quick taps and keyboard clicks support hands-free recording with explicit 
   }
 });
 
-test('a failed voice upload retains the preview and retries the same client identity only once', async () => {
+test('sending hands the recording to the thread once and immediately releases the preview', async () => {
   const f = mount(); f.keyboard(); await f.grant(); f.advance(1200);
   f.find('إنهاء التسجيل ومعاينته').props.onClick(); await settle();
-  const attempts = []; let reject;
-  f.props.source.sendMedia = (...args) => { attempts.push(args); return new Promise((_resolve, no) => { reject = no; }); };
+  const attempts = [];
+  f.props.onSend = draft => attempts.push(draft);
   const send = f.find('إرسال المرفق').props.onClick;
   send(); send(); assert.equal(attempts.length, 1, 'rapid taps never duplicate the upload');
-  assert(nodes(f.render()).some(node => node.type === 'progress' && node.props.value === undefined), 'progress is honest and indeterminate');
-  reject(Error('network')); await settle(); assert(f.preview()); assert(f.find('إعادة إرسال المرفق'));
-  f.props.source.sendMedia = async (...args) => { attempts.push(args); return 'saved'; };
-  f.find('إعادة إرسال المرفق').props.onClick(); await settle();
-  assert.equal(attempts.length, 2); assert.equal(attempts[0][3], attempts[1][3], 'retry preserves the idempotency key');
+  assert.equal(attempts[0].clientId,'draft-id');
+  assert.equal(attempts[0].kind,'audio');
+  assert.equal(attempts[0].duration,1.2);
+  assert(attempts[0].blob.size>0);
   assert.equal(f.preview(), undefined); f.close();
 });

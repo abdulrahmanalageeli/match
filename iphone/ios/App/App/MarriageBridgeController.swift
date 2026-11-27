@@ -25,6 +25,9 @@ final class MarriageBridgeController: CAPBridgeViewController {
     private var backing: WudaynPrivacyNote?
     private(set) var discoveryPortraitsEnabled = false
     private var portraits: [String: DiscoveryPortraitView] = [:]
+    private let portraitViewport = UIView()
+    private let portraitPlane = UIView()
+    private var portraitBottom: NSLayoutConstraint?
     private let portraitDecoder: OperationQueue = {
         let queue = OperationQueue()
         queue.name = "com.wudayn.discovery-portraits"
@@ -142,10 +145,40 @@ final class MarriageBridgeController: CAPBridgeViewController {
         pendingPortraits.removeAll()
         portraits.values.forEach { $0.removeFromSuperview() }
         portraits.removeAll()
+        portraitViewport.removeFromSuperview()
+        portraitBottom = nil
+    }
+
+    // Clip in viewport coordinates while the authorized images move in document
+    // coordinates. UIKit maintains both during a flick, including rubber-banding.
+    private func fitPortraitViewport(to scroll: UIScrollView, footerHeight: CGFloat) {
+        if let portraitBottom {
+            if portraitBottom.constant != -footerHeight { portraitBottom.constant = -footerHeight }
+            return
+        }
+        portraitViewport.clipsToBounds = true
+        portraitViewport.isUserInteractionEnabled = false
+        portraitViewport.accessibilityElementsHidden = true
+        for view in [portraitViewport, portraitPlane] { view.translatesAutoresizingMaskIntoConstraints = false }
+        scroll.addSubview(portraitViewport)
+        portraitViewport.addSubview(portraitPlane)
+        let viewport = scroll.frameLayoutGuide, document = scroll.contentLayoutGuide
+        let bottom = portraitViewport.bottomAnchor.constraint(equalTo: viewport.bottomAnchor, constant: -footerHeight)
+        NSLayoutConstraint.activate([
+            portraitViewport.topAnchor.constraint(equalTo: viewport.topAnchor),
+            portraitViewport.leftAnchor.constraint(equalTo: viewport.leftAnchor),
+            portraitViewport.rightAnchor.constraint(equalTo: viewport.rightAnchor), bottom,
+            portraitPlane.topAnchor.constraint(equalTo: document.topAnchor),
+            portraitPlane.leftAnchor.constraint(equalTo: document.leftAnchor),
+            portraitPlane.widthAnchor.constraint(equalTo: viewport.widthAnchor),
+            portraitPlane.heightAnchor.constraint(equalTo: viewport.heightAnchor)
+        ])
+        portraitBottom = bottom
     }
 
     func updatePortrait(_ id: String, frame: CGRect, measuredOffset: CGPoint?, radius: CGFloat,
-                        encoded: String?, cutouts: [CGRect], completion: @escaping (Bool) -> Void) {
+                        encoded: String?, cutouts: [CGRect], footerHeight: CGFloat, completion: @escaping (Bool) -> Void) {
+        if let scroll = webView?.scrollView { fitPortraitViewport(to: scroll, footerHeight: footerHeight) }
         if portraits[id] != nil || encoded == nil {
             completion(placePortrait(id, frame: frame, measuredOffset: measuredOffset, radius: radius, sample: nil, cutouts: cutouts))
             return
@@ -179,7 +212,7 @@ final class MarriageBridgeController: CAPBridgeViewController {
         } else {
             guard let sample, let portrait = DiscoveryPortraitView(sample: sample) else { return false }
             field = portrait
-            scroll.addSubview(field)
+            portraitPlane.addSubview(field)
             portraits[id] = field
         }
         // The JS measurement and this callback can land on different scroll frames.

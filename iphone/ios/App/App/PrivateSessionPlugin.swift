@@ -147,8 +147,10 @@ final class PrivateSessionPlugin: CAPPlugin, CAPBridgedPlugin {
             } else {
                 measuredOffset = nil
             }
+            let footerHeight = call.getDouble("footerHeight") ?? 0
             host.updatePortrait(id, frame: frame, measuredOffset: measuredOffset, radius: CGFloat(call.getDouble("radius") ?? 0),
-                                encoded: call.getString("image"), cutouts: cutouts) { placed in
+                                encoded: call.getString("image"), cutouts: cutouts,
+                                footerHeight: footerHeight.isFinite ? CGFloat(max(0, footerHeight)) : 0) { placed in
                 call.resolve(["placed": placed])
             }
         }

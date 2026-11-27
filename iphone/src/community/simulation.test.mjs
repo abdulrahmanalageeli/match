@@ -70,6 +70,78 @@ test('selected fictional members change tiers on month-sized terms',()=>{
   assert(months.every(at=>demoMembershipTier('wp01','seriousness',at)==='seriousness'));
 });
 
+test('وفاء keeps her scheduled opener but answers the latest member text quickly between visits',async t=>{
+  const now=Date.parse('2026-11-27T11:00:00Z');
+  t.mock.timers.enable({apis:['Date','setTimeout'],now});
+  const flush=()=>new Promise(resolve=>setImmediate(resolve));
+  const h=harness();
+  h.people[0].id='wp15';
+  h.records.push(record('wp15'));
+  const rows=[];h.messages.set('conversation',rows);
+  h.simulation.start();t.after(()=>h.simulation.dispose());
+  t.mock.timers.tick(100);await flush();
+  const opener=h.simulation.nextActivity();
+  assert.equal(opener.kind,'reply');
+  assert.equal(opener.dueAt,nextDemoVisit('wp15',now));
+  assert(opener.dueAt>now+20_000);
+
+  rows.push({id:'first',body:'السلام عليكم',senderIsMe:true,createdAt:new Date().toISOString()});
+  h.simulation.wake();await flush();
+  const first=h.simulation.nextActivity();
+  t.mock.timers.tick(2_000);
+  const latestAt=Date.now();
+  rows.push({id:'second',body:'كيف يومك؟',senderIsMe:true,createdAt:new Date().toISOString()});
+  h.simulation.wake();await flush();
+  const reply=h.simulation.nextActivity();
+  assert.notEqual(reply.id,first.id);
+  assert(reply.dueAt>=latestAt+8_000 && reply.dueAt<=latestAt+20_000);
+  t.mock.timers.tick(reply.dueAt-Date.now()-1);await flush();
+  assert.equal(rows.length,2);
+  t.mock.timers.tick(100);await flush();
+  assert.equal(rows.length,3);assert.equal(rows[2].id,reply.id);assert.equal(rows[2].senderIsMe,false);
+  assert.notEqual(h.simulation.nextActivity()?.kind,'reply');
+});
+
+test('a restored check-in reply advances with its original message and notification ID',async t=>{
+  const now=Date.parse('2026-11-27T01:00:00Z');
+  t.mock.timers.enable({apis:['Date','setTimeout'],now});
+  const flush=()=>new Promise(resolve=>setImmediate(resolve));
+  const h=harness({aiReply:async()=>'رد محفوظ'});
+  h.records.push(record());
+  const rows=[{id:'msg',body:'هلا',senderIsMe:true,createdAt:new Date().toISOString()}];
+  h.messages.set('conversation',rows);
+  h.simulation.start();t.mock.timers.tick(100);await flush();
+  const saved=structuredClone(h.simulation.snapshot());
+  saved.plannedActivity.dueAt=nextDemoVisit('p01',now);
+  h.simulation.dispose();
+  let calls=0;
+  const restored=createDemoSimulation(h.world,{aiReply:async()=>{calls++;return 'رد آخر';}},saved);
+  restored.start();t.after(()=>restored.dispose());
+  t.mock.timers.tick(100);await flush();
+  const reply=restored.nextActivity();
+  assert.equal(reply.id,saved.plannedActivity.id);
+  assert(reply.dueAt>=now+8_000 && reply.dueAt<=now+20_000);
+  t.mock.timers.tick(reply.dueAt-Date.now());await flush();
+  assert.equal(rows.length,2);assert.equal(rows[1].body,'رد محفوظ');assert.equal(calls,0);
+});
+
+test('an active chat acknowledges local media between visits without scheduling a device reply',async t=>{
+  const now=Date.parse('2026-11-27T01:00:00Z');
+  t.mock.timers.enable({apis:['Date','setTimeout'],now});
+  let calls=0;
+  const h=harness({aiReply:async()=>{calls++;return 'AI reply';}});
+  h.records.push(record());
+  const rows=[{id:'photo',body:'صورة',senderIsMe:true,createdAt:new Date().toISOString(),attachment:{kind:'photo',id:'local-only'}}];
+  h.messages.set('conversation',rows);
+  h.simulation.start();t.after(()=>h.simulation.dispose());
+  for(let seconds=0;seconds<21;seconds++){
+    t.mock.timers.tick(1_000);
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.notEqual(h.simulation.nextActivity()?.kind,'reply');
+  }
+  assert.equal(rows.length,2);assert.match(rows[1].body,/ما أقدر أشوف/);assert.equal(calls,0);
+});
+
 test('a scheduled answer supersedes an ambient visit, survives restart, and commits the same message only once',async t=>{
   const now=Date.parse('2026-11-25T01:00:00Z');
   t.mock.timers.enable({apis:['setTimeout','Date'],now});

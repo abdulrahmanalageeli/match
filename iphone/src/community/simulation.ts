@@ -9,7 +9,7 @@ type SocialKind = 'profile_visit' | 'interest' | 'request';
 export type PlannedDemoActivity = { id: string; personId: string; dueAt: number } & (
   {kind:SocialKind} | {kind:'reply'|'match';connectionId:string}
 );
-type PreparedReply = { planId:string; turn:string; body:string; kind:string };
+type PreparedReply = { planId:string; turn:string; body:string; kind:string; sessionOnly?:boolean };
 export type DemoSimulationHistory = { eventCount?: number; log?: DemoSimulationEvent[]; plannedActivity?: PlannedDemoActivity; preparedReply?:PreparedReply; socialHistory?: {personId:string; stage:number; at:number}[] };
 export type DemoSimulationSnapshot = DemoSimulationHistory & { running: boolean; busy: boolean; participants: string[]; eventCount: number; log: DemoSimulationEvent[] };
 export type DemoSimulationOptions = {
@@ -215,20 +215,26 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
       if (!person) continue;
       const matching=record.status==='pending' && record.direction==='outgoing' && !world.exclusive() && acceptedCount()<2 && willAccept(record.peer);
       const turn=matching ? undefined : waitingTurn(record);
-      // Local demo media disappears on a cold launch. Only durable turns can be advertised to iOS.
-      if (!matching && (!turn || turn.last?.attachment)) continue;
-      if (current && 'connectionId' in current && current.connectionId===record.id) {
-        candidates.push({kind:current.kind,connectionId:record.id,person,dueAt:current.dueAt});
-        continue;
+      if (!matching && !turn) continue;
+      let dueAt=current && 'connectionId' in current && current.connectionId===record.id ? current.dueAt : undefined;
+      if (turn?.last) {
+        // An incoming message wakes the fictional peer, including between personal check-ins.
+        const sentAt=Date.parse(turn.last.createdAt) || now;
+        const delay=(8 + rhythmHash(record.peer+turn.key)%13)*1000;
+        dueAt=Math.min(dueAt ?? Infinity, Math.max(now+1000,sentAt+delay));
+      } else if (dueAt===undefined) {
+        const at=Date.parse(record.updatedAt) || now;
+        const delay=(matching ? 5+rhythmHash(record.id)%26 : 1+rhythmHash(record.peer+(turn?.key ?? ''))%9)*60_000;
+        dueAt=nextDemoVisit(person.id,Math.max(now+1000,at+delay));
       }
-      const at=Date.parse(turn?.last?.createdAt ?? record.updatedAt) || now;
-      const delay=(matching ? 5+rhythmHash(record.id)%26 : 1+rhythmHash(record.peer+(turn?.key ?? ''))%9)*60_000;
-      const dueAt=nextDemoVisit(person.id,Math.max(now+1000,at+delay));
       candidates.push({kind:matching?'match':'reply',connectionId:record.id,person,dueAt});
     }
     const next=candidates.sort((a,b)=>a.dueAt-b.dueAt)[0];
     if (!next) { chooseAmbientPlan(people); return; }
-    if (current && 'connectionId' in current && current.connectionId===next.connectionId) return;
+    if (current && 'connectionId' in current && current.connectionId===next.connectionId) {
+      if (next.dueAt<current.dueAt) planned={...current,dueAt:next.dueAt};
+      return;
+    }
     const record=world.records.find(row=>row.id===next.connectionId)!;
     const plan:PlannedDemoActivity={id:crypto.randomUUID(),kind:next.kind,connectionId:record.id,personId:record.peer,dueAt:next.dueAt};
     if (next.kind==='reply') {
@@ -237,7 +243,7 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
       const reply=await writeReply(next.person,turn.history,turn.last);
       if (ticket!==generation || !running || disposed || options.canAct?.()===false || waitingTurn(record)?.key!==turn.key) return;
       if (!reply) { refusedTurns.set(record.id,turn.last?.id); return; }
-      prepared={planId:plan.id,turn:turn.key,...reply};
+      prepared={planId:plan.id,turn:turn.key,...reply,sessionOnly:!!turn.last?.attachment};
     } else prepared=undefined;
     planned=plan;
   }
@@ -332,7 +338,7 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
         if (record.status !== 'accepted' || !people.some(person => person.id === record.peer)) return false;
         if (world.chatReady?.(record.id) === false || world.conversationAllowed?.(record.id) === false || world.exclusive() && !world.conversationAllowed) return false;
         const rows = (world.messages.get(record.id) ?? []).filter(row => !row.deletedAt);
-        if (automatic && !rows.at(-1)?.attachment && (planned?.kind!=='reply' || planned.connectionId!==record.id || planned.dueAt-Date.now()>90_000)) return false;
+        if (automatic && (planned?.kind!=='reply' || planned.connectionId!==record.id || planned.dueAt-Date.now()>90_000)) return false;
         if (refusedTurns.has(record.id) && refusedTurns.get(record.id) === rows.at(-1)?.id) return false;
         return !rows.length || rows.at(-1)?.senderIsMe;
       });
@@ -357,7 +363,7 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
           add('reaction',person.id,`${person.alias}: تفاعل مع الرسالة`);return;
         }
         if (!typing.has(chat.id)) { typing.add(chat.id); world.online.add(person.id); add('typing', person.id, `${person.alias}: يكتب الآن`); return; }
-        if (automatic && !last?.attachment) return;
+        if (automatic) return;
         const history = simulationHistory(rows);
         const reply = planned?.kind==='reply' && planned.connectionId===chat.id && planValid(planned) && prepared ? prepared : await writeReply(person,history,last);
         typing.delete(chat.id);
@@ -399,10 +405,15 @@ export function createDemoSimulation(world: World, options: DemoSimulationOption
     }
   }
   return {
-    nextActivity: () => running && !disposed ? visiblePlan() : undefined,
+    nextActivity: () => running && !disposed && !prepared?.sessionOnly ? visiblePlan() : undefined,
     reconcileActivity:eventId=>{ if (reconcileActivity(eventId)) schedule(true); },
-    snapshot: () => ({ running, busy, participants: participants(), eventCount, log: [...log], plannedActivity:visiblePlan() ?? planned, preparedReply:prepared,
-      socialHistory:[...social].map(([personId,stage])=>({personId,stage,at:lastVisits.get(personId) ?? 0})) }),
+    snapshot: () => {
+      const plan=visiblePlan() ?? planned;
+      // Local demo attachments disappear on restart. Their replies stay in the open session.
+      return { running, busy, participants: participants(), eventCount, log: [...log],
+        plannedActivity:prepared?.sessionOnly ? undefined : plan, preparedReply:prepared?.sessionOnly ? undefined : prepared,
+        socialHistory:[...social].map(([personId,stage])=>({personId,stage,at:lastVisits.get(personId) ?? 0})) };
+    },
     start() { if (running) return; disposed = false; running = true; if (!observing && typeof document !== 'undefined') { document.addEventListener('visibilitychange', visible); observing = true; } changed(); schedule(true); },
     pause, step:()=>step(),
     wake() {

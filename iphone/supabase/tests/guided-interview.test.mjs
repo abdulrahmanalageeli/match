@@ -91,7 +91,8 @@ test('test-session actors are isolated, and expired or revoked access is rejecte
 
 test('durable minute/day/global budgets survive interview deletion; reserve never changes the document revision',async()=>{
  const u=await user();let s=await start(u);
- for(let i=0;i<6;i++)assert.deepEqual(await call(u,'reserve',{expectedRevision:s.revision}),{status:'allowed',revision:s.revision});
+ // This member has no receipt authorizing review of their interview.
+ for(let i=0;i<6;i++)assert.deepEqual(await call(u,'reserve',{expectedRevision:s.revision}),{status:'allowed',revision:s.revision,reviewSession:null});
  assert.equal((await call(u,'reserve',{expectedRevision:s.revision})).status,'limited');
  await call(u,'delete',{expectedRevision:s.revision});s=await start(u);
  assert.equal((await call(u,'reserve',{expectedRevision:s.revision})).status,'limited');

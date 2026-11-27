@@ -1,5 +1,5 @@
 import {
-  describeFit, comparePreferences,
+  describeFit, comparePreferences, recommendationKind,
 
 } from "../../src/compatibility/model.ts";
 import legacy from "../../src/compatibility/catalog-v3.json" with {type:"json"};
@@ -14,6 +14,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
 const migration = "20261118085232_marriage_expectations_v3.sql";
+
+function assertRecommendation(a, b, sqlDistance, expectedKind, label) {
+  assert.equal(sqlDistance, {strict:0,close:1}[expectedKind] ?? null, label);
+  assert.equal(recommendationKind(a,b), expectedKind, label);
+}
 
 const profile = (gender, dimensions, version) => ({
   id: randomUUID(),
@@ -280,7 +285,7 @@ test("the audit pairs run through the historical and current database and the cu
         const {
           rows: [row],
         } = await db.query(
-          "select marriage.compatible($1,$2) as eligible, fit from marriage.pair_fit($1,$2)",
+          `select marriage.compatible($1,$2) as eligible, ${v3 ? 'marriage.recommendation_distance($1,$2)' : 'null'} as distance, fit from marriage.pair_fit($1,$2)`,
           [a.id, b.id],
         );
         if (!v3) {
@@ -293,8 +298,11 @@ test("the audit pairs run through the historical and current database and the cu
           continue;
         }
         const { fit } = describeFit(a, b);
-        assert.equal(row.eligible,!["children hard","immobile","one-way hard"].includes(name),name);
-        assert.equal(comparePreferences(a,b)!==null,row.eligible,name);
+        const excluded=["children hard","immobile","one-way hard"].includes(name);
+        const close=["criterion present","criterion unknown"].includes(name);
+        assert.equal(row.eligible,true,name+' remains in the directory');
+        assert.equal(comparePreferences(a,b)!==null,!excluded,name);
+        assertRecommendation(a,b,row.distance,excluded?null:close?'close':'strict',name);
         assert.equal(row.fit.percentage, fit.percentage, name);
         assert.equal(fit.percentage, revised[index], name);
         const agreed = [15, 15, 15, 16, 14, 15, 15, 16, 16, 15, 15, 15, 16, null, 15, 15][index];
@@ -337,13 +345,14 @@ test("the audit pairs run through the historical and current database and the cu
     await seed(after, b);
     async function checkAttendance(expectedPercentage, expectedStatus,expectedEligible) {
       const {
-        rows: [{ fit: sqlFit, eligible }],
-      } = await after.query("select marriage.compatible($1,$2) as eligible, fit from marriage.pair_fit($1,$2)", [
+        rows: [{ fit: sqlFit, eligible, distance }],
+      } = await after.query("select marriage.compatible($1,$2) as eligible, marriage.recommendation_distance($1,$2) as distance, fit from marriage.pair_fit($1,$2)", [
         a.id,
         b.id,
       ]);
       const appFit = describeFit(a, b).fit;
-      assert.equal(eligible,expectedEligible);
+      assert.equal(eligible,true);
+      assertRecommendation(a,b,distance,expectedEligible?'strict':null,'event attendance');
       assert.equal(comparePreferences(a,b)!==null,expectedEligible);
       assert.equal(appFit.percentage, expectedPercentage);
       assert.deepEqual(sqlFit.preferenceEvidence, appFit.preferenceEvidence);
@@ -409,18 +418,17 @@ test('v4 practical scoring, explicit strictness, age and optional parenting agre
       person.personalityAnswers=Object.fromEntries(newPersonality.map(q=>[q.id,'A']));
       await seed(db,person);
     }
-    async function compare(eligible=true, expectedTotal=16){
-      const {rows:[row]}=await db.query('select marriage.compatible($1,$2) as eligible,fit,rank_value from marriage.pair_fit($1,$2)',[a.id,b.id]);
-      const local=comparePreferences(a,b);
-      assert.equal(row.eligible,eligible);
-      assert.equal(Boolean(local),eligible);
+    async function compare(kind='strict', expectedTotal=16){
+      const {rows:[row]}=await db.query('select marriage.compatible($1,$2) as eligible,marriage.recommendation_distance($1,$2) as distance,fit,rank_value from marriage.pair_fit($1,$2)',[a.id,b.id]);
+      const local=describeFit(a,b);
+      assert.equal(row.eligible,true);
+      assertRecommendation(a,b,row.distance,kind,'v4 recommendation');
+      assert.equal(Boolean(comparePreferences(a,b)),kind==='strict');
       assert.equal(row.fit.total,expectedTotal);
-      if(local){
-        assert.deepEqual(row.fit.preferenceEvidence,local.fit.preferenceEvidence);
-        assert.deepEqual(row.fit.personality,local.fit.personality);
-        assert.ok(Math.abs(row.rank_value-local.rankValue)<1e-12);
-        assert.equal(row.fit.percentage,local.fit.percentage);
-      }
+      assert.deepEqual(row.fit.preferenceEvidence,local.fit.preferenceEvidence);
+      assert.deepEqual(row.fit.personality,local.fit.personality);
+      assert.ok(Math.abs(row.rank_value-local.rankValue)<1e-12);
+      assert.equal(row.fit.percentage,local.fit.percentage);
       return row.fit;
     }
     const perfect = await compare();
@@ -457,13 +465,13 @@ test('v4 practical scoring, explicit strictness, age and optional parenting agre
     await compare();
     a.hardRequirements=['social_boundaries'];
     await db.query("insert into marriage.fit_hard_requirements values ($1,'social_boundaries')",[a.id]);
-    assert.ok((await compare(false)).practicalConcerns.includes('strict_requirement'));
+    assert.ok((await compare(null)).practicalConcerns.includes('strict_requirement'));
     a.hardRequirements=[];
     await db.query("delete from marriage.fit_hard_requirements where member_id=$1",[a.id]);
     for(const p of [a,b]){
       p.preferredMinAge=30;
       await db.query("update marriage.preferences set min_age=30 where member_id=$1",[p.id]);
-      await compare(false);
+      await compare('close');
       p.preferredMinAge=25;
       await db.query("update marriage.preferences set min_age=25 where member_id=$1",[p.id]);
     }
@@ -473,16 +481,16 @@ test('v4 practical scoring, explicit strictness, age and optional parenting agre
     await db.query("insert into marriage.member_basics(member_id,children_count) values($1,0)",[a.id]);
     b.marriageBasics.childrenCount=0;
     await db.query("insert into marriage.member_basics(member_id,children_count) values($1,0)",[b.id]);
-    await compare(true,16);
+    await compare();
     a.partnerCriteria.children={mode:'prefer',target:'none'};
     await db.query("insert into marriage.partner_criteria(member_id,criterion,rule) values($1,'children',$2)",[a.id,a.partnerCriteria.children]);
-    await compare(true,16);
+    await compare();
     a.partnerCriteria.children.mode='require';
     await db.query("update marriage.partner_criteria set rule=$2 where member_id=$1 and criterion='children'",[a.id,a.partnerCriteria.children]);
-    await compare(true,15);
+    await compare('strict',15);
     a.marriageBasics.childrenCount=1;
     await db.query("update marriage.member_basics set children_count=1 where member_id=$1",[a.id]);
-    await compare(true,16);
+    await compare();
     set(a,'children_plan','C');
     await db.query("update marriage.member_answers set option_code='C' where member_id=$1 and question_code in ('children_plan','partner_children_plan')",[a.id]);
     await compare();
@@ -490,7 +498,7 @@ test('v4 practical scoring, explicit strictness, age and optional parenting agre
     b.preferredMinAge=30;
     await db.query("update marriage.member_assessment set version='marriage-v3' where member_id=$1",[b.id]);
     await db.query("update marriage.preferences set min_age=30 where member_id=$1",[b.id]);
-    assert.equal((await compare(false)).percentage,null);
+    assert.equal((await compare('close')).percentage,null);
     b.preferredMinAge=25;
     await db.query("update marriage.preferences set min_age=25 where member_id=$1",[b.id]);
     assert.equal((await compare()).percentage,null);

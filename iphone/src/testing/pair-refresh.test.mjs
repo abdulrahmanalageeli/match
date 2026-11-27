@@ -19,7 +19,8 @@ compiled = isolateCommunityServices(compiled)
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/verification\/client['"];?/, 'const manualVerificationSource=()=>({});')
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/deployment['"];?/, "const marriageProjectUrl='https://test.invalid';const marriagePublishableKey='public';")
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/community\/data['"];?/, `const demoProfile=${JSON.stringify(fixture)}, demoPeople=${JSON.stringify(peers)};
-    const matchesDiscoveryFilters=()=>true; const demoCommunity=viewer=>({inbox:async()=>[],watch:()=>()=>{},discover:async()=>[{id:'fictional',age:29,viewer:viewer()}]});`)
+    import {selectRecommendations} from '../community/recommendations';
+    const matchesDiscoveryFilters=()=>true; const demoCommunity=viewer=>({inbox:async()=>[],exclusiveConnection:()=>null,watch:()=>()=>{},discover:async()=>[{id:'fictional',age:29,viewer:viewer()}]});`)
   .replace(/from (['"])(\.{1,2}\/[^'"]+)\1/g, (_all,_quote,path)=>'from '+JSON.stringify(new URL(path+'.ts',import.meta.url).href));
 const { pairSource, testProfile } = await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 const flush = () => new Promise(resolve=>setImmediate(resolve));

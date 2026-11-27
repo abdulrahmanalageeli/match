@@ -50,9 +50,16 @@ test('recommended filters, authoritative expiry and neutral history retain parti
     await db.query("update marriage.member_requests set created_at=now()-interval '8 days' where id=$1", [request]);
     assert(!(await call(man, 'public.marriage_inbox()')).some(r => r.id === request));
     const expired = (await call(woman, 'public.marriage_request_history()'))[0];
-    assert.equal(expired.outcome, 'expired'); assert(expired.closedAt);
-    assert.equal(expired.direction, 'incoming');
-    assert.deepEqual(Object.keys(expired).sort(), ['alias', 'closedAt', 'createdAt', 'direction', 'id', 'outcome']);
+    assert.ok(Date.parse(expired.closedAt) > Date.parse(expired.createdAt));
+    const expected = {
+      id: request, alias: 'رائد', direction: 'incoming', createdAt: expired.createdAt, closedAt: expired.closedAt,
+      outcome: 'expired', resolution: 'expired', canRequestAgain: true, closureContext: null, hasFamilyContact: false,
+    };
+    assert.deepEqual(expired, expected);
+    assert.deepEqual(await call(man, 'public.marriage_request_history_item($1)', [request]),
+      {...expected, alias: 'ليلى', direction: 'outgoing'});
+    assert.equal(await call(outsider, 'public.marriage_request_history_item($1)', [request]), null);
+    for (const user of [man, woman, outsider]) assert.equal(await call(user, 'public.marriage_family_contact($1)', [request]), null);
     await assert.rejects(call(woman, "public.marriage_act($1,'accept')", [request]));
     await db.query('update marriage.member_requests set closed_at=null,closure_outcome=null,closed_requester_alias=null,closed_recipient_alias=null where id=$1', [request]);
     const legacy = (await call(man, 'public.marriage_request_history()'))[0];

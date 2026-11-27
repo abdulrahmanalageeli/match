@@ -19,7 +19,18 @@ test('legacy flattened photos keep blur by default and cannot opt in without sel
  const html=render({existing:photo});
  assert.match(html,/<option value="never" selected="">/);
  for(const policy of ['matched','serious','family'])assert.match(html,new RegExp(`<option value="${policy}" disabled="">`));
- assert.match(html,/لا يمكن استعادة التفاصيل من النسخة المموّهة/);
+ assert.match(html,/الصورة المموّهة فقط، وما نقدر نسترجع منها الصورة الواضحة/);
+ assert.match(html,/اختاري الصورة من جديد إذا تبين تفعيل إزالة التمويه تلقائيًا/);
+ assert.doesNotMatch(html,/باختيار هذا الموعد، توافقين/);
+});
+
+test('selecting a replacement source enables reveal choices but leaves sharing off by default',()=>{
+ const file=new File(['portrait fixture'],'portrait.jpg',{type:'image/jpeg'});
+ const change={blob:file,url:'blob:fixture',blur:65,revealPolicy:'never',framing:{file,crop:{x:0.5,y:0.35,zoom:1}}};
+ const html=render({existing:photo,change});
+ assert.match(html,/<option value="never" selected="">/);
+ for(const policy of ['matched','serious','family'])assert.match(html,new RegExp(`<option value="${policy}">`));
+ assert.match(html,/لا نحتفظ بنسخة واضحة لهذا الخيار/);
  assert.doesNotMatch(html,/باختيار هذا الموعد، توافقين/);
 });
 

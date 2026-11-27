@@ -12,7 +12,8 @@ test('retirement closes legacy photo access and queues existing blobs while keep
   const path=u.id+'/'+randomUUID()+'.jpg';
   await db.query("insert into storage.objects(bucket_id,name) values('nisfayn-private-photos',$1)",[path]);
   const { readFile }=await import('node:fs/promises');
-  await db.exec(await readFile(new URL('../migrations/20261123144400_retire_temporary_photo_sharing.sql',import.meta.url),'utf8'));
+  const migration=await readFile(new URL('../migrations/20261123144400_retire_temporary_photo_sharing.sql',import.meta.url),'utf8');
+  await db.exec(migration.replace(/\r\n/g,'\n'));
   for(const fn of ['public.marriage_photo_prepare()','public.marriage_photo_share(uuid,boolean)','marriage.photo_state(uuid)']){
    assert.equal((await db.query("select has_function_privilege('authenticated',$1,'execute') ok",[fn])).rows[0].ok,false);
   }

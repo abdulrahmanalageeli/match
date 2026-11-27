@@ -13,6 +13,8 @@ function harness(actor) {
   const ai = [], remote = [], localCalls = [];
   const state = { actor, profiles: {}, profileRevision: '1', messages: [], read: {}, matched: true, exclusive: false };
   const local = { simulation: { snapshot: () => ({}) }, inbox: async () => [],
+    exclusiveConnection: () => null,
+    retireOtherConnections: () => { localCalls.push(['retire']); },
     agreement: async id => { localCalls.push(['agreement', id]); return { status: 'proposed' }; },
     agree: async (id, action, payload) => { localCalls.push(['agree', id, action, payload]); return { status: 'accepted' }; },
     send: async (...args) => { localCalls.push(['send', ...args]); return args[2]; },
@@ -56,6 +58,10 @@ test('fictional replies use only their supplied transcript while real pair sendi
   assert.equal(h.remote.at(-1).action, 'send');
   assert.equal(h.remote.at(-1).payload.body, 'رسالة خاصة بيننا');
   assert.equal(h.localCalls.length, 0);
+  h.local.exclusiveConnection = () => 'fictional-connection';
+  await assert.rejects(h.pair.source.send('tester-pair', 'رسالة ثانية', 'another-id'), /حصري/);
+  assert.equal(h.remote.filter(request => request.action === 'send').length, 1);
+  assert.equal(h.ai.length, 1);
 });
 
 test('fictional agreement actions stay local and exclusive real pairing blocks them', async () => {
@@ -66,4 +72,5 @@ test('fictional agreement actions stay local and exclusive real pairing blocks t
   assert(h.remote.every(request => request.action === 'state'));
   h.state.exclusive = true;
   await assert.rejects(h.pair.source.agree('fictional-connection', 'accept', { signed: true }), /حصري/);
+  assert.deepEqual(h.localCalls.map(call => call[0]), ['agreement', 'agree', 'retire']);
 });

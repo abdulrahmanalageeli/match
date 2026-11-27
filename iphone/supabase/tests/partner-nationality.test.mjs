@@ -36,18 +36,24 @@ test('explicit nationality preferences preserve open defaults and enforce recipr
   const {add,call,rpc,save,approve}=setup(db);
   const man=await add('man',{marriageBasics:{nationality:'سعودي',tribalBackground:'tribal'}});
   const woman=await add('woman',{marriageBasics:{nationality:'مصرية',tribalBackground:'non_tribal'}});
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true,'identity never implies same identity requirement');
+  const distance=()=>rpc('marriage.recommendation_distance($1,$2)',[man.id,woman.id]);
+  assert.equal(await distance(),0,'identity never implies same identity requirement');
   await save(man,{partnerCriteria:{nationality:{mode:'require',values:['مصري']},tribalBackground:{mode:'any'}}});await approve(man);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true);
+  assert.equal(await distance(),0);
   await save(woman,{partnerCriteria:{nationality:{mode:'require',values:['سعودية'],exclude:true}}});await approve(woman);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),false,'either participant may exclude a nationality');
+  assert.equal(await distance(),null,'either participant may exclude a nationality from recommendations');
+  for(const [viewer,peer] of [[man,woman],[woman,man]]){
+   const [card]=await call(viewer,'public.marriage_browse($1)',[{mode:'all',subjectId:peer.id}]);
+   assert.equal(card.id,peer.id);assert.equal(card.eligible,true);assert.equal(card.partnerCriteria,undefined);
+   assert.deepEqual(await call(viewer,'public.marriage_browse($1)',[{mode:'recommended',includeCloseRecommendations:true}]),[]);
+  }
   await save(woman,{partnerCriteria:{nationality:{mode:'any'},tribalBackground:{mode:'require',target:'non_tribal'}}});await approve(woman);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),false,'own background and acceptable background are separate');
+  assert.equal(await distance(),null,'own background and acceptable background are separate');
   await save(woman,{partnerCriteria:{tribalBackground:{mode:'any'}}});await approve(woman);
   await save(man,{partnerCriteria:{nationality:{mode:'require',values:['سعودي']}}});await approve(man);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),false);
+  assert.equal(await distance(),null);
   await save(man,{partnerCriteria:{nationality:{mode:'prefer',values:['سعودي']}}});await approve(man);
-  assert.equal(await rpc('marriage.compatible($1,$2)',[man.id,woman.id]),true,'preferences rank without exclusion');
+  assert.equal(await distance(),1,'one unmet ordinary preference can supply a close recommendation');
   await assert.rejects(save(man,{partnerCriteria:{nationality:{mode:'require',values:[]}}}));
   await assert.rejects(save(man,{partnerCriteria:{nationality:{mode:'require',values:['سعودي'],exclude:'yes'}}}));
   const profile=await rpc('marriage.profile_json($1)',[woman.id]);assert.equal(profile.partnerCriteria.tribalBackground.mode,'any');

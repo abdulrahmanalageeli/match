@@ -14,7 +14,7 @@ const isolated = isolateCommunityServices(compiled)
   .replace("'../readiness/model'", JSON.stringify(new URL('../readiness/model.ts', import.meta.url).href))
   .replace("'../family/model'", JSON.stringify(new URL('../family/model.ts', import.meta.url).href))
   .replace("'../compatibility/model'", JSON.stringify(new URL('../compatibility/model.ts', import.meta.url).href))
-  .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/community\/data['"];?/, `const demoProfile = ${JSON.stringify(fixture)}; const demoCommunity = () => ({ inbox: async () => [], watch: () => () => {} });`)
+  .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/community\/data['"];?/, `const demoProfile = ${JSON.stringify(fixture)}; const demoCommunity = () => ({ inbox: async () => [], exclusiveConnection: () => null, watch: () => () => {} });`)
   .replace(/import\s*\{[^}]+\}\s*from ['"]\.\.\/deployment['"];?/, `const marriageProjectUrl = 'https://test.invalid'; const marriagePublishableKey = 'public-test-key';`);
 const { testProfile, testPerson, pairSource } = await import('data:text/javascript;base64,' + Buffer.from(isolated).toString('base64'));
 const snapshot = profileRevision => ({ profileRevision, actor: 'reham', matched: true, messages: [], read: {}, profiles: {}, stage: 0, agree: {}, call: null });

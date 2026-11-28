@@ -26,6 +26,11 @@ const seed:Row[] = [
  {id:'once',sender:'abdulrahman',body:'صورة لمرة واحدة',createdAt:time(2),attachment:{id:'once-photo',kind:'photo',mime:'image/webp',size:100,viewOnce:true},media:'/demo/portraits/sarah-realistic-v2.webp'},
  {id:'regular',sender:'reham',body:'صورة',createdAt:time(1),attachment:{id:'regular-photo',kind:'photo',mime:'image/webp',size:100},media:'/demo/portraits/sarah-realistic-v2.webp'},
 ];
+if (params.has('missedCall')) {
+ const yesterday = new Date();
+ yesterday.setDate(yesterday.getDate() - 1);
+ seed.unshift({id:'missed-call',sender:'reham',body:'',missedCall:true,createdAt:yesterday.toISOString()});
+}
 if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(seed));
 let permission: {status:'none'|'pending';direction?:'outgoing'} = {status:'none'};
 const listeners = new Set<(signal?: ChatSignal)=>void>();

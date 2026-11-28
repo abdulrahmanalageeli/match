@@ -61,3 +61,23 @@
 .cm-delete-confirm p { font-size: .9rem; line-height: 1.9; }
 .cm-delete-confirm small { display: block; color: var(--muted); font-size: .74rem; line-height: 1.9; }
 @media print { html[data-capture-scope] :is(.cm-chat, .cm-photo-viewer) { visibility: hidden!important; } }
+.cm-missed-call {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  color: var(--supporting-ink, #625b61);
+  font-size: 0.875rem;
+  text-align: center;
+}
+.cm-missed-call time { white-space: nowrap; }
+.cm-missed-call button {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}

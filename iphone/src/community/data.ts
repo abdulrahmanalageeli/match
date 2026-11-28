@@ -99,6 +99,7 @@ export function withOwnReaction(reactions: readonly MessageReaction[] | undefine
 }
 export type Message = {
   id: string;
+  missedCall?: true;
   senderIsMe: boolean;
   body: string;
   createdAt: string;
@@ -111,6 +112,11 @@ export type Message = {
   deletedAt?: string | null;
   reactions?: MessageReaction[];
 };
+export function withMissedCalls(messages: Message[], calls: Message[]) {
+  if (!calls.length) return messages;
+  return [...messages, ...calls].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)
+    || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+}
 export type ChatAttachment = { id: string; kind: "photo" | "audio"; mime: string; size: number; duration?: number; viewOnce?: boolean; openedAt?: string | null; viewedAt?: string | null };
 export type ThreadReadState = { firstUnreadId: string | null; unreadCount: number };
 export function searchMessageRows(rows: readonly Message[], query: string, beforeId?: string, kind?: ChatAttachment['kind']): Message[] {
@@ -191,6 +197,7 @@ export interface CommunitySource extends ManualVerificationSource {
   profileReading?: DeepAnalysisSource;
   suggestOpener?(person: PublicPerson): Promise<string>;
   simulation?: DemoSimulationController;
+  recordDemoMissedCall?(requestId: string, id: string, createdAt: string, outgoing: boolean): void;
   demoInteractions?: CommunitySource;
   family?: FamilyRequest;
   familyTestMode?: boolean;
@@ -304,7 +311,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends, 
     }
   }
   function acknowledgeReceived(requestId: string, rows: Message[]) {
-    const received = rows.filter(row => !row.senderIsMe && !row.deletedAt && !row.deliveredAt).map(row => row.id);
+    const received = rows.filter(row => !row.missedCall && !row.senderIsMe && !row.deletedAt && !row.deliveredAt).map(row => row.id);
     if (received.length) void timedRpc("marriage_confirm_thread_delivery", {request_id: requestId, message_ids: received}).catch(() => {});
     return rows;
   }
@@ -468,11 +475,11 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends, 
       );
     },
     async thread(requestId, beforeId) {
-      const rows = await timedRpc<Message[]>("marriage_thread_page", { request_id: requestId, before_id: beforeId ?? null });
+      const rows = await timedRpc<Message[]>("marriage_chat_timeline", { request_id: requestId, before_id: beforeId ?? null });
       return acknowledgeReceived(requestId, rows);
     },
     async messageChanges(requestId, messageIds) {
-      const rows = await timedRpc<Message[]>("marriage_message_changes", {request_id: requestId, message_ids: messageIds});
+      const rows = await timedRpc<Message[]>("marriage_chat_timeline_changes", {request_id: requestId, message_ids: messageIds});
       return acknowledgeReceived(requestId, rows);
     },
     searchMessages: (requestId, query, beforeId, kind) => timedRpc('marriage_search_messages', { request_id: requestId, search_query: query, before_id: beforeId ?? null, media_kind: kind ?? null }),
@@ -690,6 +697,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   // Fictional connections keep contact details in memory, outside the saved demo snapshot.
   const familyPhones = new Map<string, string>();
   const callPermissions = new Map<string, CallPermissionState>();
+  const missedCalls = new Map<string, Message[]>();
   let exclusiveId: string | null = null;
   const galleryPhotos: (GalleryPhoto & { url: string })[] = [];
   const storageKey = simulationOptions.storageKey ? `${simulationOptions.storageKey}:${viewer().gender}` : undefined;
@@ -701,7 +709,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       localStorage.setItem(storageKey, JSON.stringify({version:1, records:records.slice(0,40),
         messages:[...messages].map(([id,rows])=>{const text=rows.filter(row=>!row.attachment);return [id,text.length>100?[...text.slice(0,4),...text.slice(-96)]:text];}),
         hidden:[...hiddenPeople],blocked:[...blockedPeople],interested:[...interestedPeople],read:[...readThrough],steps:[...steps],agreements:[...agreements],callPermissions:[...callPermissions],
-        exclusiveId,activity:activityRows.slice(-40),seen:[...celebrationsSeen],simulation:simulation.snapshot()}));
+        missedCalls: [...missedCalls], exclusiveId,activity:activityRows.slice(-40),seen:[...celebrationsSeen],simulation:simulation.snapshot()}));
     } catch { /* Quota/private browsing must not break the test app. */ }
   }
   if (storageKey) {
@@ -723,6 +731,10 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
         for (const entry of Array.isArray(saved.steps)?saved.steps:[]) if(Array.isArray(entry)&&records.some(r=>r.id===entry[0])&&entry[1]&&[0,1,2].includes(entry[1].stage))steps.set(entry[0],entry[1]);
         for (const entry of Array.isArray(saved.agreements)?saved.agreements:[]) if(Array.isArray(entry)&&records.some(r=>r.id===entry[0])&&entry[1]&&['none','proposed','accepted','expired','family'].includes(entry[1].status))agreements.set(entry[0],entry[1]);
         for (const entry of Array.isArray(saved.callPermissions)?saved.callPermissions:[]) if(Array.isArray(entry)&&records.some(r=>r.id===entry[0])&&entry[1]&&['none','pending','accepted','declined'].includes(entry[1].status))callPermissions.set(entry[0],entry[1]);
+        for (const entry of Array.isArray(saved.missedCalls) ? saved.missedCalls : []) {
+          if (!Array.isArray(entry) || !records.some(r => r.id === entry[0]) || !Array.isArray(entry[1])) continue;
+          missedCalls.set(entry[0], entry[1].filter((row: Message) => row?.missedCall === true && typeof row.id === 'string' && typeof row.senderIsMe === 'boolean' && Number.isFinite(Date.parse(row.createdAt))).slice(-100));
+        }
         exclusiveId=records.some(r=>r.id===saved.exclusiveId&&r.status==='accepted')?saved.exclusiveId:null;
         activityRows.push(...(Array.isArray(saved.activity)?saved.activity:[]).filter((n:ActivityNotification)=>n&&typeof n.id==='string'&&validPerson(n.person?.id)&&['profile_visit','interest'].includes(n.kind)).slice(-40));
         for(const id of Array.isArray(saved.seen)?saved.seen:[])if(typeof id==='string')celebrationsSeen.add(id);
@@ -944,7 +956,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       if(activityRows.length>40)activityRows.splice(0,activityRows.length-40);
     },
     changed:notify,
-    reset(){records.splice(0);messages.clear();readThrough.clear();steps.clear();agreements.clear();familyPhones.clear();callPermissions.clear();typingPeople.clear();hiddenPeople.clear();blockedPeople.clear();interestedPeople.clear();activityRows.splice(0);celebrationsSeen.clear();exclusiveId=null;mediaFiles.clear();},
+    reset(){records.splice(0);messages.clear();missedCalls.clear();readThrough.clear();steps.clear();agreements.clear();familyPhones.clear();callPermissions.clear();typingPeople.clear();hiddenPeople.clear();blockedPeople.clear();interestedPeople.clear();activityRows.splice(0);celebrationsSeen.clear();exclusiveId=null;mediaFiles.clear();},
   },simulationOptions,persistedSimulation);
   const profileReading = createProfileReading(id => {
     const member = viewer();
@@ -955,6 +967,13 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
   }, notify, simulationOptions.generateReading, () => simulationOptions.membershipTier?.()==='seriousness');
   return {
     simulation, profileReading,
+    recordDemoMissedCall(requestId, id, createdAt, outgoing) {
+      if (!records.some(r => r.id === requestId && r.status === 'accepted')) return;
+      const calls = missedCalls.get(requestId) ?? [];
+      if (calls.some(row => row.id === id)) return;
+      missedCalls.set(requestId, [...calls.slice(-99), { id, createdAt, senderIsMe: outgoing, body: '', missedCall: true }]);
+      notify();
+    },
     ownsConnection: id => records.some(r => r.id === id),
     exclusiveConnection: () => exclusiveId,
     retireOtherConnections() {
@@ -1235,11 +1254,11 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       typingPeople.delete(id); notify(); simulation.wake();
     },
     async thread(id, beforeId) {
-      const list = threadRows(id);
+      const list = withMissedCalls(threadRows(id), missedCalls.get(id) ?? []);
       const end = beforeId ? list.findIndex((m) => m.id === beforeId) : list.length;
       return end <= 0 ? [] : list.slice(Math.max(0, end - messagePageSize), end);
     },
-    async messageChanges(id, messageIds) { const ids = new Set(messageIds); return threadRows(id).filter(row => ids.has(row.id)); },
+    async messageChanges(id, messageIds) { const ids = new Set(messageIds); return withMissedCalls(threadRows(id), missedCalls.get(id) ?? []).filter(row => ids.has(row.id)); },
     async searchMessages(id, query, beforeId, kind) { return searchMessageRows(threadRows(id), query, beforeId, kind); },
     async readState(id) {
       const rows = threadRows(id), last = rows.findIndex(row => row.id === readThrough.get(id));

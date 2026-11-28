@@ -39,15 +39,49 @@ const jpeg=new Blob(['photo'],{type:'image/jpeg'});
 const stamp=new Date().toISOString();
 const row=(id,extra={})=>({id,body:'private '+id,createdAt:stamp,senderIsMe:true,...extra});
 
+test('a missed demo call survives reopening and paging without becoming an unread message',async t=>{
+ const saved = new Map(), original = globalThis.localStorage;
+ globalThis.localStorage = {getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value)};
+ t.after(()=>{if(original===undefined)delete globalThis.localStorage;else globalThis.localStorage=original;});
+ const options={storageKey:'missed-demo-call'}, id='demo-mutual';
+ const source=demoCommunity(()=>demoProfile,true,options);
+ const before=await source.readState(id);
+ const date=new Date(Date.now()+1000).toISOString();
+ source.recordDemoMissedCall(id,'missed',date,false);
+ source.recordDemoMissedCall(id,'missed',date,false);
+ const reopened=demoCommunity(()=>demoProfile,false,options);
+ const timeline=await reopened.thread(id);
+ assert.deepEqual(timeline.map(row=>row.id),['welcome','missed']);
+ assert.equal(timeline[1].senderIsMe,false);
+ assert.equal(timeline[1].missedCall,true);
+ assert.deepEqual(await reopened.thread(id,'missed'),[timeline[0]]);
+ assert.deepEqual(await reopened.messageChanges(id,['missed']),[timeline[1]]);
+ assert.deepEqual(await reopened.readState(id),before);
+ assert.deepEqual(await reopened.searchMessages(id,'missed'),[]);
+});
+
 test('real chat deletion and historical refresh keep the authenticated RPC boundary',async t=>{
  const calls=[];globalThis.window={setTimeout,clearTimeout};globalThis.__chatRpc=async(...args)=>{calls.push(args);return [];};
  t.after(()=>{delete globalThis.window;delete globalThis.__chatRpc;});
  const source=cloudCommunity('member');
- await source.deleteMessage('room','message');await source.messageChanges('room',['older']);
+ await source.deleteMessage('room','message');await source.thread('room','call-or-message');await source.messageChanges('room',['older']);
  assert.deepEqual(calls.map(([name,payload,user])=>[name,payload,user]),[
   ['marriage_delete_message',{request_id:'room',message_id:'message'},'member'],
-  ['marriage_message_changes',{request_id:'room',message_ids:['older']},'member']]);
+  ['marriage_chat_timeline',{request_id:'room',before_id:'call-or-message'},'member'],
+  ['marriage_chat_timeline_changes',{request_id:'room',message_ids:['older']},'member']]);
  assert.equal(typeof source.sendMedia,'function');
+});
+
+test('a call row never becomes a message delivery acknowledgement',async t=>{
+ const calls=[];
+ globalThis.window={setTimeout,clearTimeout};
+ globalThis.__chatRpc=async(name,params)=>{
+  calls.push([name,params]);
+  return name==='marriage_chat_timeline'?[row('missed',{missedCall:true,senderIsMe:false}),row('message',{senderIsMe:false})]:[];
+ };
+ t.after(()=>{delete globalThis.window;delete globalThis.__chatRpc;});
+ await cloudCommunity('member').thread('room');
+ assert.deepEqual(calls.at(-1),['marriage_confirm_thread_delivery',{request_id:'room',message_ids:['message']}]);
 });
 
 test('live discovery forwards every filter in both modes and keeps request dates authoritative',async t=>{

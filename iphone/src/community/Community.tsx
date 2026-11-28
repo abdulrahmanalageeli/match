@@ -68,6 +68,7 @@ import {
   MessageCircle,
   MoreHorizontal,
   Pause,
+  Phone,
   RotateCcw,
   Reply,
   Search,
@@ -179,6 +180,7 @@ const time = new Intl.DateTimeFormat("ar-SA", {
   hour: "2-digit",
   minute: "2-digit",
 });
+const callTime = new Intl.DateTimeFormat('ar-SA-u-nu-arab', { hour: 'numeric', minute: '2-digit' });
 const dateLabel = new Intl.DateTimeFormat("ar-SA-u-ca-gregory", {
   day: "numeric",
   month: "long",
@@ -1339,7 +1341,7 @@ function JourneySummary({ progress, name, detail, open }: { progress: StepProgre
 function groupedTexts(previous: Message | undefined, current: Message | undefined, unread: string | null | undefined, deleted: Set<string>) {
   if (!previous || !current || current.id === unread || previous.senderIsMe !== current.senderIsMe) return false;
   for (const row of [previous, current]) {
-    if (row.attachment || row.reply || row.deletedAt || deleted.has(row.id) || ('status' in row && row.status !== 'saved')) return false;
+    if (row.missedCall || row.attachment || row.reply || row.deletedAt || deleted.has(row.id) || ('status' in row && row.status !== 'saved')) return false;
   }
   const before = new Date(previous.createdAt), after = new Date(current.createdAt);
   const gap = after.getTime() - before.getTime();
@@ -1607,7 +1609,7 @@ export function Chat({
     catch{setMuteError('لم يتغير كتم المحادثة. حاول مجددًا.');}
     finally{setMuting(false);}
   }
-  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.senderIsMe).at(-1)?.id, reading.positioned && canDraft && !pageHidden && !safety && !guide && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen);
+  useReadPosition(source, connection.id, log, thread.rows.filter(m => !m.missedCall && !m.senderIsMe).at(-1)?.id, reading.positioned && canDraft && !pageHidden && !safety && !guide && !profileOpen && !familyOpen && !endMatch && !toolsOpen && !insightsOpen && !deepOpen && !deleteTarget && !messageActionId && !libraryOpen, lastRow?.missedCall);
   function messagePermissions(msg: Message) {
     const status = 'status' in msg ? msg as Outgoing : undefined;
     const deleted = Boolean(msg.deletedAt) || deletedIds.has(msg.id);
@@ -1619,8 +1621,9 @@ export function Chat({
       canDelete: Boolean(source.deleteMessage) && msg.senderIsMe && !deleted && saved && Date.now() - Date.parse(msg.createdAt) < 48 * 60 * 60 * 1000,
     };
   }
-  const evidenceRow = evidence ? thread.rows.findIndex(m => m.id===evidence.id) : -1;
-  const evidenceContext = evidenceRow<0 ? [] : [thread.rows[evidenceRow-1],thread.rows[evidenceRow+1]].filter((m):m is Message => !!m && !m.attachment && !m.deletedAt && !deletedIds.has(m.id) && (!('status' in m) || m.status==='saved'));
+  const evidenceMessages = evidence ? thread.rows.filter(message => !message.missedCall) : [];
+  const evidenceRow = evidence ? evidenceMessages.findIndex(m => m.id===evidence.id) : -1;
+  const evidenceContext = evidenceRow<0 ? [] : [evidenceMessages[evidenceRow-1],evidenceMessages[evidenceRow+1]].filter((m):m is Message => !!m && !m.attachment && !m.deletedAt && !deletedIds.has(m.id) && (!('status' in m) || m.status==='saved'));
   const actionMessage = thread.rows.find(msg => msg.id === messageActionId);
   const actionPermissions = actionMessage ? messagePermissions(actionMessage) : null;
   const hasMessageActions = Boolean(actionPermissions?.canReport || actionPermissions?.canReply || actionPermissions?.canDelete || actionPermissions?.canReact);
@@ -1872,6 +1875,22 @@ export function Chat({
           {thread.rows.map((msg, i) => {
             const day = messageDay(msg.createdAt);
             const newDay = day && (i === 0 || day !== messageDay(thread.rows[i - 1].createdAt));
+            if (msg.missedCall) {
+              const when = new Date(msg.createdAt);
+              const today = new Date();
+              const yesterday = new Date(today);
+              yesterday.setDate(today.getDate() - 1);
+              const date = when.toDateString() === today.toDateString() ? 'اليوم' : when.toDateString() === yesterday.toDateString() ? 'أمس' : day;
+              const eventNode = <div key={msg.id} data-row-id={msg.id} data-server-id={msg.id} className="cm-missed-call-row">
+                {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
+                <div className="cm-missed-call">
+                  <Phone size={17} aria-hidden="true"/>
+                  <span>{msg.senderIsMe ? 'مكالمة صادرة بلا رد' : 'مكالمة فائتة'} <time dateTime={msg.createdAt}>{date}، {callTime.format(when)}</time></span>
+                  <button type="button" disabled={!canDraft || recording} onClick={() => composer.current?.focus()}>إرسال رسالة</button>
+                </div>
+              </div>;
+              return i === deepEventIndex ? [deepTimelineMarker, eventNode] : eventNode;
+            }
             const { status, deleted, canReply, canDelete, canReact, canReport } = messagePermissions(msg);
             const key = (msg.senderIsMe && msg.clientId) || msg.id;
             const read = msg.readByPeer || Boolean(msg.readAt);

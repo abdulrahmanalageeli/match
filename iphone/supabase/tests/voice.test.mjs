@@ -146,3 +146,70 @@ test('voice tables and unchecked helpers are inaccessible to API roles',async()=
   }
  }finally{await db.close()}
 });
+
+test('chat timeline persists only missed calls, preserves message RPCs, and revokes access with the thread', async () => {
+ const db = await createDatabase();
+ try {
+  const {add,pair,start,act,call} = setup(db);
+  const a = await add('man'), b = await add('woman'), other = await add('woman');
+  const request = await pair(a,b);
+  const page = (user, before = null) => call(user,'public.marriage_chat_timeline($1,$2)',[request,before]);
+  const changed = (user, ids) => call(user,'public.marriage_chat_timeline_changes($1,$2)',[request,ids]);
+  const textId = await call(a,'public.marriage_message($1,$2,$3)',[request,'مساء الخير',randomUUID()]);
+  const declined = await start(a,request); await act(b,declined.id,'decline');
+  const cancelled = await start(b,request); await act(b,cancelled.id,'end');
+  const answered = await start(b,request); await act(a,answered.id,'accept'); await act(a,answered.id,'end');
+  const ring = await start(a,request);
+  const originalMessages = await call(b,'public.marriage_thread_page($1,null)',[request]);
+  assert.deepEqual(await page(b),originalMessages);
+  await db.query("update marriage.voice_calls set ringing_until = now() - interval '1 second' where id=$1",[ring.id]);
+
+  await db.exec('delete from realtime.messages');
+  // No call-state poll or native device event is needed to settle the timeout.
+  const missed = {id:ring.id,createdAt:ring.createdAt,senderIsMe:false,body:'',missedCall:true};
+  assert.deepEqual(await page(b),[...originalMessages,missed]);
+  assert.deepEqual(await page(b),[...originalMessages,missed]);
+  assert.deepEqual(await changed(a,[ring.id]),[{...missed,senderIsMe:true}]);
+  const eventKey = 'missed_call:received:' + ring.id;
+  const notices = await db.query('select member_id, request_id, target_id from marriage.notification_updates where event_key=$1', [eventKey]);
+  assert.deepEqual(notices.rows, [{member_id:b.id,request_id:request,target_id:request}]);
+  const received = (await call(b,'public.marriage_push_updates()',[])).filter(n=>n.event==='missed_call:received');
+  assert.deepEqual(received.map(n=>n.target), [request]);
+  const signals = (await db.query("select distinct topic from realtime.messages where private and event='changed' order by topic")).rows;
+  assert.deepEqual(signals.map(row=>row.topic), [a.id,b.id].map(id=>'marriage:member:'+id).sort());
+  assert.deepEqual(await changed(b,[textId,declined.id,cancelled.id,answered.id]),originalMessages);
+  assert.deepEqual(await call(b,'public.marriage_thread_page($1,null)',[request]),originalMessages);
+  assert.deepEqual(await page(b,ring.id),originalMessages);
+  assert.deepEqual(await page(b,cancelled.id),[]);
+  await assert.rejects(changed(a,Array(101).fill(ring.id)),/دفعات/);
+  await assert.rejects(page(other),/غير متاحة/);
+  await assert.rejects(changed(other,[ring.id]),/غير متاحة/);
+  await call(b,"public.marriage_act($1,'block')",[request]);
+  await assert.rejects(page(a),/غير متاحة/);
+  await assert.rejects(changed(b,[ring.id]),/غير متاحة/);
+ } finally { await db.close(); }
+});
+
+test('mixed call and message history has stable fifty-row pages even at a timestamp tie', async () => {
+ const db = await createDatabase();
+ try {
+  const {add,pair,call} = setup(db);
+  const a = await add('man'), b = await add('woman'), request = await pair(a,b);
+  const textId = await call(a,'public.marriage_message($1,$2,$3)',[request,'رسالة قديمة',randomUUID()]);
+  const stamp = '2026-01-01T10:00:00Z';
+  await db.query('update marriage.thread_messages set created_at=$2 where id=$1',[textId,stamp]);
+  await db.query(`insert into marriage.voice_calls(request_id, caller_id, callee_id, client_id, status, created_at, ended_at, end_reason)
+   select $1,$2,$3,gen_random_uuid(),'ended',$4,$4,'missed' from generate_series(1,51)`,[request,a.id,b.id,stamp]);
+  const page = before => call(b,'public.marriage_chat_timeline($1,$2)',[request,before]);
+  const latest = await page(null), oldest = await page(latest[0].id);
+  assert.equal(latest.length,50); assert.equal(oldest.length,2);
+  const combined = [...oldest,...latest], ids = combined.map(row => row.id);
+  assert.equal(new Set(ids).size,52); assert.deepEqual(ids,[...ids].sort());
+  assert.equal(combined.filter(row => row.missedCall).length,51); assert(ids.includes(textId));
+  assert.deepEqual(await page(oldest[0].id),[]);
+  for (const role of ['anon','service_role']) {
+   const access = await db.query("select has_function_privilege($1, 'public.marriage_chat_timeline(uuid,uuid)', 'execute') as allowed",[role]);
+   assert.equal(access.rows[0].allowed,false);
+  }
+ } finally { await db.close(); }
+});

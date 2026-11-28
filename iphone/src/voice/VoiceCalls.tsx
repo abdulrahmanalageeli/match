@@ -51,12 +51,17 @@ export function VoiceCallsProvider({ children, source, owner, demo, testApi }: {
     update({ ...previous, status: "ended", endedAt: new Date().toISOString(), endReason: reason });
     setPhase("ended"); setMinimized(false);
     const stopped = media.current?.leave().catch(() => {});
-    if (api) {
+    if (demo && reason === "missed") {
+      source?.recordDemoMissedCall?.(previous.requestId, previous.id, previous.createdAt, previous.direction === "outgoing");
+    }
+    // The server owns ring expiry. Sending "end" from a fast device clock can
+    // turn an unanswered call into a cancellation before the server deadline.
+    if (api && reason !== "missed") {
       try { await api.act(previous.id, action); }
       catch { if (mounted.current) setError("توقف الصوت على جهازك. تعذّر تحديث حالة المكالمة؛ ستنتهي تلقائيًا."); }
     }
     await stopped;
-  }, [api, update]);
+  }, [api, demo, source, update]);
 
   useEffect(() => {
     if (!demo && call?.status === "ringing") void prepareVoiceTransport().catch(() => {});

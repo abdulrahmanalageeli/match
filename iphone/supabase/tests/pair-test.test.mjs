@@ -22,3 +22,28 @@ test('private testers: server-only access, shared messages, role isolation and m
  await rpc('logout',b);await assert.rejects(rpc('state',b));
  }finally{await db.close();}
 });
+
+test('tester missed calls survive a new call, deduplicate across state reads and clear on closure', async () => {
+ const db = await createDatabase();
+ try {
+  const rpc = (action,session,payload={}) => asService(db, async () =>
+   (await db.query('select public.nisfayn_test_rpc($1,$2,$3) as value',[action,session,payload])).rows[0].value);
+  const a = 'a'.repeat(64), b = 'b'.repeat(64);
+  await rpc('login',a,{actor:'abdulrahman'}); await rpc('login',b,{actor:'reham'});
+  const proposal = await rpc('agreement_propose',b,{days:7,signed:true});
+  await rpc('agreement_accept',a,{proposalId:proposal.seriousness.proposalId,signed:true});
+  await rpc('permission_invite',a); await rpc('permission_accept',b);
+  const first = (await rpc('call_start',a,{clientId:'10000000-0000-4000-8000-000000000001'})).call;
+  await db.exec("update nisfayn_test.room set data = jsonb_set(data, '{call,ringingUntil}',to_jsonb(now() - interval '1 minute'))");
+  const second = await rpc('call_start',b,{clientId:'10000000-0000-4000-8000-000000000002'});
+  const expected = [{id:first.id,createdAt:first.createdAt,caller:'abdulrahman'}];
+  assert.deepEqual(second.missedCalls,expected);
+  await rpc('call_decline',a,{callId:second.call.id});
+  assert.deepEqual((await rpc('state',b)).missedCalls,expected);
+  assert.deepEqual((await rpc('state',a)).missedCalls,expected);
+  const closed = await rpc('close',a);
+  assert.equal(closed.missedCalls,undefined);
+  assert.equal((await db.query('select count(*)::int as count from nisfayn_test.missed_calls')).rows[0].count,0);
+  assert.deepEqual((await rpc('reset',a)).missedCalls,[]);
+ } finally { await db.close(); }
+});

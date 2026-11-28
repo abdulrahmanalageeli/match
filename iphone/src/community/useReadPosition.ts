@@ -3,7 +3,7 @@ import type { CommunitySource } from "./data";
 
 export function useReadPosition(
   source: CommunitySource, requestId: string, log: RefObject<HTMLDivElement | null>,
-  latest: string | undefined, enabled: boolean,
+  latest: string | undefined, enabled: boolean, trailingCall = false,
 ) {
   const acknowledged = useRef<string | undefined>(undefined);
   useEffect(() => {
@@ -16,7 +16,7 @@ export function useReadPosition(
     async function check() {
       if (!active || document.hidden || document.querySelector('dialog[open], html[data-capture-native-hidden], html[data-capture-pending]') || busy || acknowledged.current === latest) return;
       const el = element!;
-      if (el.scrollHeight - el.scrollTop - el.clientHeight > 60) return;
+      if (!trailingCall && el.scrollHeight - el.scrollTop - el.clientHeight > 60) return;
       const last = Array.from(el.querySelectorAll<HTMLElement>("[data-server-id]")).find((row) => row.dataset.serverId === latest);
       if (!last) return;
       const position = last.getBoundingClientRect(), bounds = el.getBoundingClientRect();
@@ -41,5 +41,5 @@ export function useReadPosition(
       element.removeEventListener("scroll", schedule); document.removeEventListener("visibilitychange", schedule); document.removeEventListener("focusin", schedule); window.removeEventListener("online", schedule);
       window.removeEventListener("wudayn:privacy-visible", schedule);
     };
-  }, [source, requestId, log, latest, enabled]);
+  }, [source, requestId, log, latest, enabled, trailingCall]);
 }

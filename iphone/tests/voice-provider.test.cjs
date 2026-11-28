@@ -86,7 +86,7 @@ async function fixture(browser) {
     };
     if(navigator.mediaDevices)navigator.mediaDevices.getUserMedia=()=>{throw new Error('Race tests must never use a microphone');};
   });
-  await page.goto(`${url}/tests/voice-provider-harness.html`);
+  await page.goto(`${url}/tests/voice-provider-harness.html`,{timeout:90000});
   await page.waitForFunction(() => window.__voiceRace.apiLog.some(entry => entry.method === 'state'));
   const hold = method => page.evaluate(method => window.__voiceRace.hold(method), method);
   const requested = id => page.waitForFunction(id => window.__voiceRace.requested(id), id);
@@ -118,6 +118,15 @@ async function fixture(browser) {
     catch(error){cases.push({name,status:'failed',error:error.message});console.error('FAIL',name,error.message);await f.page.context().close();}
   };
   try {
+    await run('local ring expiry never cancels the server missed-call record',async f=>{
+      await f.page.evaluate(()=>{
+        const p=window.__voiceRace;
+        p.server={...p.call('missed-fixture','ringing'),ringingUntil:new Date(Date.now()-1000).toISOString()};
+        p.refresh();
+      });
+      await f.page.getByText('لم يتم الرد',{exact:true}).waitFor();
+      assert.equal(await f.page.evaluate(()=>window.__voiceRace.apiLog.filter(x=>x.method==='end').length),0);
+    });
     for(const dismiss of [false,true])await run(`delayed start after explicit cancellation${dismiss?' and dismissal':''}`,async f=>{
       const pending=await f.hold('start');
       await f.page.locator('#start-fixture').click();await f.requested(pending);

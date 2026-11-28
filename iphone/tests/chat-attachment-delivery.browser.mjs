@@ -21,12 +21,26 @@ try {
     const status = await new Promise(resolve => attempts[uploadIndex++].resolve({id:route.request().url().split('/').at(-1), finish:resolve}));
     await route.fulfill({status,body:''});
   });
-  const url = 'http://127.0.0.1:'+server.httpServer.address().port+'/tests/fixtures/chat-privacy-qa.html?delivery&case='+Date.now();
+  const url = 'http://127.0.0.1:'+server.httpServer.address().port+'/tests/fixtures/chat-privacy-qa.html?delivery&missedCall&case='+Date.now();
   await Promise.all([[sender,'abdulrahman'],[peer,'reham']].map(async ([page,actor])=>{
     await page.goto(url+'&actor='+actor,{timeout:90_000});
     await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
     await page.getByRole('textbox',{name:'رسالتك'}).waitFor();
   }));
+  const callRow = page => page.locator('[data-row-id="missed-call"]');
+  const draft = sender.getByRole('textbox',{name:'رسالتك'});
+  await callRow(sender).getByText(/مكالمة فائتة.*أمس/).waitFor();
+  await callRow(peer).getByText(/مكالمة صادرة بلا رد.*أمس/).waitFor();
+  await draft.fill('أرد عليك بعد قليل');
+  await callRow(sender).getByRole('button',{name:'إرسال رسالة',exact:true}).click();
+  assert.equal(await draft.inputValue(),'أرد عليك بعد قليل');
+  assert(await draft.evaluate(input => input === document.activeElement));
+  await draft.fill('');
+  await sender.reload();
+  await sender.getByRole('button',{name:/فتح المحادثة مع/}).click();
+  await callRow(sender).getByText(/مكالمة فائتة.*أمس/).waitFor();
+  assert.equal(await callRow(sender).count(),1);
+  assert.equal(await callRow(sender).locator('[data-receipt]').count(),0);
   const pagesRead = () => peer.evaluate(()=>performance.getEntriesByName('qa-thread-page').length);
   const start = await pagesRead();
   const baseline = await peer.locator('.cm-message-row').count();

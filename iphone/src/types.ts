@@ -81,6 +81,7 @@ export type AccountState = {
     /** Member-requested changes awaiting review; existing accepted conversations remain available. */
     profileReviewPending?: boolean;
     nextPublicProfileEditAt?: string | null;
+    nextCompatibilityEditAt?: string | null;
   };
   profile: Profile | null;
   currentGiftUntil?:string|null;

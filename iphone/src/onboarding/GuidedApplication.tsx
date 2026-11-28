@@ -1,3 +1,4 @@
+import { matchingEditChanged, matchingEditDate, restoreMatchingAnswers } from './profileEditPolicy';
 import { MemberNameFields } from './MemberNameFields';
 import { writingNotes, type WritingNotes } from './PrivateWritingNotes';
 import { privateNextStep } from '../interview/privateNextStep';
@@ -11,7 +12,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type Reac
 import { ArrowLeft, ArrowRight, BookOpen, Check, CheckCheck, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, Pencil, ShieldCheck, Sparkles, UserRound, X } from "../BrandIcons";
 import { Brand } from "../Brand";
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
-import { CompatibilityFields } from "../compatibility/CompatibilityFields";
+import { CompatibilityFields, InterestPicker } from "../compatibility/CompatibilityFields";
 import { practicalAnswerKeys, hasPartnerQuestion, applicableDimensions, dimensionsForVersion, categories, interests } from "../compatibility/model";
 import type { Profile, PortraitRevealPolicy } from "../types";
 import { arabicNumber, chapters, initialDraft, profileBaseline, toProfile, validateStep, type Answers, type ApplicationDraft, type Chapter, type Issue } from "./draft";
@@ -31,8 +32,9 @@ import type { CommunitySource } from '../community/data';
 import { emptyConsents, recordedAccountAgreements, restorePublicationConsent, applyConsentChoices, publicSensitiveFields, withoutSensitive, withoutAssessment, type SignupConsents } from '../legal/consent';
 import { APPLICATION_INTEGRITY_VERSION, applicationIntegrityRule } from '../legal/LegalNotice';
 import { ConsentChoice, ConsentGate, SignupConsentReview } from '../legal/ConsentChoices';
-import { ProfilePreview, ProfileStudio, ProfilePortraitPreview } from './ProfileStudio';
+import { ProfilePreview, ProfileStudio, ProfilePortraitPreview, editorTitles, type StoryPart } from './ProfileStudio';
 import { ProfilePromptFields } from './ProfilePromptFields';
+import { SupportContact } from '../help/SupportContact';
 import { HelpButton } from '../help/HelpCenter';
 import { KeyboardDismiss } from '../mobile/KeyboardDismiss';
 import { feedback } from '../feedback/haptics';
@@ -60,6 +62,7 @@ type Props = {
   initial: Profile | null;
   previouslyApproved: boolean;
   nextPublicProfileEditAt?: string | null;
+  nextCompatibilityEditAt?: string | null;
   profileReviewPending?: boolean;
   busy: boolean;
   back: () => void;
@@ -81,9 +84,9 @@ type Props = {
 const chapterIcons = { identity: UserRound, story: Feather, details: UserRound, avatar: ShieldCheck, criteria: HeartHandshake, compatibility: Sparkles, personality: Sparkles, beena: BookOpen, preferences: HeartHandshake, readiness: ShieldCheck, review: CheckCheck };
 const appearanceNames = Object.fromEntries([...skinTones, ...dressStyles, ...dressFlexibilities].map(option => [option.value, option.label]));
 const chapterFields: Partial<Record<Chapter,(keyof Answers)[]>> = {
-  identity:['firstName','lastName','displayName','birthDate','age','gender','city'], story:['profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether'],
+  identity:['firstName','lastName','displayName','birthDate','age','gender','city'], story:['interestIds','profession','bio','education','marriageIntent','lookingFor','valuesStatement','lifeTogether'],
   details:['marriageBasics'], avatar:['publicAvatar','portrait'], criteria:['partnerCriteria'],
-  compatibility:['interestIds','surveyAnswers','hardRequirements','priorityCategories'], personality:['personalityAnswers'],
+  compatibility:['surveyAnswers','hardRequirements','priorityCategories'], personality:['personalityAnswers'],
   beena:['beena'],
   preferences:['preferredMinAge','preferredMaxAge','familyPreference','contact'],
 };
@@ -158,7 +161,7 @@ function TraitProfile({ answers }: { answers: Answers }) {
     <div key={domain.id}><dt>{domain.label}</dt><dd>{domainNumber.format(domain.mean)} من ٥ <small>الطرف الأعلى للمقياس: {domain.upperAnchor}</small></dd></div>)}</dl>;
 }
 
-function Review({ p, edit, withCompatibility, registration = false, changed, portraitChange, portraitSource, portraitPolicy, sensitivePublication }: { p: Answers; edit: (step: Chapter) => void; withCompatibility: boolean; registration?:boolean; changed?:Set<Chapter>; portraitChange?:PortraitDraft|null; portraitSource?:CommunitySource|null; portraitPolicy?:PortraitRevealPolicy; sensitivePublication:boolean }) {
+function Review({ p, original, edit, withCompatibility, registration = false, changed, portraitChange, portraitSource, portraitPolicy, sensitivePublication }: { p: Answers; original?:Answers; edit: (step: Chapter) => void; withCompatibility: boolean; registration?:boolean; changed?:Set<Chapter>; portraitChange?:PortraitDraft|null; portraitSource?:CommunitySource|null; portraitPolicy?:PortraitRevealPolicy; sensitivePublication:boolean }) {
   const groupProps=(step:Chapter)=>({visible:!changed||changed.has(step),expanded:changed?.size===1});
   const photoUrl=portraitChange===null?null:portraitChange?.url;
   const hasPortrait=Boolean(photoUrl||(photoUrl!==null&&p.portrait));
@@ -177,8 +180,10 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
   return (
     <div className="nf-intake-reviews">
       <ReviewGroup title="الأساسيات" edit={() => edit("identity")} {...groupProps('identity')}>
-        <strong className="nf-review-alias" dir="auto">{p.displayName}</strong>
-        <p className="nf-review-meta"><MapPin size={14} aria-hidden="true" />{p.city}<span aria-hidden="true">·</span>{arabicNumber(Number(p.age))} عامًا<span aria-hidden="true">·</span>{p.gender === "woman" ? "امرأة" : "رجل"}</p>
+        {original ? <dl className="pe-review-list">
+          {([['displayName','الاسم المعروض'],['firstName','الاسم الأول'],['lastName','اسم العائلة'],['birthDate','تاريخ الميلاد'],['gender','الجنس'],['city','مدينة الإقامة']] as const).filter(([key])=>p[key]!==original[key]).map(([key,label])=><div key={key}><dt>{label}</dt><dd dir="auto">{key==='gender'?(p.gender==='woman'?'امرأة':'رجل'):p[key]||'لم يُحدّد'}</dd></div>)}
+        </dl> : <><strong className="nf-review-alias" dir="auto">{p.displayName}</strong>
+        <p className="nf-review-meta"><MapPin size={14} aria-hidden="true" />{p.city}<span aria-hidden="true">·</span>{arabicNumber(Number(p.age))} عامًا<span aria-hidden="true">·</span>{p.gender === "woman" ? "امرأة" : "رجل"}</p></>}
       </ReviewGroup>
       <ReviewGroup title="تفاصيلك الشخصية" edit={() => edit("details")} {...groupProps('details')}>
         <p>{sensitivePublication?'اخترت عرض التفاصيل الحساسة للأعضاء المؤهلين.':'التفاصيل الحساسة أدناه خاصة؛ لن تظهر للأعضاء ما لم توافق على عرضها.'}</p>
@@ -221,16 +226,20 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
         })}
         {!Object.values(p.partnerCriteria ?? {}).some(c => c.mode !== "any") && <p>ليس لديك تفضيل محدد لهذه التفاصيل.</p>}
       </ReviewGroup>}
-      <ReviewGroup title="حياتك" edit={() => edit("story")} {...groupProps('story')}>
+      <ReviewGroup title={registration?"حياتك":"نبذتي وعملي"} edit={() => edit("story")} {...groupProps('story')}>
+        {original ? <dl className="pe-review-list">
+          {([['profession','مجال العمل'],['education','المؤهل التعليمي'],['bio','نبذة عنّي'],['lookingFor','ما أبحث عنه'],['valuesStatement','ما أقدّره'],['lifeTogether','الحياة التي أتخيلها'],['marriageIntent','نيّتي من التعارف']] as const).filter(([key])=>p[key]!==original[key]).map(([key,label])=><div key={key}><dt>{label}</dt><dd dir="auto">{p[key]||'أُزيلت الإجابة'}</dd></div>)}
+          {JSON.stringify(p.interestIds)!==JSON.stringify(original.interestIds)&&<div><dt>اهتماماتي</dt><dd>{chosen.map(item=>item.label).join('، ')||'أُزيلت الاهتمامات'}</dd></div>}
+        </dl> : <>
         <strong>{p.profession}</strong><p className="nf-review-bio" dir="auto">{p.bio}</p>
         {p.education && <p>الدراسة: {p.education}</p>}
         {p.marriageIntent && <p>نيّتي من التعارف: {p.marriageIntent}</p>}
         {p.lookingFor && <><strong>ما أبحث عنه</strong><p className="nf-review-bio" dir="auto">{p.lookingFor}</p></>}
         {p.valuesStatement && <><strong>ما أقدّره ولا أستغني عنه</strong><p className="nf-review-bio" dir="auto">{p.valuesStatement}</p></>}
-        {p.lifeTogether && <><strong>الحياة التي أتخيلها</strong><p className="nf-review-bio" dir="auto">{p.lifeTogether}</p></>}
+        {p.lifeTogether && <><strong>الحياة التي أتخيلها</strong><p className="nf-review-bio" dir="auto">{p.lifeTogether}</p></>}</>}
       </ReviewGroup>
       {withCompatibility && <ReviewGroup title="التوافق" edit={() => edit("compatibility")} {...groupProps('compatibility')}>
-        {chosen.length > 0 && <ul className="nf-review-interests">{chosen.map(item => <li key={item.id}>{item.label}</li>)}</ul>}
+        {registration && chosen.length > 0 && <ul className="nf-review-interests">{chosen.map(item => <li key={item.id}>{item.label}</li>)}</ul>}
         {priorities.length > 0 && <p>أولوياتي: {priorities.map(c => c.label).join("، ")}</p>}
         {requirements.length > 0 && <p>شروطي الأساسية: {requirements.map(d => d.title).join("، ")}</p>}
         {styles.length > 0 && <details className="nf-review-styles"><summary>إجاباتي الخاصة ({arabicNumber(styles.length)})</summary>
@@ -259,7 +268,7 @@ function Review({ p, edit, withCompatibility, registration = false, changed, por
   );
 }
 
-export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, exitPreview, startAt, supportField,
+export function GuidedApplication({ initial, previouslyApproved, nextPublicProfileEditAt, nextCompatibilityEditAt, profileReviewPending=false, save, busy, back, onPrivacy, portraitSource, preview=false, exitPreview, startAt, supportField,
   includeCompatibility = true, draftRef, draftOwner = "", demo = false, interviewAuth = null, accountAgreements = null, defaultContact }: Props) {
   const [interviewOpen, setInterviewOpen] = useState(Boolean(supportField && (startAt==='compatibility'||startAt==='personality') && (!initial||supportField==='قسم التوافق كاملًا'||supportField==='قسم الشخصية كاملًا')));
   const [fallbackAvailable, setFallbackAvailable] = useState(false);
@@ -360,7 +369,11 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const milestoneIdx = Math.max(0, milestones.findIndex(milestone => (milestone.chapters as readonly Chapter[]).includes(chapter.key)));
   const Icon = chapterIcons[chapter.key];
   const usesBasicSlides = !editing && ['identity','story','details'].includes(chapter.key);
-  const p = draft.answers;
+  const p = initial ? {...draft.answers,gender:initial.gender,
+    ...(initial.firstName ? {firstName:initial.firstName} : {}),
+    ...(initial.lastName ? {lastName:initial.lastName} : {}),
+    ...(initial.birthDate ? {birthDate:initial.birthDate,age:String(ageFromBirthday(initial.birthDate)??initial.age)} : {}),
+  } : draft.answers;
   const dimensions = applicableDimensions(p.assessmentVersion,p.surveyAnswers,p.marriageBasics?.childrenCount,p.partnerCriteria?.children);
   const personalityQuestions = personalityQuestionsFor(p.personalityVersion);
   let reviewAnswers=consents.sensitiveProfile?p:withoutSensitive(p);
@@ -368,7 +381,19 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   if(reviewAnswers.gender==='woman'&&reviewAnswers.publicAvatar===undefined&&reviewAnswers.marriageBasics?.dressStyle&&reviewAnswers.marriageBasics?.skinTone&&!portraitChange&&!initial?.portrait)
     reviewAnswers={...reviewAnswers,publicAvatar:{style:reviewAnswers.marriageBasics.dressStyle,skinTone:reviewAnswers.marriageBasics.skinTone}};
   const [editorHome, setEditorHome] = useState(() => Boolean(initial) && draft.step === 'identity' && !draft.returnToReview);
+  const [storyPart,setStoryPart]=useState<StoryPart>();
   const originalAnswers=initialDraft(draftOwner,initial).answers;
+  const matchingChanged=Boolean(initial && matchingEditChanged(originalAnswers,p,consents));
+  const [clock,setClock]=useState(Date.now);
+  const opensAt=nextCompatibilityEditAt ? Date.parse(nextCompatibilityEditAt) : 0;
+  useEffect(()=>{
+    const remaining=opensAt-Date.now();
+    if(remaining<=0)return;
+    const timer=window.setTimeout(()=>setClock(Date.now()),Math.min(remaining+1,2147483647));
+    return ()=>window.clearTimeout(timer);
+  },[clock,opensAt]);
+  const editDate=nextCompatibilityEditAt && opensAt>Math.max(clock,Date.now()) ? matchingEditDate(nextCompatibilityEditAt) : null;
+  const matchingNote=editDate ? 'تقدر تعتمد تغييرات التوافق من '+editDate+' بتوقيت السعودية.' : 'اجمع تغييرات التوافق في تحديث واحد. بعد اعتماده، تقدر تعدّلها مرة ثانية بعد ٣٠ يومًا.';
   const changedSections=new Set<Chapter>((Object.keys(chapterFields) as Chapter[]).filter(key=>chapterFields[key]!.some(field=>JSON.stringify(p[field])!==JSON.stringify(originalAnswers[field]))));
   if (p.marriageBasics?.mahrRange !== originalAnswers.marriageBasics?.mahrRange) changedSections.add('preferences');
   if(portraitChange!==undefined)changedSections.add('avatar');
@@ -637,7 +662,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     else { delete partnerCriteria.dressStyle; delete partnerCriteria.dressFlexibility; }
     update({ gender, marriageBasics, partnerCriteria, ...(gender === "man" ? { publicAvatar: null } : {}) });
   }
-  function move(step: Chapter, returnToReview = false) {
+  function move(step: Chapter, returnToReview = false, part?:StoryPart) {
+    setStoryPart(part);
     if (step !== 'review') setIntegrityAccepted(false);
     setEditorHome(false);
     direction.current = steps.findIndex(entry => entry.key === step) < idx ? "back" : "next";
@@ -683,6 +709,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     event.preventDefault();
     if (busy||photoBusy) return;
     if (usesBasicSlides && basicSlides.current?.advance()) return;
+    if(initial && !initial.birthDate && p.birthDate && (chapter.key==='identity'||chapter.key==='review') && ageFromBirthday(p.birthDate)!==initial.age) {
+      if(chapter.key==='review')move('identity',true);
+      setError({field:'birthDate',text:'تاريخ الميلاد يجب أن يطابق عمرك المسجّل. لتصحيح العمر، تواصل مع الدعم.'});return;
+    }
+    if(chapter.key==='review' && matchingChanged && opensAt>Date.now()){
+      setError({field:'surveyAnswers',text:matchingNote});return;
+    }
     const agreed=consents.adult&&consents.terms&&consents.privacy;
     if(!editing&&includeCompatibility&&['details','review'].includes(chapter.key)&&(!consents.sensitiveProfile||(!entryAuthorized && !consents.sensitivePublication))){
       if(chapter.key!=='details')move('details',true);
@@ -701,6 +734,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
     }
     const issue = validateStep(chapter.key, chapter.key==='review'?reviewAnswers:p, agreed, !editing, !editing&&includeCompatibility, !editing&&consents.sensitiveProfile);
     if (issue) {
+      if (editing && chapter.key==='story' && storyPart) setStoryPart(['profession','education'].includes(issue.field)?'work':'bio');
       setError(issue);
       return;
     }
@@ -758,23 +792,22 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   const formBlocked = busy || leaving || photoBusy || checkingDevice || chooseRecovery || storageState === 'loadError';
   const manualChoices = showManualAssessment ? Object.fromEntries(assessmentContextFromAnswers(p,'manual').map(({id, values}) => [id, values])) : {};
   const choosingAssessment = !editing && chapter.key==='compatibility' && !aiComplete && !(fallbackAvailable && assessmentPath==='questions') && !demo && !preview;
-  const submitLabel = usesBasicSlides ? "متابعة" : chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
-    draft.returnToReview ? "العودة للمراجعة" : editing ? "العودة إلى ملفي" : choosingAssessment ? 'إكمال جلسة التوافق' : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
+  const submitLabel = usesBasicSlides ? "متابعة" : chapter.key === "review" ? (busy ? "جارٍ الحفظ…" : editing ? (matchingChanged ? "اعتماد تعديلات التوافق" : "حفظ التعديلات") : preview || demo ? "إكمال الملف" : initial ? "إرسال التعديلات" : "إرسال طلب العضوية") :
+    draft.returnToReview ? "العودة للمراجعة" : editing ? "تم" : choosingAssessment ? 'إكمال جلسة التوافق' : steps[idx + 1]?.key === "review" ? "شاهد ملفك" : assessmentStep ? `متابعة إلى ${steps[idx + 1]?.label}` : "متابعة";
   return (
     <main className={`nf-intake${editing ? '' : ' nf-intake--new'}`} dir="rtl" data-editing={editing||undefined} data-basic-slides={usesBasicSlides||undefined} data-preview={preview||undefined} data-assessment={assessmentStep||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
       <header className="nf-intake-header">
-        <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving || photoBusy} aria-label="رجوع"><ArrowRight size={19} aria-hidden="true" /></button>
-        <div className="nf-intake-brand"><Brand compact /></div>
-        <div className="nf-intake-header-actions"><HelpButton topic="profile" label="مساعدة"/>{draftRef && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || photoBusy || leaving || chooseRecovery || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="العودة للبداية"><X size={19} aria-hidden="true"/></button>}</div>
+        <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving || photoBusy} aria-label={editing&&editorHome?'العودة إلى الإعدادات':'رجوع'}><ArrowRight size={19} aria-hidden="true" />{editing&&<span>{editorHome?'الإعدادات':'رجوع'}</span>}</button>
+        {editing ? (editorHome ? <h1 className="pe-nav-title">تعديل الملف</h1> : <strong className="pe-nav-title">تعديل الملف</strong>) : <div className="nf-intake-brand"><Brand compact /></div>}
+        <div className="nf-intake-header-actions"><HelpButton topic="profile" label="مساعدة"/>{draftRef && !editing && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || photoBusy || leaving || chooseRecovery || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="العودة للبداية"><X size={19} aria-hidden="true"/></button>}</div>
       </header>
       <div className="nf-intake-main">
           {chooseRecovery && <section className="nf-intake-note" role="group" aria-label="اختيار المسودة"><strong>وجدنا تعديلات محفوظة على هذا الجهاز ونسخة في حسابك.</strong><p>بأي نسخة تود المتابعة؟</p><button type="button" className="f-secondary" onClick={()=>setRecoveryChoice('device')}>متابعة تعديلات هذا الجهاز</button><button type="button" className="f-link" onClick={()=>setRecoveryChoice('account')}>متابعة نسخة الحساب</button></section>}
           {storageState === "restored" && <p role="status" className="nf-intake-note">استعدنا مسودتك الخاصة. راجع موافقات النشر والإقرار قبل الإرسال.</p>}
           {storageState === "loadError" && <div className="nf-intake-error" role="alert">تعذّرت قراءة مسودتك. <button type="button" className="nf-intake-policy" onClick={() => { touched.current=false;setStorageState(null); setRestoreAttempt(n => n + 1); }}>حاول مجددًا</button></div>}
           {storageState === "saveError" && <p className="nf-intake-error" role="alert">تعذّر حفظ المسودة. اضغط «إكمال لاحقًا» لإعادة المحاولة.</p>}
-       {editorHome ? <ProfileStudio answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={busy || leaving} changed={changedSections.size>0} selectedChapter={draft.step} open={step => move(step)} review={() => move('review')}/> : <>
-        {editing ? <div className="nf-intake-progress"><div className="nf-intake-kicker"><span>ملفك / {chapter.label}</span><span>تعديل الملف</span></div></div>
-          : <RegistrationProgress key={chapter.key} stages={milestones} index={milestoneIdx}/>}
+       {editorHome ? <ProfileStudio matchingNote={matchingNote} answers={p} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource} withCompatibility={includeCompatibility} busy={formBlocked} changed={changedSections} open={(step,part) => move(step,false,part)} review={() => move('review')}/> : <>
+        {!editing && <RegistrationProgress key={chapter.key} stages={milestones} index={milestoneIdx}/>}
         <form className="nf-intake-form" onSubmit={submit} ref={form} noValidate>
           <MotionReveal className="nf-intake-stage" key={chapter.key} axis="x" distance={direction.current === 'back' ? 8 : -8} duration={editing ? 240 : 175} fromOpacity={editing ? 0 : .9} data-dir={direction.current} inert={busy || leaving || checkingDevice || chooseRecovery || storageState==='loadError'}>
             <div className="nf-intake-title">
@@ -785,38 +818,43 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
               </svg>
               <div className="nf-intake-heading-tools"><div className="nf-intake-seal" aria-hidden="true"><Icon size={21} strokeWidth={1.55} /></div></div>
               {assessmentStep ? <details className="nf-intake-section-guide"><summary aria-label={`عن هذا القسم: ${chapter.title}`}><h1 ref={heading} tabIndex={-1}>{chapter.title}</h1><ChevronLeft size={14} aria-hidden="true"/></summary><p>{chapter.note}</p></details> : <>
-                <h1 ref={heading} tabIndex={-1}>{chapter.key === 'review' ? editing ? 'مراجعة التعديلات' : 'راجع ملفك.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1>
-                {(editing || (chapter.key !== 'preferences' && chapter.key !== 'avatar')) && <p>{chapter.key==='review'&&editing?'هذه الأقسام التي عدّلتها. راجعها، ثم أكّد الحفظ.':chapter.key==='identity'&&!editing?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p>}
+                <h1 ref={heading} tabIndex={-1}>{editing ? (chapter.key==='story' && storyPart==='work' ? 'العمل والدراسة' : editorTitles[chapter.key]) : chapter.key === 'review' ? 'راجع ملفك.' : chapter.key === 'identity' && !editing ? 'نبدأ بك' : chapter.title}</h1>
+                {!editing && chapter.key !== 'preferences' && chapter.key !== 'avatar' && <p>{chapter.key==='identity'?'هذه التفاصيل تظهر في ملفك.':chapter.note}</p>}
               </>}
             </div>
             <div className="flow-form nf-intake-fields">
               {usesBasicSlides && <SignupBasicsSlides privateNotes={consents.assessment && draftOwner && privateWriting?.owner === draftOwner ? privateWriting.notes : undefined} trackingOwner={trackRegistration?draftOwner:undefined} reviewing={draft.returnToReview} optionalPublication={entryAuthorized} key={chapter.key} ref={basicSlides} chapter={chapter.key} answers={p} update={update} gender={selectGender} consents={consents} consent={chooseConsent} required={includeCompatibility}/>}
-              {!usesBasicSlides && chapter.key === "identity" && <>
-                <MemberNameFields answers={p} update={update} required={!editing || !!initial?.firstName}/>
-                <fieldset className="nf-gender-segment"><legend>أنا</legend><div className="choice-row">
-                  {(["woman","man"] as const).map((gender, n) => <button key={gender} type="button" {...(n === 0 ? field("gender") : {})}
-                    aria-pressed={p.gender === gender} onClick={() => selectGender(gender)}><span>{gender === "woman" ? "امرأة" : "رجل"}</span>{p.gender === gender && <Check size={15} aria-hidden="true"/>}</button>)}
-                </div></fieldset>
-                <div className="field-pair nf-identity-group"><label className="nf-birthday-row"><span className="nf-intake-field-label">تاريخ الميلاد <span>ميلادي</span></span><input {...field('birthDate')} type="date" dir="ltr" autoComplete="bday" aria-describedby={[error?.field==='birthDate'?'nf-intake-error':'','nf-birthday-help'].filter(Boolean).join(' ')} value={p.birthDate ?? ''} max={latestAdultBirthday()} min="1900-01-01" required={!editing || !!initial?.birthDate} onChange={e => { const birthDate=e.target.value; const age=ageFromBirthday(birthDate); update({birthDate,age:age===null?'':String(age)}); }} /></label>
-                  <ChoiceSelect {...field('city')} label="مدينة الإقامة" value={p.city} onChange={city => update({ city })} options={cityOptions} placeholder="اختر مدينتك" required /></div>
-                <small id="nf-birthday-help" className="nf-intake-field-help"><LockKeyhole size={13} aria-hidden="true"/>{p.birthDate && ageFromBirthday(p.birthDate)! >= 18 ? `يظهر عمرك ${arabicNumber(ageFromBirthday(p.birthDate)!)} عامًا، وليس تاريخ ميلادك.` : editing && !p.birthDate ? `العمر المسجّل: ${arabicNumber(Number(p.age))} عامًا. أضف ميلادك لتحديثه.` : 'تاريخ ميلادك خاص بك. التسجيل من عمر ١٨ عامًا.'}</small>
+              {initial && chapter.key === 'identity' && <>
+                <MemberNameFields answers={p} update={update} required={Boolean(initial.firstName || p.firstName || p.lastName)} savedNames={initial}/>
+                <ChoiceSelect {...field('city')} label="مدينة الإقامة" value={p.city} onChange={city=>update({city})} options={cityOptions} placeholder="اختر مدينتك" required/>
+                {!initial.birthDate && <label className="nf-birthday-row"><span>تاريخ الميلاد · ميلادي</span>
+                  <input {...field('birthDate')} type="date" dir="ltr" autoComplete="bday" value={p.birthDate??''} max={latestAdultBirthday()} min="1900-01-01"
+                    onChange={e=>{const birthDate=e.target.value;update({birthDate,age:String(ageFromBirthday(birthDate)??initial.age)});}}/></label>}
+                <section className="pe-verified" aria-label="بيانات التسجيل"><h2><LockKeyhole size={15}/>بيانات التسجيل</h2>
+                  <dl>{(initial.firstName || initial.lastName) && <div><dt>الاسم الرسمي</dt><dd>{[initial.firstName,initial.lastName].filter(Boolean).join(' ')}</dd></div>}
+                  <div><dt>الجنس</dt><dd>{initial.gender==='woman'?'امرأة':'رجل'}</dd></div>
+                  <div><dt>{initial.birthDate?'تاريخ الميلاد':'العمر المسجّل'}</dt><dd>{initial.birthDate ? <bdi>{initial.birthDate}</bdi> : arabicNumber(initial.age)+' عامًا'}</dd></div></dl>
+                  <details><summary>طلب تصحيح بيانات التسجيل</summary><SupportContact subject="تصحيح بيانات التسجيل"/></details>
+                </section>
               </>}
-              {!usesBasicSlides && chapter.key === "story" && <>
-                <ChoiceSelect {...field('profession')} label="مجال العمل أو الوضع المهني" value={p.profession} onChange={profession => update({ profession })} options={professionOptions} placeholder="اختر ما يصف حياتك اليوم" required />
-                <small>يمكنك ذكر مسمّاك المهني وتخصصك بكلماتك في النبذة.</small>
-                <small>يقرأ الأعضاء الذين يظهر لهم ملفك هذه النبذة. يمكنك إبقاء رقمك واسم عائلتك خارجها.</small><label>نبذة قصيرة<textarea {...field("bio")} value={p.bio} onChange={e => update({bio: e.target.value})} maxLength={1200} rows={4} required placeholder="ما الذي تحب أن يعرفه الطرف الآخر عنك؟" /></label>
-                <div className="nf-intake-wordcount">{arabicNumber(p.bio.length)} / {arabicNumber(1200)}</div>
-                <details className="nf-story-more nf-story-prompts" open={!editing || undefined}><summary><span>المزيد عنك<small>{editing ? "ثلاثة أسئلة اختيارية" : "ثلاث لمحات قصيرة"}</small></span><ChevronLeft size={17}/></summary><div><ProfilePromptFields required={!editing&&includeCompatibility} answers={p} update={update} invalidField={error?.field}/></div></details>
-                <details className="nf-story-more" open={!editing || undefined}><summary><span><Feather size={17}/> الدراسة وبداية التعارف<small>{editing ? "معلومات إضافية · اختياري" : "عن دراستك ونيّتك"}</small></span><ChevronLeft size={17}/></summary><div>
-                <ChoiceSelect {...field('education')} label="أعلى مؤهل تعليمي مكتمل" value={p.education ?? ''} onChange={education => update({ education })} options={educationOptions} placeholder={editing ? "اختر المؤهل · اختياري" : "اختر المؤهل"} required={!editing} allowClear={editing} />
-                <label>نيّتي من التعارف<select {...field("marriageIntent")} value={p.marriageIntent ?? ""} onChange={e => update({ marriageIntent: e.target.value })}>
-                  <option value="">{editing ? "أفضل إضافتها لاحقًا" : "اختر ما يعبّر عنك"}</option>
-                  {!!p.marriageIntent && !["تعارف جاد يهدف إلى الزواج", "مستعد للخطوة الرسمية عند التوافق", "أبحث عن توافق قبل تحديد الموعد"].includes(p.marriageIntent) && <option>{p.marriageIntent}</option>}
-                  <option>تعارف جاد يهدف إلى الزواج</option><option>مستعد للخطوة الرسمية عند التوافق</option><option>أبحث عن توافق قبل تحديد الموعد</option>
-                </select></label>
-                </div></details>
+              {editing && chapter.key === 'story' && <>
+                {storyPart !== 'bio' && <>
+                  <ChoiceSelect {...field('profession')} label="مجال العمل" value={p.profession} options={professionOptions} placeholder="اختر المجال" required onChange={profession=>update({profession})}/>
+                  <ChoiceSelect {...field('education')} label="المؤهل التعليمي" value={p.education??''} options={educationOptions} placeholder="اختر المؤهل" allowClear onChange={education=>update({education})}/>
+                </>}
+                {storyPart !== 'work' && <>
+                  <label className="pe-bio-label">نبذة عنّي<textarea {...field('bio')} value={p.bio} onChange={e=>update({bio:e.target.value})} maxLength={1200} rows={4} required/></label>
+                  {includeCompatibility && consents.assessment && <InterestPicker inEditor initialOpen={!p.interestIds?.length} interestIds={p.interestIds??[]} onChange={interestIds=>update({interestIds})}/>}
+                  <ProfilePromptFields editing answers={p} update={update} invalidField={error?.field}/>
+                  <ChoiceSelect {...field('marriageIntent')} label="نيّتي من التعارف" value={p.marriageIntent??''} searchable={false} allowClear placeholder="اختر ما يناسبك" options={['تعارف جاد يهدف إلى الزواج','مستعد للخطوة الرسمية عند التوافق','أبحث عن توافق قبل تحديد الموعد'].map(value=>({value,label:value}))} onChange={marriageIntent=>update({marriageIntent})}/>
+                </>}
               </>}
-              {!usesBasicSlides && chapter.key === "details" && <><ConsentGate kind="sensitiveProfile" required={!editing&&includeCompatibility} checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact={!editing}/>{consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" required={!editing&&includeCompatibility} checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}<MarriageBasicsFields required={!editing&&includeCompatibility} value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
+              {editing && chapter.key === "details" && <>
+                <details className="pe-traits"><summary>خصوصية التفاصيل<small>{consents.sensitiveProfile&&consents.sensitivePublication?'تظهر في ملفي':consents.sensitiveProfile?'خاصة للتوافق':'المعالجة متوقفة'}</small><ChevronLeft size={15} aria-hidden="true"/></summary>
+                  <ConsentGate kind="sensitiveProfile" checked={consents.sensitiveProfile} change={v=>chooseConsent('sensitiveProfile',v)} compact/>
+                  {consents.sensitiveProfile&&<ConsentChoice kind="sensitivePublication" checked={consents.sensitivePublication} change={v=>chooseConsent('sensitivePublication',v)}/>}
+                </details>
+                <MarriageBasicsFields required={!editing&&includeCompatibility} value={p.marriageBasics} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} onChange={marriageBasics => update({ marriageBasics })} /></>}
               {chapter.key === "avatar" && p.gender === "man" && <MensPhotoChoice change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} immediateVerification={!demo&&!!portraitSource} consented={consents.photo} onConsent={v=>chooseConsent('photo',v)} onBusy={setPhotoBusy}/>}
               {chapter.key === "avatar" && p.gender === "woman" && <ProfilePhotoChoice compact={!editing} avatar={p.publicAvatar} onAvatar={publicAvatar=>update({publicAvatar})} inferred={{style:p.marriageBasics?.dressStyle??'hijab',skinTone:p.marriageBasics?.skinTone??'tone_4'}} change={portraitChange} onChange={setPortraitChange} existing={initial?.portrait} source={portraitSource} immediateVerification={!demo&&!!portraitSource} consented={consents.photo} consentError={error?.field==='consent'?error.text:undefined} onConsent={v=>chooseConsent('photo',v)} sensitiveAllowed={consents.sensitiveProfile} onSensitiveConsent={()=>move('details')} onBusy={setPhotoBusy} revealPolicy={portraitPolicy} onPolicyChange={setPortraitPolicy}/>}
               {((editing&&['criteria','personality','compatibility','beena'].includes(chapter.key)&&!consents.assessment)||(!editing&&chapter.key==='compatibility'&&!consents.assessment))&&<ConsentGate kind="assessment" checked={consents.assessment} change={v=>chooseConsent('assessment',v)} compact={!editing} required={!editing}/>}
@@ -827,7 +865,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 confirmedKeys={confirmedProfileProposals.current.filter(item=>item.fieldId.startsWith('partnerCriteria.')).map(item=>item.fieldId.slice('partnerCriteria.'.length))}
                 required={!editing&&includeCompatibility} value={p.partnerCriteria} sensitiveAllowed={consents.sensitiveProfile} gender={p.gender} basics={p.marriageBasics} onChange={partnerCriteria => update({ partnerCriteria })} />}
               {consents.assessment && p.personalityVersion === 'personality-v2' &&
-                chapter.key === (editing ? 'personality' : 'criteria') && <PartnerTraitFields p={p} update={update}/>}
+                chapter.key === (editing ? 'personality' : 'criteria') && (editing ? <details className="pe-traits"><summary>ما يناسبني في شخصية الشريك<ChevronLeft size={15} aria-hidden="true"/></summary><PartnerTraitFields p={p} update={update}/></details> : <PartnerTraitFields p={p} update={update}/>)}
               {chapter.key === "personality" && consents.assessment && <>
                 <TraitProfile answers={p}/>
                 {editing || !interviewAuth ? <PersonalityFields initialField={supportField} version={p.personalityVersion} answers={p.personalityAnswers ?? {}} onChange={update} registration={!editing} /> : <>
@@ -840,7 +878,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                 {editing ? <>
                   {p.assessmentVersion === 'marriage-v4' && <InterviewEntry available={!!interviewAuth} open={() => setInterviewOpen(true)}/>}
                   {interviewApplied && <p className="wi-applied-note" role="status"><Check size={15}/>أُضيفت إجاباتك إلى المسودة.</p>}
-                  {interviewAuth ? <details className="wi-manual" open={interviewApplied || Boolean(supportField) || undefined}><summary><span>مراجعة التفضيلات وتعديلها</span><ChevronLeft size={16}/></summary><CompatibilityFields initialField={supportField} version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/></details> : <CompatibilityFields initialField={supportField} version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>}
+                  <CompatibilityFields profileEditor initialField={supportField} version={p.assessmentVersion} childrenCount={p.marriageBasics?.childrenCount} partnerChildren={p.partnerCriteria?.children} gender={p.gender || undefined} interestIds={p.interestIds ?? []} surveyAnswers={p.surveyAnswers ?? {}} hardRequirements={p.hardRequirements ?? []} priorityCategories={p.priorityCategories ?? []} onChange={update}/>
                 </> : <div className="nf-session-stage" data-field="surveyAnswers" tabIndex={-1}>
                   {assessmentApproved ? <div className="wi-onboarding-summary"><div><CheckCheck size={22}/><p><strong>ملخصك معتمد</strong></p></div><button type="button" onClick={()=>setInterviewOpen(true)}>عرض الملخص<ChevronLeft size={15}/></button></div> : <>
                     {interviewAuth && <InterviewEntry registration available open={()=>setInterviewOpen(true)}/>}
@@ -903,11 +941,13 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   onChange={membershipReadiness => update({ membershipReadiness })}/>
               </div>}
               {chapter.key === "review" && <>
+                {editing && matchingChanged && <section className="pe-edit-notice" aria-label="تحديث التوافق"><strong>{editDate?'موعد تحديث التوافق':'قبل اعتماد إجابات التوافق'}</strong><p>{matchingNote}</p>
+                  {editDate && <button className="nf-intake-policy" type="button" onClick={()=>{update(restoreMatchingAnswers(originalAnswers,p));setError(null);}}>التراجع عن تغييرات التوافق فقط</button>}</section>}
                 {familyContext(p.gender, p.marriageBasics).suggestNoChildren && <p className="nf-intake-private">عدد الأبناء المقترح: صفر. بإرسال الملف تعتمد هذا العدد. <button type="button" className="nf-intake-policy" onClick={() => move('details', true)}>تعديل عدد الأبناء</button></p>}
                 {!editing && includeCompatibility && p.membershipReadiness?.family && p.membershipReadiness?.nextStep && <ReadinessResult value={p.membershipReadiness ?? {}} familyPreference={p.familyPreference} formalTiming={p.surveyAnswers?.marriage_timeline} answers={p} edit={() => move('readiness', true)}/>}
                 {!editing&&<ProfilePreview answers={{...reviewAnswers,...publicSensitiveFields({...reviewAnswers,signupConsents:consents})}} photoUrl={portraitChange===null?null:portraitChange?.url} portraitSource={portraitSource}/>}
                 {!editing && <div className="nf-studio-finish"><div><strong>مراجعة تفاصيل ملفك</strong><p>{preview || demo ? 'افتح أي قسم لمراجعة إجاباتك أو تعديلها.' : 'افتح أي قسم للتعديل قبل الإرسال. عند اكتمال التحقق يفتح لك الاستكشاف المجاني. وإذا بقيت خطوة للاعتماد، تتابعها من حالة الطلب.'}</p></div></div>}
-                <Review p={reviewAnswers} edit={step => move(step, true)} withCompatibility={includeCompatibility} registration={!editing} changed={editing?changedSections:undefined} portraitChange={portraitChange} portraitSource={portraitSource} portraitPolicy={portraitPolicy} sensitivePublication={consents.sensitiveProfile&&consents.sensitivePublication}/>
+                <Review p={reviewAnswers} original={editing?originalAnswers:undefined} edit={step => move(step, true)} withCompatibility={includeCompatibility} registration={!editing} changed={editing?changedSections:undefined} portraitChange={portraitChange} portraitSource={portraitSource} portraitPolicy={portraitPolicy} sensitivePublication={consents.sensitiveProfile&&consents.sensitivePublication}/>
                 {includeCompatibility && <details className="nf-intake-audience" aria-label="ما يراه الآخرون">
                   <summary><ShieldCheck size={17} aria-hidden="true" /> ما يراه الآخرون وما يبقى خاصًا<ChevronLeft size={16}/></summary>
                   <p>يرى الأعضاء المؤهلون اسمك المعروض وعمرك ومدينتك ومهنتك ونبذتك واهتماماتك، والتفاصيل العامة التي كتبتها عن الدراسة وما تبحث عنه وقيمك واحتياجاتك والحياة المشتركة ونيّتك من التعارف وتفضيل إشراك الأهل.</p>
@@ -915,8 +955,8 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
                   <p>ما نعرض إجاباتك الخاصة ولا شروطك في شريك حياتك للأعضاء. تظهر مؤشرات التوافق بعد ما تكتمل إجابات الطرفين، ولا تتنبأ بنجاح الزواج.</p>
                   <p>تظهر وسيلة التواصل في الترشيح الخاص بعد موافقتكما معًا.</p>
                 </details>}
-                {previouslyApproved && <p className="nf-intake-note"><ShieldCheck size={16} aria-hidden="true" />تعديل الملف العام متاح مرة كل ٣٠ يومًا ويعيده للمراجعة. تبقى المحادثات المقبولة متاحة، ويرى الطرف الآخر النص المعتمد السابق دون الصورة حتى اعتماد التعديل. يتوقف الظهور والطلبات الجديدة مؤقتًا، ويستمر اشتراك Apple إلى أن تغيّره من إعدادات الاشتراك. إجابات «بيننا» الخاصة لا تستهلك هذا التعديل، أما نشر قصة جديدة فيخضع له.</p>}
-                {profileReviewPending ? <p className="nf-intake-note">نراجع تعديلات ملفك الآن. تقدر ترسل التصحيحات المطلوبة قبل موعد التعديل القادم.</p> : previouslyApproved && nextPublicProfileEditAt && Date.parse(nextPublicProfileEditAt)>Date.now() && <p className="nf-intake-note">موعد تعديل ملفك العام التالي: {new Date(nextPublicProfileEditAt).toLocaleString('ar-SA',{calendar:'gregory',timeZone:'Asia/Riyadh',dateStyle:'long',timeStyle:'short'})} بتوقيت السعودية. يمكنك حفظ مسودتك لهذا الموعد، وتحديث إجاباتك الخاصة دون انتظار.</p>}
+                {previouslyApproved && <p className="nf-intake-note"><ShieldCheck size={16} aria-hidden="true" />تعديل الملف العام متاح مرة كل ٣٠ يومًا ويعيده للمراجعة. تبقى المحادثات المقبولة متاحة، ويرى الطرف الآخر النص المعتمد السابق دون الصورة حتى اعتماد التعديل. يتوقف الظهور والطلبات الجديدة مؤقتًا، ويستمر اشتراك Apple إلى أن تغيّره من إعدادات الاشتراك. نشر قصة جديدة في «بيننا» يخضع لمراجعة الملف العام.</p>}
+                {profileReviewPending ? <p className="nf-intake-note">نراجع تعديلات ملفك الآن. تقدر ترسل التصحيحات المطلوبة قبل موعد التعديل القادم.</p> : previouslyApproved && nextPublicProfileEditAt && Date.parse(nextPublicProfileEditAt)>Date.now() && <p className="nf-intake-note">موعد تعديل ملفك العام التالي: {new Date(nextPublicProfileEditAt).toLocaleString('ar-SA',{calendar:'gregory',timeZone:'Asia/Riyadh',dateStyle:'long',timeStyle:'short'})} بتوقيت السعودية. تقدر تحتفظ بتعديلاتك كمسودة إلى موعدك.</p>}
                 <SignupConsentReview recorded={Object.values(recordedAccountAgreements(initial?.signupConsents ?? accountAgreements)).every(Boolean)} requiredAssessment={!editing&&includeCompatibility} requiredSensitive={!editing&&includeCompatibility} optionalPublication={entryAuthorized} value={consents} change={chooseConsent} onPrivacy={onPrivacy} preview={preview}/>
                 {requiresIntegrity && <label className="nf-consent-choice">
                   <input {...field('applicationIntegrity')} type="checkbox" required checked={integrityAccepted} onChange={event => {
@@ -931,19 +971,19 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
           <footer className={`nf-intake-actions${assessmentStep ? ' nf-intake-actions--chapter' : ''}`}>
             {error && !(chapter.key === "criteria" && error.criterion) && <p role="alert" id="nf-intake-error" className="nf-intake-error">{error.text}</p>}
             {!showManualAssessment && !(choosingAssessment && consents.assessment && interviewAuth) &&
-              <MotionPressButton type="submit" className='f-primary' disabled={formBlocked}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton>}
+              <MotionPressButton type="submit" className='f-primary' disabled={formBlocked || (chapter.key==='review' && matchingChanged && Boolean(editDate))}><span>{submitLabel}</span>{chapter.key === "review" ? <Check size={18} aria-hidden="true" /> : <ArrowLeft size={18} aria-hidden="true" />}</MotionPressButton>}
             <KeyboardDismiss/>
             <div className="nf-intake-action-meta">
               {deviceDraft && (checkingDevice || saveProgress !== 'idle') && <p className="nf-intake-save-status" role="status" data-state={saveProgress}>
                 {checkingDevice ? 'جارٍ استعادة المسودة…' : saveProgress === 'local' ? <>محفوظ على هذا الجهاز. <button type="button" className="nf-intake-policy" onClick={reconnect}>مزامنة مع الحساب</button></> : saveProgress === 'error' ? <>تعذّر حفظ التعديلات. <button type="button" className="nf-intake-policy" onClick={() => void saveProgressNow()}>إعادة المحاولة</button></> : saveProgress === 'saved' ? <><Check size={13} aria-hidden="true"/> تم الحفظ</> : 'جارٍ الحفظ…'}
               </p>}
-              {draftRef && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{accountDraft ? "مسودتك خاصة بحسابك لمدة ٣٠ يومًا من آخر حفظ. تقدر تكملها من جهاز آخر." : deviceDraft ? "تبقى مسودتك على هذا الجهاز لمدة ٣٠ يومًا." : "تقدر ترجع وتكمّل إجاباتك ما دام التطبيق مفتوح."} أكمل رفع الصورة أو تعديلها قبل المغادرة.</p></details>}
+              {draftRef && (!editing || chapter.key==='review') && <details className="nf-intake-draft-help"><summary><LockKeyhole size={14} aria-hidden="true"/><span>كيف تُحفظ إجاباتي؟</span><ChevronLeft size={14} aria-hidden="true"/></summary><p>{accountDraft ? "مسودتك خاصة بحسابك لمدة ٣٠ يومًا من آخر حفظ. تقدر تكملها من جهاز آخر." : deviceDraft ? "تبقى مسودتك على هذا الجهاز لمدة ٣٠ يومًا." : "تقدر ترجع وتكمّل إجاباتك ما دام التطبيق مفتوح."} أكمل رفع الصورة أو تعديلها قبل المغادرة.</p></details>}
             </div>
             {assessmentStep && <WhyWudayn label="كيف تتحول إجاباتي إلى توافق مفهوم؟"/>}
           </footer>
-          {confirmPhotoDraftLoss && <section ref={photoDraftWarning} tabIndex={-1} role="alertdialog" aria-modal="false" aria-labelledby="photo-draft-warning" className="nf-intake-photo-warning"><h2 id="photo-draft-warning">حفظ الإجابات دون تعديل الصورة؟</h2><p>تعديل الصورة ما انحفظ. تقدر ترجع وتكمّله، أو تحفظ إجاباتك وتعدّل الصورة بعدين. صورتك المحفوظة تبقى مثل ما هي.</p><button type="button" className="f-secondary" onClick={()=>setConfirmPhotoDraftLoss(false)}>العودة إلى الملف</button><button type="button" className="f-primary" disabled={leaving} onClick={()=>{setConfirmPhotoDraftLoss(false);void leaveForLater(true);}}>حفظ الإجابات والمتابعة لاحقًا</button></section>}
         </form>
        </>}
+          {confirmPhotoDraftLoss && <section ref={photoDraftWarning} tabIndex={-1} role="alertdialog" aria-modal="false" aria-labelledby="photo-draft-warning" className="nf-intake-photo-warning"><h2 id="photo-draft-warning">حفظ الإجابات دون تعديل الصورة؟</h2><p>تعديل الصورة ما انحفظ. تقدر ترجع وتكمّله، أو تحفظ إجاباتك وتعدّل الصورة بعدين. صورتك المحفوظة تبقى مثل ما هي.</p><button type="button" className="f-secondary" onClick={()=>setConfirmPhotoDraftLoss(false)}>العودة إلى الملف</button><button type="button" className="f-primary" disabled={leaving} onClick={()=>{setConfirmPhotoDraftLoss(false);void leaveForLater(true);}}>حفظ الإجابات والمتابعة لاحقًا</button></section>}
       </div>
       {interviewAuth && consents.assessment && <InterviewPanel
         onAssessmentVersion={legacy => { const saved=current.current.answers; const next=interviewDraftVersion(saved,legacy); if (!editing && next!==saved) update(next); }}

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft, Copy, Mail, MessageCircle, X } from "../BrandIcons";
 import type { SupportCategory, SupportInput, SupportSource, SupportTicket } from './support';
@@ -98,9 +99,9 @@ function SupportDialog({ source, subject: initialSubject, context, close, focusT
     } catch (e) { if (ticketGeneration === generation.current) setError(e instanceof Error ? e.message : 'تعذّر تأكيد الإرسال. حاول مجددًا.'); }
     finally { if (ticketGeneration === generation.current) setSending(false); }
   }
-  return <dialog ref={dialog} className="nf-support-dialog" dir="rtl" aria-labelledby={heading} onCancel={event => { event.preventDefault(); if (!sending) close(); }}>
+  return createPortal(<dialog ref={dialog} className="nf-support-dialog" dir="rtl" aria-labelledby={heading} onCancel={event => { event.preventDefault(); if (!sending) close(); }}>
     <header><h2 id={heading}>المساعدة داخل التطبيق</h2><button type="button" aria-label="إغلاق المساعدة" disabled={sending} onClick={close}><X size={20}/></button></header>
-    <form onSubmit={event => { event.preventDefault(); void send(); }}>
+    <form onSubmit={event => { event.preventDefault(); event.stopPropagation(); void send(); }}>
       <label>نوع المساعدة<select value={category} disabled={sending} onChange={e => setCategory(e.target.value as SupportCategory)}><option value="help">استخدام التطبيق</option><option value="access">الحساب أو ربط الأهل</option><option value="billing">العضوية والدفع</option><option value="safety">الخصوصية أو السلامة</option></select></label>
       <label>الموضوع<input value={subject} required maxLength={140} disabled={sending} onChange={e => setSubject(e.target.value)}/></label>
       <label>كيف نساعدك؟<textarea value={body} required minLength={5} maxLength={3000} rows={5} disabled={sending} onChange={e => setBody(e.target.value)}/></label>
@@ -120,7 +121,7 @@ function SupportDialog({ source, subject: initialSubject, context, close, focusT
       {cursor && <button type="button" disabled={loading || sending} onClick={() => void load(cursor)}>طلبات أقدم</button>}
     </section>
     {exportTicket&&source.ownerId&&<MemberData mode="export" caseTicket={exportTicket} owner={source.ownerId} demo={false} close={()=>setExportTicket('')}/>}
-  </dialog>;
+  </dialog>,document.body);
 }
 
 export function SupportContact({ subject = 'مساعدة في وُدَين', context, openTicket, onTicketClosed }: { subject?: string; context?: string; openTicket?:string; onTicketClosed?:()=>void }) {

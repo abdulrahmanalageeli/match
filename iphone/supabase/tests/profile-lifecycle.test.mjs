@@ -50,6 +50,33 @@ test('discovery pause preserves accepted chat, replies, receipts, progress and v
  } finally {await db.close();}
 });
 
+test('self-service identity stays fixed and compatibility edits use one rolling allowance',async()=>{
+ const db=await createDatabase();
+ try {
+  const {apply,member,state}=fixture(db), u=await member();
+  const year=new Date().getUTCFullYear()-29;
+  const birthday=year+'-01-01';
+  const profile={...(await state(u)).profile,firstName:'سارة',lastName:'الراشد',birthDate:birthday};
+  const first=await apply(u,profile);
+  assert.equal(first.user.nextCompatibilityEditAt,null,'completing missing identity does not use a matching edit');
+  for(const patch of [{firstName:'نورة'},{lastName:'السالم'},{gender:'man'},{birthDate:(year-1)+'-01-01'}]){
+   await assert.rejects(apply(u,{...profile,...patch}),/تصحيح/);
+  }
+  const updated={...profile,preferredMinAge:26,preferredMaxAge:39};
+  const saved=await apply(u,updated), next=saved.user.nextCompatibilityEditAt;
+  assert(Date.parse(next)>Date.now()+29*86400000);
+  assert.equal((await apply(u,updated)).user.nextCompatibilityEditAt,next,'retry keeps the same deadline');
+  await assert.rejects(apply(u,{...updated,preferredMaxAge:40}),/٣٠ يومًا/);
+  const withdrawal={...updated,signupConsents:{...updated.signupConsents,assessment:false}};
+  await assert.rejects(apply(u,{...withdrawal,preferredMinAge:27}),/٣٠ يومًا/);
+  assert.equal((await apply(u,withdrawal)).user.nextCompatibilityEditAt,next);
+  assert.equal((await state(u)).profile.preferredMaxAge,39);
+  await db.query("update marriage.members set last_compatibility_edit_at=now()-interval '30 days' where id=$1",[u.id]);
+  assert.equal((await state(u)).user.nextCompatibilityEditAt,null);
+  assert.equal((await apply(u,{...withdrawal,preferredMinAge:27})).profile.preferredMinAge,27);
+ } finally {await db.close();}
+});
+
 test('continued conversations survive grant expiry and enforce participant, block, suspension and session boundaries',async()=>{
  const db=await createDatabase();try {
   const {call,member,connect,send}=fixture(db),a=await member(),b=await member('man'),outsider=await member('man');const id=await connect(a,b);

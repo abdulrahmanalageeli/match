@@ -100,7 +100,11 @@ test('real Beena persists privately with explicit consent, clears on withdrawal,
   state=await save(u,{signupConsents:essential,beena:privateValue});assert.equal(state.profile.beena,null);
   assert.equal((await db.query('select count(*)::int n from marriage.beena_answers where member_id=$1',[u.id])).rows[0].n,0);
   assert.equal((await rpc('(select fit from marriage.pair_fit($1,$2))',[peer.id,u.id])).beena.percentage,null);
+  await assert.rejects(save(u,{beena:privateValue}),/٣٠ يومًا/);
+  const nextMonth=()=>db.query("update marriage.members set last_compatibility_edit_at=now()-interval '30 days' where id=$1",[u.id]);
+  await nextMonth();
   await save(u,{beena:privateValue});assert.equal((await save(u,{beena:null})).profile.beena,null);
+  await nextMonth();
   await save(u,{beena:privateValue});assert.equal((await save(u,{beena:{version:'beena-v1',answers:{}}})).profile.beena,null);
   for(const role of ['anon','authenticated','service_role']){
    await db.exec('set role '+role);

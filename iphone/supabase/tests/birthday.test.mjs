@@ -32,6 +32,18 @@ test('private birthday drives age, rejects underage signup, and survives account
   await assert.rejects(call('public.marriage_apply($1)',[{...p,birthDate:'2001-02-29'}]),/غير صالح/);
   const result=await call('public.marriage_apply($1)',[{...p,birthDate:'1998-01-01',_applicationIntegrity:'wudayn-application-integrity-v1'}]);
   const expected=(await db.query("select marriage.birthday_age('1998-01-01') age")).rows[0].age;
+  assert.equal(result.user.nextCompatibilityEditAt,null,'registration leaves the first monthly update available');
+  const saved={...result.profile,consentVersion:p.consentVersion};
+  const topic=preferences.dimensions.find(item=>item.id==='wife_work');
+  const revised={...saved,surveyAnswers:{...saved.surveyAnswers,[topic.id]:topic.options[1].code},
+    personalityAnswers:{...saved.personalityAnswers,[personality[0].id]:'B'}};
+  const edited=await call('public.marriage_apply($1)',[revised]);
+  assert(edited.user.nextCompatibilityEditAt);
+  assert.equal(edited.profile.surveyAnswers[topic.id],topic.options[1].code);
+  assert.equal(edited.profile.personalityAnswers[personality[0].id],'B');
+  await assert.rejects(call('public.marriage_apply($1)',[{...revised,partnerCriteria:{...saved.partnerCriteria,smoking:{mode:'require',target:'never'}}}]),/٣٠ يومًا/);
+  const repeated=await call('public.marriage_apply($1)',[revised]);
+  assert.equal(repeated.user.nextCompatibilityEditAt,edited.user.nextCompatibilityEditAt);
   assert.equal(result.profile.age,expected);
   assert.equal(result.profile.birthDate,'1998-01-01');
   assert.equal((await call('public.marriage_state()')).profile.birthDate,'1998-01-01');

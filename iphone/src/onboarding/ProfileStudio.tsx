@@ -1,15 +1,12 @@
-import { ArrowLeft, Check, ChevronLeft, Feather, HeartHandshake, LockKeyhole, MapPin, ShieldCheck, Sparkles, UserRound } from "../BrandIcons";
-import { useLayoutEffect, useRef, useState } from 'react';
+import { ArrowLeft, BookOpen, BriefcaseBusiness, Camera, Check, ChevronLeft, Feather, Fingerprint, HeartHandshake, MapPin, MessageCircle, ShieldCheck, SlidersHorizontal, UserRound } from "../BrandIcons";
+import { useLayoutEffect, useRef } from 'react';
 import { AvatarPortrait } from '../avatars/AvatarPortrait';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
 import type { CommunitySource } from '../community/data';
-import { practicalAnswerKeys, applicableDimensions, interests } from '../compatibility/model';
-import { personalityQuestionsFor } from '../compatibility/personality';
-import { beenaProgress } from '../beena/model';
+import { interests } from '../compatibility/model';
 import { arabicNumber, type Answers, type Chapter } from './draft';
 import './profile-editor.css';
 import { MotionPressButton } from '../motion/Reanimated';
-import { answeredProfilePrompts } from '../profile/profilePrompts';
 import '../profile/profile-prompts.css';
 
 type PhotoPreviewProps = { photoUrl?: string | null; portraitSource?: CommunitySource | null };
@@ -32,44 +29,51 @@ export function ProfilePreview({ answers: p, photoUrl, portraitSource }: { answe
   </section>;
 }
 
-export function ProfileStudio({ answers: p, withCompatibility, open, review, busy, changed, selectedChapter, photoUrl, portraitSource }: {
-  answers: Answers; withCompatibility: boolean; open: (chapter: Chapter) => void; review: () => void; busy: boolean; changed: boolean; selectedChapter:Chapter;
+export type StoryPart = 'bio' | 'work';
+export const editorTitles: Record<Chapter,string> = {
+  identity:'الاسم وبياناتي الأساسية', story:'نبذتي واهتماماتي', avatar:'صورة ملفي',
+  details:'التفاصيل الشخصية', criteria:'مواصفات الشريك', preferences:'بداية التعارف',
+  compatibility:'أسلوب الحياة', personality:'الشخصية', beena:'بيننا', review:'مراجعة التعديلات', readiness:'الجاهزية',
+};
+
+export function ProfileStudio({answers:p,withCompatibility,open,review,busy,changed,matchingNote,photoUrl,portraitSource}: {
+  answers:Answers; withCompatibility:boolean; open:(chapter:Chapter,part?:StoryPart)=>void;
+  matchingNote:string; review:()=>void; busy:boolean; changed:ReadonlySet<Chapter>;
 } & PhotoPreviewProps) {
-  const heading = useRef<HTMLHeadingElement>(null);
-  const [section,setSection]=useState(()=>['criteria','compatibility','personality','beena','preferences'].includes(selectedChapter)?1:0);
-  useLayoutEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
-  const dimensions = applicableDimensions(p.assessmentVersion,p.surveyAnswers,p.marriageBasics?.childrenCount,p.partnerCriteria?.children);
-  const personalityQuestions = personalityQuestionsFor(p.personalityVersion);
-  const answerKeys = dimensions.flatMap(topic => practicalAnswerKeys(topic, p.assessmentVersion));
-  const answered = answerKeys.filter(key => p.surveyAnswers?.[key]).length;
-  const personality = personalityQuestions.filter(q => p.personalityAnswers?.[q.id]).length;
-  const promptCount = answeredProfilePrompts(p).length;
-  const groups = [
-    { title: 'ملفي العام', note: 'تظهر التفاصيل العامة للأعضاء المؤهلين. التفاصيل الحساسة تظهر فقط بموافقتك المنفصلة على العرض.', items: [
-      { key: 'identity', title: 'الأساسيات', note: [p.displayName, p.city].filter(Boolean).join(' · ') || 'الاسم والعمر والمدينة', icon: UserRound },
-      { key: 'story', title: 'نبذتي وحياتي', note: 'المهنة، نبذتك، وإجابات تحكي عنك', icon: Feather },
-      { key: 'details', title: 'التفاصيل الشخصية', note: 'الطول والحالة الاجتماعية، وأذونات استخدام التفاصيل الحساسة وعرضها', icon: UserRound },
-      ...[{ key: 'avatar', title: 'صورة ملفي', note: p.gender === 'man' ? 'صورتك الشخصية ومطابقتها عبر الكاميرا' : photoUrl || (photoUrl!==null&&p.portrait) ? 'تغيير صورتك أو درجة التمويه' : p.publicAvatar ? 'تغيير الرسم المختار أو إضافة صورة بتمويه' : 'صورة بتمويه تختارينه، أو رسم يعبّر عنك', icon: ShieldCheck }],
-    ] },
-    { title: 'تفضيلاتي والتوافق', note: 'إجابات التقييم وشروط الشريك خاصة. يظهر تفضيل إشراك الأسرة وأي قصة تختار مشاركتها في «بيننا».', items: [
-      ...(withCompatibility ? [
-        { key: 'criteria', title: 'ما يهمك في الشريك', note: 'تفضيلاتك، وما لا تتنازل عنه', icon: HeartHandshake },
-        { key: 'compatibility', title: 'توافق أسلوب الحياة', note: `${arabicNumber(answered)} من ${arabicNumber(answerKeys.length)} إجابة`, icon: Sparkles },
-        { key: 'personality', title: 'تقييم شخصيتي', note: `${arabicNumber(personality)} من ${arabicNumber(personalityQuestions.length)} إجابة`, icon: Sparkles },
-        { key: 'beena', title: 'بيننا · مواقف الحياة', note: `${arabicNumber(beenaProgress(p.beena).answered)} من ٦ مواقف · وقصة بكلماتك`, icon: Feather },
-      ] : []),
-      { key: 'preferences', title: 'بداية التعارف', note: 'نطاق العمر، إشراك الأهل، ووسيلة التواصل الخاصة', icon: HeartHandshake },
-    ] },
-  ];
-  const group=groups[section];
-  return <div className="nf-profile-studio pe-studio">
-    <header className="pe-heading"><span className="nf-studio-eyebrow">مساحتك في وُدَين</span><h1 ref={heading} tabIndex={-1}>تعديل ملفي</h1><p>اختر قسمًا للتعديل، ثم راجع التغييرات واحفظها.</p></header>
-    <div className="pe-member"><div className="nf-studio-avatar"><ProfilePortraitPreview answers={p} photoUrl={photoUrl} portraitSource={portraitSource}/></div><div><strong>{p.displayName||'ملفي الشخصي'}</strong><small>{[p.city,p.profession].filter(Boolean).join(' · ')}</small></div><span className="pe-draft-status" data-changed={changed||undefined}>{changed?'مسودة':<><Check size={12}/> محفوظ</>}</span></div>
-    <div className="pe-tabs" role="group" aria-label="أقسام تعديل الملف">{groups.map((item,index)=><button key={item.title} type="button" aria-pressed={section===index} onClick={()=>setSection(index)}>{index===0?<UserRound size={15}/>:<LockKeyhole size={14}/>} {item.title}</button>)}</div>
-    <section className="pe-section" key={section}><p className="pe-section-note">{group.note}</p><div className="nf-studio-sections">
-      {group.items.map(item=><button type="button" className="nf-studio-section" key={item.key} disabled={busy} onClick={()=>open(item.key as Chapter)}><span className="nf-studio-section-icon"><item.icon size={20} strokeWidth={1.6}/></span><span><strong>{item.title}</strong><small>{item.note}</small></span><ChevronLeft size={17}/></button>)}
-    </div></section>
-    {section===0&&<MotionPressButton className="pe-prompt-invite" disabled={busy} onClick={()=>open('story')}><Feather size={20} aria-hidden="true"/><span><strong>{promptCount?'إجابات تحكي عنك':'وش تحب يعرف عنك شريك حياتك؟'}</strong><small>{promptCount?`${arabicNumber(promptCount)} من ٣ إجابات اختيارية · راجعها أو أضف إليها`:'مثلًا، كيف تتخيّل يومكم مع بعض؟'}</small></span><ChevronLeft size={17} aria-hidden="true"/></MotionPressButton>}
-    <footer className="nf-studio-actions"><button type="button" className="f-primary" onClick={review} disabled={busy||!changed}>مراجعة وحفظ التعديلات<ArrowLeft size={18}/></button><small>{changed?'التعديلات مسودة حتى تؤكد حفظها.':'ملفك محفوظ. اختر أي قسم لتحديثه.'}</small></footer>
+  const heading=useRef<HTMLHeadingElement>(null);
+  useLayoutEffect(()=>{ heading.current?.focus({preventScroll:true}); },[]);
+  function row(chapter:Chapter, Icon:typeof UserRound, value:string, part?:StoryPart) {
+    const title=part==='work'?'العمل والدراسة':editorTitles[chapter];
+    return <button type="button" disabled={busy} className="pe-row" onClick={()=>open(chapter,part)}>
+      <Icon size={17} strokeWidth={1.55} aria-hidden="true"/>
+      <span className="pe-row-label">{title}</span><small>{value}</small><ChevronLeft size={15} aria-hidden="true"/>
+    </button>;
+  }
+  return <div className="pe-studio">
+    <button type="button" className="pe-identity" disabled={busy} onClick={()=>open('avatar')} aria-label="تعديل صورة ملفي">
+      <span className="nf-studio-avatar"><ProfilePortraitPreview answers={p} photoUrl={photoUrl} portraitSource={portraitSource}/></span>
+      <span className="pe-member-copy"><strong>{p.displayName||'ملفي الشخصي'}</strong><small>{[p.city,p.profession].filter(Boolean).join(' · ')}</small></span>
+      <span className="pe-photo-action"><Camera size={15} aria-hidden="true"/>تعديل الصورة</span>
+    </button>
+    <section className="pe-group"><h2 ref={heading} tabIndex={-1}>عنّي</h2>
+      {row('identity',UserRound,'الاسم، الميلاد والمدينة')}
+      {row('story',BriefcaseBusiness,p.education||p.profession||'المهنة والمؤهل','work')}
+      {row('story',Feather,'بكلماتي','bio')}
+      {row('details',SlidersHorizontal,'العائلة واللغات والمظهر')}
+    </section>
+    <section className="pe-group"><h2>الشريك وبداية التعارف</h2>
+      {withCompatibility&&row('criteria',HeartHandshake,'ما يهمني في الشريك')}
+      {row('preferences',MessageCircle,'العمر المناسب وإشراك الأهل')}
+    </section>
+    {withCompatibility&&<section className="pe-group"><h2>إجاباتي للتوافق</h2>
+      {row('compatibility',SlidersHorizontal,'المواقف والأولويات')}
+      {row('personality',Fingerprint,'طباعي وما يناسبني')}
+      {row('beena',BookOpen,'مواقف الحياة وقصتي')}
+      <p className="pe-edit-caption">{matchingNote}</p>
+    </section>}
+    <footer className="nf-studio-actions pe-footer">{changed.size
+      ? <MotionPressButton type="button" className="f-primary" disabled={busy} onClick={review}>مراجعة التعديلات<ArrowLeft size={17}/></MotionPressButton>
+      : <span className="pe-saved"><Check size={15} aria-hidden="true"/>ملفك محفوظ</span>}
+    </footer>
   </div>;
 }

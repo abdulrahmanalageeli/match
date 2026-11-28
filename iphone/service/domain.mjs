@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const derive = promisify(scrypt);
 const sessionLifetime = 30 * 24 * 60 * 60 * 1000;
+const matchingEditInterval = 30 * 24 * 60 * 60 * 1000;
 const digest = (token) => createHash("sha256").update(token).digest("hex");
 export const SKU = "com.blindmatch.marriage.monthly";
 export const BUNDLE = "com.blindmatch.marriage";
@@ -92,6 +93,9 @@ export function openStore(
       .some((column) => column.name === "resolved_at")
   ) {
     db.exec("ALTER TABLE reports ADD COLUMN resolved_at INTEGER");
+  }
+  if (!db.prepare("PRAGMA table_info(users)").all().some(column=>column.name==="last_compatibility_edit_at")) {
+    db.exec("ALTER TABLE users ADD COLUMN last_compatibility_edit_at INTEGER");
   }
   if (db.prepare("PRAGMA user_version").get().user_version < 1) {
     db.exec("BEGIN IMMEDIATE");
@@ -301,6 +305,7 @@ class Store {
         applicationStatus: u.application_status,
         paused: Boolean(u.paused),
         appAccountToken: u.account_token,
+        nextCompatibilityEditAt: u.last_compatibility_edit_at + matchingEditInterval > Date.now() ? new Date(u.last_compatibility_edit_at + matchingEditInterval).toISOString() : null,
       },
       profile: u.profile ? JSON.parse(u.profile) : null,
       membership,
@@ -334,6 +339,22 @@ class Store {
     return this.atomic(() => {
       const current = this.user(id);
       const previous = current.profile ? JSON.parse(current.profile) : null;
+      for (const key of ["firstName","lastName","birthDate"]) {
+        const value=input[key]===undefined ? previous?.[key] : field(input[key],key==="birthDate"?10:60);
+        if (value) profile[key]=value;
+        requireThat(!previous?.[key] || previous[key]===value,400,"لتصحيح بيانات التسجيل، تواصل مع الدعم.");
+      }
+      if(profile.birthDate){
+        const birthday=new Date(profile.birthDate+"T12:00:00Z");
+        requireThat(/^\d{4}-\d{2}-\d{2}$/.test(profile.birthDate) && Number.isFinite(birthday.getTime()) && birthday.toISOString().slice(0,10)===profile.birthDate,400,"أدخل تاريخ ميلاد صحيحًا.");
+        const today=new Intl.DateTimeFormat("sv-SE",{timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+        profile.age=age(Number(today.slice(0,4))-Number(profile.birthDate.slice(0,4))-Number(today.slice(5)<profile.birthDate.slice(5)));
+      }
+      requireThat(!previous || (previous.gender===profile.gender && (previous.birthDate || previous.age===profile.age)),400,"لتصحيح الجنس أو تاريخ الميلاد، تواصل مع الدعم.");
+      if(previous && (previous.preferredMinAge!==profile.preferredMinAge || previous.preferredMaxAge!==profile.preferredMaxAge)) {
+        requireThat(!current.last_compatibility_edit_at || Date.now()>=current.last_compatibility_edit_at+matchingEditInterval,409,"تقدر تحدّث إجابات التوافق مرة كل ٣٠ يومًا.");
+        this.db.prepare("UPDATE users SET last_compatibility_edit_at=? WHERE id=?").run(Date.now(),id);
+      }
       const receipts = this.db.prepare("INSERT INTO application_consents (user_id,version,received_at) VALUES (?,?,?)");
       const recordedIntegrity = this.db.prepare("SELECT 1 FROM application_consents WHERE user_id=? AND version=? LIMIT 1").get(id, APPLICATION_INTEGRITY_VERSION);
       const needsIntegrity = current.application_status === "draft" || (!recordedIntegrity && current.application_status !== "approved");

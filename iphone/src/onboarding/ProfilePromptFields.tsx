@@ -5,8 +5,8 @@ import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { profilePrompts, answeredProfilePrompts, type ProfilePromptAnswers, type ProfilePromptKey } from '../profile/profilePrompts';
 import '../profile/profile-prompts.css';
 
-export function ProfilePromptFields({ privateQuotes, answers, update, invalidField, required = false, remainingOnly = false, rephrase }: {
-  privateQuotes?: readonly string[]; answers: ProfilePromptAnswers; update: (value: ProfilePromptAnswers) => void; invalidField?: string; required?: boolean; remainingOnly?:boolean; rephrase?: (key:ProfilePromptKey)=>void;
+export function ProfilePromptFields({ privateQuotes, answers, update, invalidField, editing = false, required = false, remainingOnly = false, rephrase }: {
+  editing?: boolean; privateQuotes?: readonly string[]; answers: ProfilePromptAnswers; update: (value: ProfilePromptAnswers) => void; invalidField?: string; required?: boolean; remainingOnly?:boolean; rephrase?: (key:ProfilePromptKey)=>void;
 }) {
   const [selected, setSelected] = useState<ProfilePromptKey>(() => profilePrompts.find(prompt => !answers[prompt.key]?.trim())?.key ?? 'lookingFor');
   const [initialMissing] = useState(()=>profilePrompts.filter(item=>!answers[item.key]?.trim()));
@@ -17,8 +17,8 @@ export function ProfilePromptFields({ privateQuotes, answers, update, invalidFie
   const value = answers[selected] ?? '';
   const answeredCount=answeredProfilePrompts(answers).length;
   return <section className="nf-prompt-editor" aria-label="أسئلة تضيف لحكايتك">
-    <header><span><Feather size={17} aria-hidden="true"/><strong>تفاصيل تشبهك</strong></span><span className="nf-prompt-progress" aria-label={`${new Intl.NumberFormat('ar-SA').format(answeredCount)} من ٣ مكتملة`}>{profilePrompts.map((item,index)=><i key={item.key} data-done={index<answeredCount||undefined}/>)}<b>{new Intl.NumberFormat('ar-SA').format(answeredCount)} / ٣</b></span></header>
-    <p className="nf-prompt-note">{required ? 'ثلاث لمحات عنك. جملة أو اثنتان لكل منها تكفي.' : 'اختر السؤال اللي يعبّر عنك.'}</p>
+    <header><span><Feather size={17} aria-hidden="true"/><strong>{editing?'ملامح من حكايتي':'تفاصيل تشبهك'}</strong></span><span className="nf-prompt-progress" aria-label={`${new Intl.NumberFormat('ar-SA').format(answeredCount)} من ٣ مكتملة`}>{profilePrompts.map((item,index)=><i key={item.key} data-done={index<answeredCount||undefined}/>)}<b>{new Intl.NumberFormat('ar-SA').format(answeredCount)} / ٣</b></span></header>
+    {!editing && <p className="nf-prompt-note">{required ? 'ثلاث لمحات عنك. جملة أو اثنتان لكل منها تكفي.' : 'اختر السؤال اللي يعبّر عنك.'}</p>}
     <div className="nf-prompt-choices" role="group" aria-label="اختر سؤالًا">
       {tabs.map(item => <MotionPressButton key={item.key} aria-pressed={selected === item.key} aria-controls={`${id}-editor`} onClick={() => setSelected(item.key)}>{item.title}{answers[item.key]?.trim() && <Check size={13} aria-label="أُجيب عنه"/>}</MotionPressButton>)}
     </div>

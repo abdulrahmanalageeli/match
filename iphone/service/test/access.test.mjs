@@ -19,6 +19,19 @@ function memory() {
 afterEach(() => {
   for (const s of stores.splice(0)) s.db.close();
 });
+
+test("profile identity and the shared monthly age preference allowance",async()=>{
+  const store=memory();
+  const {id,profile}=await applicant(store);
+  assert.throws(()=>store.apply(id,{...profile,gender:"man"}),/لتصحيح/);
+  assert.throws(()=>store.apply(id,{...profile,age:25}),/لتصحيح/);
+  const changed={...profile,preferredMinAge:25};
+  const saved=store.apply(id,changed);
+  assert(saved.user.nextCompatibilityEditAt);
+  assert.equal(store.apply(id,changed).user.nextCompatibilityEditAt,saved.user.nextCompatibilityEditAt);
+  assert.throws(()=>store.apply(id,{...changed,preferredMaxAge:38}),/٣٠ يومًا/);
+  assert.equal(store.apply(id,{...changed,bio:"نبذة جديدة"}).user.nextCompatibilityEditAt,saved.user.nextCompatibilityEditAt);
+});
 async function applicant(store, gender = "woman") {
   const form = {
     email: randomUUID() + "@example.test",

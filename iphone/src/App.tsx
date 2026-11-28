@@ -61,6 +61,7 @@ import { useMemberActivity } from "./notifications/ActivityAlerts";
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
 import { useNativeCalls } from './voice/nativeCalls';
 import { pairSource, testProfile, type TestSession } from "./testing/pair";
+import { matchingEditChanged } from './onboarding/profileEditPolicy';
 import type { ApplicationDraft } from "./onboarding/GuidedApplication";
 import type { ProfileAnswerProvenance } from './interview/profileProvenance';
 import type { MembershipReadiness } from './onboarding/membershipReadiness';
@@ -277,6 +278,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   const [sampleStatus, setSampleStatus] =
     useState<Proposal["status"]>("pending");
   const [samplePaused, setSamplePaused] = useState(false);
+  const [demoCompatibilityEditAt,setDemoCompatibilityEditAt]=useState<string|null>(null);
   const [sampleProfile, setSampleProfile] = useState<Profile>(tester?.profile||demoProfile);
   const sampleProfileRef = useRef(sampleProfile);
   const [sampleSession, setSampleSession] = useState(0);
@@ -594,6 +596,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   function enterDemo(intake: boolean) {
     intakeDraft.current = null;
     setNewDemoIntake(intake);
+    setDemoCompatibilityEditAt(null);
     setDemo(true);
     sampleProfileRef.current = demoProfile;
     setSampleProfile(demoProfile);
@@ -903,6 +906,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       let submitted: AccountState | undefined;
       const member = tokenRef.current;
       const submissionVersion = member && !demo ? ++version.current : version.current;
+      const demoMatchingChange=demo && editingExisting && matchingEditChanged(sampleProfileRef.current,p,p.signupConsents??{assessment:true,sensitiveProfile:true});
+      if(demoMatchingChange && demoCompatibilityEditAt && Date.parse(demoCompatibilityEditAt)>Date.now())throw Error('تقدر تحدّث إجابات التوافق مرة كل ٣٠ يومًا.');
       if(pair && tester) { const saved = await pair.save(p); p = testProfile(tester.actor, saved.profiles[tester.actor]); }
       if (!demo) {
         if (!member) throw Error("سجّل الدخول أولًا.");
@@ -946,6 +951,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
       const approved = demo || submitted?.user.applicationStatus === 'approved';
       if (navigationVersion.current !== currentNavigation) return;
       if (demo) {
+        if(demoMatchingChange)setDemoCompatibilityEditAt(new Date(Date.now()+30*86400000).toISOString());
         if (sampleProfileRef.current.gender !== p.gender) setSampleSession(s => s + 1);
         setSampleIndex(0);
         setSampleStatus("pending");
@@ -1295,6 +1301,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         accountAgreements={accountAgreements}
         previouslyApproved={!demo && (accepted || Boolean(live?.user.profileReviewPending))}
         nextPublicProfileEditAt={live?.user.nextPublicProfileEditAt}
+        nextCompatibilityEditAt={demo ? demoCompatibilityEditAt : live?.user.nextCompatibilityEditAt}
         profileReviewPending={Boolean(live?.user.profileReviewPending)}
         busy={busy}
         save={saveApplication}

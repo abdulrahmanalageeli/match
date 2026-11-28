@@ -84,7 +84,9 @@ test('personal boundaries survive closure, unpaid history, repeat incidents, and
     const profile={displayName:'اختبار',gender:'woman',age:29,city:'الرياض',profession:'مهندس',bio:'نبذة',contact:profileUser.email,preferredMinAge:25,preferredMaxAge:40,familyPreference:'',signupConsents:consent,consentVersion:consent.version,assessmentVersion:'marriage-v3'};
     const save=answer=>call(profileUser,'public.marriage_apply($1)',[{...profile,surveyAnswers:{wife_work:answer}}]);
     await save('A');
-    for(const answer of ['B','C','A']) {await save(answer);await save(answer);}
+    const releaseMonth=()=>db.query("update marriage.members set last_compatibility_edit_at=now()-interval '30 days' where id=$1",[profileUser.id]);
+    for(const answer of ['B','C','A']) {await releaseMonth();await save(answer);await save(answer);}
+    await releaseMonth(); // Isolate the independent daily safety budget.
     await assert.rejects(save('B'),/تمهّل/);
     assert.equal((await call(profileUser,'public.marriage_state()')).profile.surveyAnswers.wife_work,'A');
     const search = () => call(a,'public.marriage_browse($1)',[{work:'A'}]);

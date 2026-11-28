@@ -14,6 +14,11 @@ import { CompatibilityChangeSheet } from './CompatibilityNotice';
 import './notification-feed.css';
 
 const viewedRequests = new WeakMap<CommunitySource, Set<string>>();
+export function markViewedRequest(source: CommunitySource, row: Connection) {
+  const viewed = viewedRequests.get(source) ?? new Set<string>();
+  viewed.add('request:'+row.id+':'+(row.updatedAt || row.createdAt || ''));
+  viewedRequests.set(source,viewed);
+}
 const filters: { id: FeedFilter; label: string }[] = [
   {id:'all',label:'الكل'}, {id:'unread',label:'غير المقروءة'}, {id:'requests',label:'التعارف'},
   {id:'interests',label:'الاهتمام'},
@@ -171,6 +176,8 @@ export function NotificationFeed({ compatibilityUpdates = [], onCompatibilityRea
         });
         else onConversation(item.requestId, item.kind === 'feedback');
       } else { setError('تغيّرت حالة التعارف. حدّث الإشعارات عشان تشوف آخر تحديث.'); return; }
+      if (item.kind==='visit' || item.kind==='request') window.dispatchEvent(new CustomEvent('wudayn:member-notice-opened',
+        {detail:{source,key:item.kind+':'+(item.kind==='visit'?item.activityId:item.requestId)}}));
       // Navigation must not wait for a read receipt. A failed receipt remains
       // unread on the next refresh, so it can be retried without blocking entry.
       if (item.activityId) void Promise.resolve().then(() => source.readNotifications?.([item.activityId!])).catch(() => {});

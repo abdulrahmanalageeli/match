@@ -95,7 +95,7 @@ import type { StepProgress } from "./data";
 import { journeyStages, type CompatibilityUpdate } from '../notifications/ActivityAlerts';
 import { NativePushAction } from '../notifications/NativePushAction';
 import type { PushOpen } from '../notifications/push';
-import { NotificationFeed } from '../notifications/NotificationFeed';
+import { NotificationFeed, markViewedRequest } from '../notifications/NotificationFeed';
 import { pushThreadMute } from '../notifications/push';
 import './chat-polish.css';
 import './message-actions.css';
@@ -152,6 +152,7 @@ type CommunityProps = {
   openConversation?: string;
   openMessage?: string;
   openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;openJourney?:boolean;openInterest?:string;
+  foregroundActivity?: 'request' | 'visit';
   openRequest?: string;
   openUpdate?: (update:PushOpen)=>void|Promise<void>;
   onConversationOpened: () => void;
@@ -1885,7 +1886,7 @@ function Requests({
   openConversation,
   openMessage,
   openRoom,openAgreement,openAnalysis,openJourney,openInterest,openUpdate,
-  openRequest,
+  openRequest, foregroundActivity,
   onConversationOpened,
   conversations = false,
   matches = false,
@@ -1907,6 +1908,7 @@ function Requests({
   openConversation?: string;
   openMessage?: string;
   openRoom?:string;openAgreement?:boolean;openAnalysis?:boolean;openJourney?:boolean;openInterest?:string;
+  foregroundActivity?: 'request' | 'visit';
   openRequest?: string;
   openUpdate?: (update:PushOpen)=>void|Promise<void>;
   onConversationOpened: () => void;
@@ -2048,6 +2050,21 @@ function Requests({
     let retryTimer:number|undefined;
     const intent = ++navigation.current;
     async function resolveIntent(retries=2) {
+      if (foregroundActivity==='visit') {
+        try {
+          const rows=await source.notifications?.();
+          if(!active||intent!==navigation.current)return;
+          const visit=rows?.find(row=>row.id===targetId&&row.kind==='profile_visit'&&!row.readAt);
+          if(visit){
+            setSelected(null);setChat(false);setActionError('');setNotice('');setVisitPerson(visit.person);
+            void source.readNotifications?.([visit.id]).catch(()=>{});
+            void source.noteProfileOpen?.(visit.person.id).catch(()=>{});
+            window.scrollTo({top:0,behavior:'instant'});
+          }else setNotice('لم تعد هذه الزيارة متاحة.');
+        }catch{if(!active||intent!==navigation.current)return;setNotice('تعذّر فتح الزيارة. حاول مجددًا من الإشعارات.');}
+        onConversationOpened();
+        return;
+      }
       await refresh();
       if (!active || intent!==navigation.current) return;
       if (!inboxReadSucceeded.current && retries>0) {
@@ -2059,8 +2076,12 @@ function Requests({
         onConversationOpened();
         return;
       }
-      const target = loadedRows.current.find(row => row.id === targetId && (openConversation ? row.status === "accepted" : ["pending", "accepted"].includes(row.status)));
+      const target = loadedRows.current.find(row => row.id === targetId && (openConversation ? row.status === "accepted" : foregroundActivity==='request'
+        ? row.status==='pending' && row.direction==='incoming' && (!row.expiresAt || Date.parse(row.expiresAt)>Date.now())
+        : ["pending", "accepted"].includes(row.status)));
       if (target) {
+        if (foregroundActivity==='request') markViewedRequest(source,target);
+        setVisitPerson(null);
         setMessageTarget({connection:target.id,message:openMessage,room:openRoom,agreement:openAgreement?intent:undefined,analysis:openAnalysis?intent:undefined,journey:openJourney?intent:undefined});
         setSelected(target.id);
         setChat(Boolean(openConversation));
@@ -2073,7 +2094,7 @@ function Requests({
     }
     void resolveIntent();
     return () => { active = false; window.clearTimeout(retryTimer); };
-  }, [openConversation, openRequest, openMessage, openRoom, openAgreement, openAnalysis, openJourney, refresh, onConversationOpened]);
+  }, [openConversation, openRequest, foregroundActivity, openMessage, openRoom, openAgreement, openAnalysis, openJourney, source, refresh, onConversationOpened]);
   useLayoutEffect(() => {
     if (inChat) document.querySelector<HTMLElement>(".cm-chat-head h1")?.focus({ preventScroll: true });
   }, [inChat]);
@@ -2499,7 +2520,7 @@ export function Community(props: CommunityProps) {
           curatedUpdate={props.curatedUpdate} onCuratedUpdate={props.onCuratedUpdate} openConversation={props.openConversation??conversationToOpen}
           openRoom={props.openRoom} openAgreement={props.openAgreement} openAnalysis={props.openAnalysis} openJourney={props.openJourney} openInterest={props.openInterest}
           openMessage={props.openMessage}
-          openRequest={props.openRequest} openUpdate={props.openUpdate}
+          openRequest={props.openRequest} foregroundActivity={props.foregroundActivity} openUpdate={props.openUpdate}
           onConversationOpened={onConversationOpened}
           initialRequest={tab === "inbox" ? requestToOpen : undefined} />
       )}

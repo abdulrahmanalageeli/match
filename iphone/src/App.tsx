@@ -58,6 +58,7 @@ import { RegistrationWait } from "./release/RegistrationWait";
 import type { PushOpen } from "./notifications/push";
 import { updateEvents } from "../admin/server/updateEvents";
 import { useMemberActivity } from "./notifications/ActivityAlerts";
+import { MemberNoticeBanner, type MemberNotice } from './notifications/MemberNoticeBanner';
 import { VoiceCallsProvider } from "./voice/VoiceCalls";
 import { useNativeCalls } from './voice/nativeCalls';
 import { pairSource, testProfile, type TestSession } from "./testing/pair";
@@ -351,8 +352,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     if (badgeOwner) void setPushBadge(count, badgeOwner).catch(() => {});
   }, [badgeOwner]);
   const chatUnread = useUnreadCount(memberAccess ? source : null, updatePushBadge);
-  const activity = useMemberActivity(memberAccess && !paused && !onboardingPreview ? source : null);
-  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean;journey?:boolean;interest?:boolean } | null>(null);
+  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; foreground?: MemberNotice['kind']; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean;journey?:boolean;interest?:boolean } | null>(null);
   const [pushPanel,setPushPanel]=useState<{owner:string;panel:"family"|"family_room"|"history"|"verification"|"support"|"safety";id:string}>();
   const matchToAcknowledge = useRef<{id:string;source:NonNullable<typeof source>}|null>(null);
   const clearConversationIntent = useCallback(() => {
@@ -536,6 +536,20 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     !publicationOpen && !policy && !confirm && !onboardingPreview && !error;
   const showArrivalGuide = canShowArrivalPrompt && (!guideSeen || guideReplayed) &&
     (guideReplayed || (!startAtLogin && !openLogin));
+  const showMemberNotices = !loading && !busy && !socialPending && !showArrivalGuide && !policy && !confirm &&
+    !publicationOpen && !reportReceipt && !(membershipReceipt && !receiptDismissed) && !live?.user.profileReviewPending &&
+    ['main','discover','curated','inbox','chats','settings'].includes(view);
+  const activity = useMemberActivity(memberAccess && !paused && !onboardingPreview ? source : null, showMemberNotices, badgeOwner);
+  const memberNotice=activity.notice;
+  function openMemberNotice(notice: MemberNotice) {
+    if (!source || activity.notice?.key !== notice.key) return;
+    activity.dismissNotice(notice.key);
+    const id = notice.kind === 'request' ? notice.requestId : notice.key.slice('visit:'.length);
+    if (!id) return;
+    matchToAcknowledge.current = null;
+    setConversationIntent({source, id, requestOnly:true, foreground:notice.kind});
+    go('inbox', true);
+  }
   function closeArrivalGuide() {
     rememberOverview();
     setGuideSeen(true);
@@ -1356,6 +1370,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
         openUpdate={update=>openNotification(update.requestId,update.kind,update)}
         openJourney={conversationIntent?.source===source&&conversationIntent.journey}
         openInterest={conversationIntent?.source===source&&conversationIntent.interest ? conversationIntent.id : undefined}
+        foregroundActivity={conversationIntent?.source === source ? conversationIntent.foreground : undefined}
         openRequest={conversationIntent?.source === source && conversationIntent.requestOnly && !conversationIntent.interest ? conversationIntent.id : undefined}
         onConversationOpened={clearConversationIntent}
         onTab={go}
@@ -1425,6 +1440,8 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     <VoiceCallsProvider key={`${demo ? "demo-" + sampleSession : token}-${memberAccess}`}
       source={memberAccess ? source : null} owner={demo ? null : token} demo={demo && !tester} testApi={memberAccess?pair?.voice:undefined}>
     <div className="phone-app" dir="rtl" lang="ar" data-from-intake={fromIntake || undefined}>
+      {memberNotice && <MemberNoticeBanner key={memberNotice.key} notice={memberNotice}
+        onOpen={()=>openMemberNotice(memberNotice)} onDismiss={()=>activity.dismissNotice(memberNotice.key)}/>}
       {tester && !onboardingPreview && !showArrivalGuide && <details className="nf-tester-tools">
         <summary aria-label="إعدادات الحساب" className="nf-simulation-toggle"><span>إعدادات الحساب</span><ChevronDown size={16} aria-hidden="true" /></summary>
         <div className="nf-tester-drawer">

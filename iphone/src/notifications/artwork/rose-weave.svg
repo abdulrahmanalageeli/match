@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 216 48" fill="none">
+  <defs>
+    <pattern id="weave" width="56" height="38" patternUnits="userSpaceOnUse" patternTransform="rotate(-10 108 24)">
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <path d="M-28 19C-18 17-10 5 0 5S18 17 28 19C18 21 10 33 0 33S-18 21-28 19ZM28 19C38 17 46 5 56 5S74 17 84 19C74 21 66 33 56 33S38 21 28 19Z"
+          stroke="#98556d" stroke-width="1.1"/>
+        <path d="M-28 21C-17 19-9 9 0 9S18 20 26 21M28 21C39 19 47 9 56 9S74 20 82 21"
+          stroke="#b28b7e" stroke-width=".8"/>
+        <path d="M0 0C8 3 16 15 28 16C40 15 48 3 56 0M0 38C8 35 16 23 28 22C40 23 48 35 56 38"
+          stroke="#ae7887" stroke-width=".85"/>
+        <path d="M2 31C11 29 17 22 24 20M32 17C40 14 47 7 54 6"
+          stroke="white" stroke-width="1.2"/>
+      </g>
+    </pattern>
+    <linearGradient id="fade">
+      <stop stop-color="white" stop-opacity="0"/>
+      <stop offset=".23" stop-color="white" stop-opacity=".13"/>
+      <stop offset=".5" stop-color="white" stop-opacity=".33"/>
+      <stop offset=".75" stop-color="white" stop-opacity=".19"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="taper"><path fill="url(#fade)" d="M0 0h216v48H0z"/></mask>
+  </defs>
+  <path fill="url(#weave)" mask="url(#taper)" d="M0 0h216v48H0z"/>
+</svg>

@@ -127,8 +127,7 @@ export function MatchCelebration({ name, onContinue, onClose, continueLabel = "Ø
       </button>
       <div className="nf-match-art" aria-hidden="true">
         <span className="nf-match-halo" />
-        <span className="nf-match-orbit" />
-        <span className="nf-match-ripple" />
+        <span className="nf-match-flourish" />
         <div className="nf-match-sparks">
           {Array.from({ length: 20 }, (_, i) => <i key={i} style={{ "--i": i } as CSSProperties} />)}
         </div>

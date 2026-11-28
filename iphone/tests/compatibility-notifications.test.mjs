@@ -7,6 +7,7 @@ import ts from 'typescript';
 import { describeFit } from '../src/compatibility/model.ts';
 import { compatibilitySnapshot, compareCompatibility } from '../src/compatibility/changes.ts';
 import { pairAssessmentFixture } from '../src/testing/pairAssessmentFixture.ts';
+import * as memberNotices from '../src/notifications/memberNoticeObservation.ts';
 
 const code = ts.transpileModule(await readFile(new URL('../src/notifications/ActivityAlerts.tsx', import.meta.url), 'utf8'),
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -30,6 +31,13 @@ function mount(source) {
   const hooks=[], effects=[];
   let cursor=0, timer=0;
   const react={
+    useMemo(fn,deps) {
+      const i=cursor++, old=hooks[i];
+      if(!old || deps.some((v,j)=>v!==old.deps[j]))hooks[i]={deps,value:fn()};
+      return hooks[i].value;
+    },
+    useRef(value) {const i=cursor++;return hooks[i]??={current:value};},
+    useSyncExternalStore(_subscribe,getSnapshot) {return getSnapshot();},
     useEffect(fn,deps) {
       const i=cursor++, old=hooks[i];
       if(!old || deps.some((value,j)=>value!==old.deps[j])) {
@@ -44,9 +52,12 @@ function mount(source) {
       return [hooks[i],next=>{hooks[i]=typeof next==='function'?next(hooks[i]):next;}];
     },
   };
+  react.useLayoutEffect=react.useEffect;
   const exports={};
   const require=name=>{
     if(name==='react')return react;
+    if(name==='./memberNoticeObservation')return memberNotices;
+    if(name==='../community/chatOutbox')return {denied:error=>error?.status===401||error?.status===403};
     if(name==='../member-copy.ts')return {default:memberAr};
     if(name==='../compatibility/changes')return {compatibilitySnapshot,compareCompatibility};
     return {};

@@ -22,6 +22,7 @@ import '/src/community/arrivalDiscovery.css';import '/src/arrivalSurfaces.css';i
 const people=['سارة','ريم','لولو','نورة','مها'].map((alias,i)=>({id:'p'+i,alias,age:28+i,city:'الرياض',online:i%2===0,occupation:'مهندسة',bio:'أقدّر الوضوح والحوار وأبحث عن شراكة هادئة.',interests:[],reasons:[],marriageBasics:{marriageTimeline:'three_to_six_months'},demoPhoto:'/demo/portraits/reem-realistic-v2.webp',fit:{version:'marriage-v4',strengths:dimensions.map(item=>item.id),discussion:[],missing:[],assessmentComplete:true,provisional:false,covered:dimensions.length,total:dimensions.length,percentage:72-i*3}}));
 people[0].recommendationPercentage=65;people[0].fit.practicalConcerns=['children_intent'];people[1].fit.provisional=true;people[2].compatibilityLocked=true;people[3].fit.percentage=0;people[3].eligible=false;
 people[0].membershipTier='premium';people[1].membershipTier='seriousness';
+people[2].familyManager='والدتها';
 people[0].manualVerifications=[{id:'fixture-marital-status',kind:'marital_status',label:'الحالة الاجتماعية',reviewedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString(),isTest:false}];
 Object.assign(people[1].fit,{covered:7,total:16,assessmentComplete:false,percentage:null});
 people[4].isDemo=true;people[4].online=false;people[4].demoPhoto='/demo/portraits/missing.webp';window.__interest=[];window.__failInterest=false;
@@ -110,8 +111,11 @@ async function checkDirectoryPull() {
  await page.evaluate(()=>{window.__finishRefresh();delete window.__directoryRefreshGate;});
  await page.waitForFunction(()=>document.querySelector('.dr-pull-content').style.paddingTop==='0px');
  assert.equal(await pullCalls(),callsBefore+1,'one completed pull refreshes once');
- const clickSuppressed = await surface.evaluate(element=>!element.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true})));
- assert.ok(clickSuppressed,'a completed drag suppresses its following click');
+ const afterDrag = await surface.evaluate(element=>{
+   const click = detail => element.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,detail}));
+   return {keyboardAllowed:click(0), touchSuppressed:!click(1), nextClickAllowed:click(1)};
+ });
+ assert.deepEqual(afterDrag,{keyboardAllowed:true,touchSuppressed:true,nextClickAllowed:true},'a drag only consumes its following pointer click');
 }
 async function openProfileAtMembershipSeal(row){
  const button=row.getByRole('button',{name:/عرض ملف/});
@@ -203,6 +207,14 @@ try{
  await page.locator('.dr-person-row').first().waitFor();await page.evaluate(()=>document.fonts.ready);
  const first=page.getByRole('article',{name:'ملف سارة',exact:true});
  const ineligible=page.getByRole('article',{name:'ملف نورة',exact:true});
+ const familyRow=page.getByRole('article',{name:'ملف لولو',exact:true});
+ await familyRow.locator('.dr-row-name').getByText('حساب عائلي',{exact:true}).waitFor();
+ assert.equal(await familyRow.locator('.dr-row-interest').count(),0);
+ await familyRow.locator('.dr-row-profile').click();
+ await profile.locator('.mp-name-row').getByText('التواصل مع والدتها').waitFor();
+ await profile.getByRole('button',{name:'الاهتمام بـ لولو'}).click();
+ await profile.getByRole('button',{name:'الاهتمام بـ لولو',pressed:true}).waitFor();
+ await profile.locator('.mp-back').click();
  for(const [name,tier] of [['سارة','premium'],['ريم','seriousness']]){
    const avatar=page.getByRole('article',{name:'ملف '+name,exact:true}).locator('.dr-row-avatar');
    const seal=avatar.locator(':scope > .wd-member-badge[data-tier="'+tier+'"]');
@@ -231,6 +243,9 @@ try{
  assert.equal(await page.locator('.mp-action-main').count(),0);
  await page.locator('.mp-back').click();
  await page.getByRole('button',{name:'تصفية الملفات',exact:true}).click();
+ // Keep the same neighboring profiles for the narrow-screen tap checks below.
+ await page.getByRole('button',{name:/ترتيب النتائج/}).click();
+ await page.getByRole('option',{name:'الأصغر سنًا',exact:true}).click();
  const eligibility=page.getByRole('switch',{name:'المؤهلون للتعارف فقط'});
  assert.equal(await eligibility.isChecked(),false);
  await page.getByText('المؤهلون للتعارف فقط',{exact:true}).click();
@@ -244,7 +259,7 @@ try{
  await sheet.getByRole('heading',{name:'التوافق بينكما'}).waitFor();
  await page.keyboard.press('Escape');
  await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة',pressed:true}).waitFor();
- assert.deepEqual(await page.evaluate(()=>window.__interest),[{id:'p0',value:true}]);
+ assert.deepEqual(await page.evaluate(()=>window.__interest),[{id:'p2',value:true},{id:'p0',value:true}]);
  assert.equal(await page.getByText('أُرسل إشعار باهتمامك.',{exact:true}).count(),1);
  assert.equal(await page.getByText('متابعة طلبي',{exact:true}).count(),0);
  await first.getByRole('button',{name:'إلغاء الاهتمام بـ سارة'}).click();await first.getByRole('button',{name:'إبداء الاهتمام بـ سارة',pressed:false}).waitFor();
@@ -281,6 +296,17 @@ try{
      return lines.length>0 && Math.max(...lines)-Math.min(...lines)<1 && button.clientWidth>0;
    }), 'bio preview occupies exactly one line at '+width);
    await first.scrollIntoViewIfNeeded();
+   if(width===320){
+     const pairs=await page.locator('.dr-person-row').evaluateAll(rows=>rows.slice(0,-1).flatMap((row,index)=>{
+       const add=row.querySelector('.dr-row-request');
+       if(!add)return [];
+       return [{profile:row.querySelector('.dr-row-name strong').textContent,next:rows[index+1].querySelector('.dr-row-name strong').textContent,
+         bottom:add.getBoundingClientRect().bottom,nextTop:rows[index+1].getBoundingClientRect().top}];
+     }));
+     assert.ok(pairs.some(pair=>pair.profile==='سارة'&&pair.next==='ريم'),'Sarah must have a following profile for the Add tap check');
+     assert.ok(pairs.some(pair=>pair.profile==='لولو'),'the family-managed Add target also has a following profile');
+     for(const {profile,next,bottom,nextTop} of pairs)assert.ok(bottom<=nextTop+.5,profile+' Add overlaps '+next+' by '+(bottom-nextTop)+'px');
+   }
    const hitTargets = await first.evaluate(row => {
      const targetAt = (element, horizontal = .5, vertical = .5) => {
        const {x,y,width,height} = element.getBoundingClientRect();

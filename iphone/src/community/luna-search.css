@@ -114,6 +114,7 @@
 .luna-search-person .nf-person-avatar { width: 32px; height: 32px; border-radius: 9px; background: var(--blush); color: var(--accent-fill); }
 .luna-search-person strong { font-size: .86rem; overflow-wrap: anywhere; }
 .luna-result-copy { display: grid; gap: 2px; min-width: 0; }
+.luna-result-heading { display:flex; align-items:center; flex-wrap:wrap; gap:2px 6px; }
 .luna-result-copy small { color: var(--muted); font-size: max(.8rem, 12px); line-height: 1.6; overflow-wrap: anywhere; }
 .luna-search-person > svg { color: var(--muted); }
 .luna-search-results > .btn-secondary { margin-block: 8px 0; }

@@ -5,6 +5,7 @@ import type {LunaResults} from './lunaSearchClient';
 import type {CommunitySource, Filters, PublicPerson} from './data';
 import {nativePrivatePhoto} from './privatePhoto';
 import {PersonAvatar} from '../avatars/PersonAvatar';
+import {FamilyManagedIdentity} from '../family/FamilyManagedIdentity';
 import './luna-search.css';
 
 async function refreshCards(source:CommunitySource, options:LunaResults['options']) {
@@ -120,7 +121,8 @@ export function LunaSearch({source,filters,open}:{source:CommunitySource;filters
             : <ul>{result.people.map(person=><li key={person.id}>
                 <button type="button" className="luna-search-person" aria-busy={opening===person.id||undefined} disabled={opening!==null} onClick={()=>void openResult(person.id)}>
                   <PersonAvatar person={person} source={source} protectedDiscovery={nativePrivatePhoto()} showMembership={false}/>
-                  <span className="luna-result-copy"><strong>{person.alias}</strong>
+                  <span className="luna-result-copy">
+                    <span className="luna-result-heading"><strong>{person.alias}</strong><FamilyManagedIdentity manager={person.familyManager}/></span>
                     {result.options.mode==='recommended'&&person.recommendationKind==='close'&&<span className="df-close-recommendation">ترشيح قريب</span>}
                     <small>{person.matchReasons?.length ? person.matchReasons.join(' · ') : 'الملف ضمن نتائج بحثك، لكن تفاصيله الظاهرة ما توضّح السبب.'}</small>
                   </span>{opening===person.id?<small role="status">جارٍ الفتح…</small>:<ChevronLeft size={16} aria-hidden="true"/>}

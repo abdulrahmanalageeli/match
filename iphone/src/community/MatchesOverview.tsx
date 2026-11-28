@@ -4,6 +4,7 @@ import { useId, useMemo, useState } from 'react';
 import { ArrowLeft, Check, CircleMinus, LockKeyhole, MessageCircle, Ring, Search } from '../BrandIcons';
 import { Brand } from '../Brand';
 import { PersonAvatar } from '../avatars/PersonAvatar';
+import { FamilyManagedIdentity } from '../family/FamilyManagedIdentity';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import { preferencePercentage } from '../compatibility/model';
 import '../compatibility/score-tile.css';
@@ -47,12 +48,13 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
         {current.length ? <div className="mo-current-grid">{current.map((row,index) => {
           const score = premium&&!row.person.compatibilityLocked?preferencePercentage(row.person.fit):null;
           const unread = row.unreadCount ? number.format(row.unreadCount) : null;
+          const profileLabel = row.person.familyManager ? `عرض ملف ${row.person.alias}، بإدارة ${row.person.familyManager}` : `عرض ملف ${row.person.alias}`;
           return <MotionReveal as="article" key={row.id} className="mo-current-card" data-request-row={row.id} delay={Math.min(index*55,110)} distance={8}>
-            <button className="mo-portrait-link" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}`}>
+            <button className="mo-portrait-link" onClick={()=>onProfile(row.id)} aria-label={profileLabel}>
               <PersonAvatar person={row.person} source={source} className="mo-portrait"/>
             </button>
             <div className="mo-current-copy">
-              <button className="mo-name" onClick={()=>onProfile(row.id)}>{row.person.alias}</button>
+              <span className="mo-person-heading"><button className="mo-name" onClick={()=>onProfile(row.id)} aria-label={profileLabel}>{row.person.alias}</button><FamilyManagedIdentity manager={row.person.familyManager}/></span>
               <p>{[row.person.age > 0 ? number.format(row.person.age) : '',row.person.city].filter(Boolean).join(' · ')}</p>
               {row.person.exclusive && <span className="mo-exclusive">ارتباط حصري</span>}
               <button className="mo-remove-match" disabled={busy} onClick={()=>onRemove(row.id)} aria-label={`إنهاء التعارف مع ${row.person.alias}`}>إنهاء التعارف</button>
@@ -109,9 +111,10 @@ export function MatchesOverview({ source, connections, loading, error, onRetry, 
           const incoming=row.direction==='incoming';
           const date=Number.isFinite(Date.parse(row.createdAt||''))?row.createdAt:undefined;
           return <MotionReveal as="article" className="mo-request" key={row.id} data-request-row={row.id} delay={Math.min(index*30,90)} distance={5}>
-            <button className="mo-request-profile" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}`}>
+            <button className="mo-request-profile" onClick={()=>onProfile(row.id)} aria-label={`عرض ملف ${row.person.alias}${row.person.familyManager ? '، بإدارة '+row.person.familyManager : ''}`}>
               <PersonAvatar person={row.person} source={source} className="mo-request-avatar"/>
-              <span className="mo-identity"><strong>{row.person.alias}</strong><span>{[row.person.age>0?number.format(row.person.age):'',row.person.city].filter(Boolean).join(' · ')}</span><small data-incoming={incoming||undefined}>{incoming?'بانتظارك':'بانتظار الرد'}</small></span>
+              <span className="mo-identity"><span className="mo-person-heading"><strong>{row.person.alias}</strong><FamilyManagedIdentity manager={row.person.familyManager}/></span>
+                <span>{[row.person.age>0?number.format(row.person.age):'',row.person.city].filter(Boolean).join(' · ')}</span><small data-incoming={incoming||undefined}>{incoming?'بانتظارك':'بانتظار الرد'}</small></span>
             </button>
             <div className="mo-request-action">{incoming ? <div className="mo-request-decisions">
               <MotionPressButton className="mo-action mo-action-incoming" disabled={busy} onClick={()=>onAccept(row.id)} aria-label={`قبول طلب ${row.person.alias}`}><Check size={14}/>قبول</MotionPressButton>

@@ -86,9 +86,11 @@ test('an unrecognized description never turns into an unrestricted directory lis
 
 test('compact results include the published reason without returning biography or internal notes',async()=>{
   const row={id:'p',alias:'ريم',publicAvatar:null,portrait:null,bio:'public biography',internalNotes:'private sentinel',marriageBasics:{nationality:'مصري'}};
-  const search=createLunaSearch({env:{},fetcher:async url=>({ok:true,json:async()=>url.endsWith('reserve')?{}:[row]})});
+  const family={...row,id:'family',familyManager:'والدتها'};
+  const search=createLunaSearch({env:{},fetcher:async url=>({ok:true,json:async()=>url.endsWith('reserve')?{}:[row,family]})});
   const response=await search({query:'بنت مصرية'},{authorization:'Bearer test',accept:'application/vnd.wudayn.search-cards+json'});
-  assert.deepEqual(response.people,[{id:'p',alias:'ريم',publicAvatar:null,portrait:null,matchReasons:['الجنسية: مصري']}]);
+  const card={id:'p',alias:'ريم',publicAvatar:null,portrait:null,matchReasons:['الجنسية: مصري']};
+  assert.deepEqual(response.people,[card,{...card,id:'family',familyManager:'والدتها'}]);
   assert.equal(response.summary,undefined);
   assert.equal(response.criteria,undefined);
 });

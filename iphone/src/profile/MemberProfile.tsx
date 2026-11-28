@@ -4,6 +4,7 @@ import { DeepCompatibility } from '../community/DeepCompatibility';
 import { Sheet } from '../community/Sheet';
 import { mahrRanges } from '../compatibility/marriage';
 import {MemberBadge} from '../membership/MemberBadge';
+import { FamilyManagedIdentity } from '../family/FamilyManagedIdentity';
 import {useMembershipAccess} from '../membership/access';
 import { languageOpennessLabels } from "../compatibility/marriage";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type RefObject } from 'react';
@@ -190,6 +191,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
       <div className="mp-hero-copy">
         <div className="mp-name-row">
           <h1 ref={heading} tabIndex={-1}>{person.alias}</h1>
+          <FamilyManagedIdentity manager={person.familyManager} variant="profile"/>
           <MemberBadge tier={person.membershipTier} active={person.premium} labeled/>
         </div>
       </div>
@@ -213,8 +215,8 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     <div id={contentId} className="mp-content" key={visibleSection} data-pinned={alignPinned||undefined} data-backward={backward||undefined} onClick={unfoldReading}>
       {visibleSection==='about'&&<>
         <section className="mp-story">
-          <div className="mp-prompt-title"><h2><Feather size={16} aria-hidden="true"/>عنّي</h2>
-            {ask && person.bio?.trim() && <ProfileStarterAction title="عنّي" onClick={() => ask('bio')}/>}
+          <div className="mp-prompt-title"><h2><Feather size={16} aria-hidden="true"/>{person.familyManager ? `عن ${person.alias}` : 'عنّي'}</h2>
+            {ask && person.bio?.trim() && <ProfileStarterAction title={person.familyManager ? `عن ${person.alias}` : 'عنّي'} onClick={() => ask('bio')}/>}
           </div>
           <div className="mp-story-body">
             {person.bio ? <p dir="auto">{person.bio}</p> : <p className="mp-empty">ما فيه نبذة في هذا الملف إلى الآن.</p>}
@@ -223,7 +225,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
             </ul>}
           </div>
         </section>
-        <PersonalPrompts key={person.id} answers={person} onAsk={ask} askLabelShown={Boolean(person.bio?.trim())}/>
+        <PersonalPrompts key={person.id} answers={person} familyManaged={Boolean(person.familyManager)} onAsk={ask} askLabelShown={Boolean(person.bio?.trim())}/>
         {source&&<ProfileGallery source={source} subject={preview?undefined:person.id} name={person.alias}/>}
         {person.beenaStory&&<BeenaSummary story={person.beenaStory} name={person.alias}/>}
       </>}

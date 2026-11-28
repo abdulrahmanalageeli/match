@@ -191,6 +191,23 @@
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 24' preserveAspectRatio='none'%3E%3Cpath fill='%23f0e2e5' d='M1 18Q22 8 53 9T99 3Q84 17 55 17T1 18Z'/%3E%3Cpath fill='%23ddbdc5' d='M8 22Q33 13 64 15Q85 15 95 10Q83 18 62 18Q36 16 8 22Z'/%3E%3C/svg%3E") center bottom / 100% .85em no-repeat;
 }
 .mp-name-row > .wd-member-badge-labeled { grid-area: 1 / 1; justify-self: start; }
+.mp-hero .mp-name-row:has(> .wd-family-identity) {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: .15rem .45rem;
+}
+.mp-name-row:has(> .wd-family-identity) > .wd-member-badge-labeled { order: -1; }
+.mp-name-row > .wd-family-identity[data-variant="profile"] { margin: 0; }
+@media (max-width: 360px) {
+  .mp-name-row .wd-family-identity-label > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
 .mp-hero-copy .mp-decision-timeline { border-inline-start: 1px solid var(--line); padding-inline-start: 10px; }
 .mp-hero .mp-identity-meta { margin: 0; }
 .phone-app .mp-profile .mp-hero .mp-hero-copy h1 {

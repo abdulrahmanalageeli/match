@@ -113,6 +113,7 @@ import { CommunitySkeleton } from './CommunitySkeleton';
 import { feedback } from '../feedback/haptics';
 import { ChatInsights } from './ChatInsights';
 import { FamilyBridgePanel } from '../family/FamilyBridge';
+import { FamilyManagedIdentity } from '../family/FamilyManagedIdentity';
 import type {
   CommunitySource,
   Connection,
@@ -490,11 +491,13 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
     </div>
     <div className="df-portrait-identity">
       <div className="df-member-heading">
-        <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}{Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span className="df-member-age">{ar.format(person.age)} عامًا</span>}{person.exclusive && <ExclusiveBadge/>}</div>
+        <div className="df-identity-line">{heading ? <h1>{person.alias}</h1> : <h2>{person.alias}</h2>}
+          {Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span className="df-member-age">{ar.format(person.age)} عامًا</span>}
+          <FamilyManagedIdentity manager={person.familyManager} variant="hero"/>
+          {person.exclusive && <ExclusiveBadge/>}</div>
         <MemberBadge tier={person.membershipTier} active={person.premium} labeled/>
       </div>
       <div className="df-identity-meta">{person.city && <span><MapPin size={13} />{person.city}</span>}
-        {person.familyManager && <span>بإدارة {person.familyManager}</span>}
         {person.occupation && <span><BriefcaseBusiness size={13} />{person.occupation}</span>}
         {timeline && marriageTimelineLabels[timeline] && <span><Clock3 size={13} />الزواج {marriageTimelineLabels[timeline]}</span>}</div>
       {person.interests.length>0&&<p className="df-identity-interests"><span>اهتمامات</span><span dir="auto">{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</span></p>}
@@ -527,7 +530,7 @@ function PersonCard({
   return <div className={"df-recommendation cm-person df-person"+(compact?" dr-compact":"")}
     data-membership={person.membershipTier} style={{animationDelay: `${Math.min(index,7)*45}ms`}}>
     <MotionPressButton className="df-profile-hitbox" type="button" onClick={event => open(event.currentTarget)}
-      data-weekly-person={person.id} aria-label={`عرض ملف ${person.alias}`} aria-describedby={descriptionId}/>
+      data-weekly-person={person.id} aria-label={`عرض ملف ${person.alias}${person.familyManager ? '، حساب عائلي بإدارة ' + person.familyManager : ''}`} aria-describedby={descriptionId}/>
     <div className="cm-person-top cm-weekly-identity df-card-portrait">
       <DiscoveryPortrait person={person} source={source} priority={priority} />
     </div>
@@ -598,11 +601,13 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
   const ineligible=person.eligible===false;
   const timeline=person.marriageBasics?.marriageTimeline;
   const status=person.online===true?'نشط الآن':person.online===false?'غير نشط الآن':'حالة الاتصال غير متاحة';
+  const requestPeer = person.familyManager ? `أسرة ${person.alias}` : person.alias;
+  const addLabel = person.familyManager ? `إرسال طلب تعارف إلى ${requestPeer}` : `إضافة ${person.alias}، إرسال طلب تعارف`;
   return <article className="dr-person-row" data-membership={person.membershipTier} aria-label={`ملف ${person.alias}`}>
     {person.membershipTier==='seriousness'&&<MembershipRowSpark/>}
     <div className="dr-row-overview">
       <div className="dr-row-profile-group">
-        <button type="button" className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias} · ${status}`} />
+        <button type="button" className="dr-row-profile" data-weekly-person={person.id} onClick={event=>open(event.currentTarget)} aria-label={`عرض ملف ${person.alias}${person.familyManager ? '، حساب عائلي بإدارة ' + person.familyManager : ''} · ${status}`} />
         <span className="cm-weekly-identity dr-row-avatar" data-online={person.online===true||undefined}>
           <PersonAvatar person={person} source={source} className="dr-row-image" protectedDiscovery={nativePrivatePhoto()} showMembership={false}/>
           {person.online===true&&<span className="dr-avatar-online" role="img" aria-label="نشط الآن" title="نشط الآن"><i className="dr-online-dot"/></span>}
@@ -612,7 +617,8 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
           <span className="dr-row-name">
             <strong>{person.alias}</strong>
             {Number.isInteger(person.age)&&person.age>=18&&person.age<=110&&<span>{ar.format(person.age)}</span>}
-            {!sampleOnly && !ineligible && source.setInterest && (
+            <FamilyManagedIdentity manager={person.familyManager} variant="row"/>
+            {!person.familyManager && !sampleOnly && !ineligible && source.setInterest && (
               <button type="button" className="dr-row-interest" aria-pressed={Boolean(person.interested)}
                 aria-label={person.interested ? `إلغاء الاهتمام بـ ${person.alias}` : `إبداء الاهتمام بـ ${person.alias}`}
                 title="يصل إشعار باهتمامك إلى الطرف الآخر" disabled={busy} onClick={interest}>
@@ -621,7 +627,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
               </button>
             )}
           </span>
-          <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{person.familyManager&&<span className="dr-row-meta">بإدارة {person.familyManager}</span>}{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
+          <span className="dr-row-context">{person.online===true&&<span className="dr-online-label">نشط الآن</span>}<span className="dr-row-meta">{person.city}</span>{timeline&&marriageTimelineLabels[timeline]&&<span className="dr-row-timeline" title={`الزواج ${marriageTimelineLabels[timeline]}`}><Clock3 size={11} aria-hidden="true"/><span>{timeline==='when_ready'?'عند التوافق':marriageTimelineLabels[timeline]}</span></span>}</span>
         </span>
       </div>
       {premium ? !person.compatibilityLocked && <button type="button" className="dr-fit-visual" onClick={explain} disabled={!person.fit}
@@ -634,7 +640,7 @@ function DirectoryRow({person,source,open,explain,request,interest,busy}:{person
       {person.bio && <button type="button" className="dr-bio-peek" onClick={event=>open(event.currentTarget)}
         aria-label={`عرض النبذة الكاملة لـ ${person.alias}`}>{person.bio}</button>}
     {sampleOnly?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)} aria-label={`استعراض الملف الخيالي لـ ${person.alias}`}>استعراض فقط <ChevronLeft size={14}/></button>:ineligible&&!person.connectionId?<button className="dr-sample-preview" onClick={event=>open(event.currentTarget)}>غير مؤهل للتعارف <ChevronLeft size={14}/></button>:<div className="dr-row-actions">
-      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${person.alias}`:`عرض طلب التعارف مع ${person.alias}` : premium ? `إضافة ${person.alias}، إرسال طلب تعارف` : `ترقية العضوية لطلب التعارف مع ${person.alias}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?memberAr.openChat:'عرض الطلب':memberAr.request}>
+      <button type="button" className="dr-row-request" data-add={!person.connectionId||undefined} data-connected={person.connectionStatus==='accepted'||undefined} data-pending={person.connectionStatus==='pending'||undefined} onClick={request} disabled={busy||(!person.connectionId&&(person.atCapacity||person.viewerAtCapacity))} aria-label={person.connectionId?person.connectionStatus==='accepted'?`فتح المحادثة مع ${requestPeer}`:`عرض طلب التعارف مع ${requestPeer}` : premium ? addLabel : `ترقية العضوية لطلب التعارف مع ${requestPeer}`} title={!person.connectionId&&(person.atCapacity||person.viewerAtCapacity)?'اكتمل عدد الارتباطات المتاح لأحد الطرفين':person.connectionId?person.connectionStatus==='accepted'?memberAr.openChat:'عرض الطلب':memberAr.request}>
         {person.connectionId ? person.connectionStatus === 'accepted' ? <MessageCircle size={20} aria-hidden="true"/> : <Clock3 size={20} aria-hidden="true"/> : <>
           <AddPersonMark compact/>
           <span>{premium?"إضافة":"ترقية العضوية"}</span>
@@ -1027,7 +1033,7 @@ function Discovery({
         featured={listPosition.current?.featured}
         primary={person.isDemo&&!source.simulation&&!source.demoInteractions?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:person.eligible===false&&!person.connectionId?<p className="cm-help"><LockKeyhole size={14} />هذا الملف غير مؤهل لطلب تعارف وفق الشروط الحالية.</p>:<>
           <button onClick={()=>person.connectionId ? onInbox({id:person.connectionId,featured:false}) : void sendRequest()} disabled={busy || (!person.connectionId && (person.atCapacity || person.viewerAtCapacity))} aria-busy={busy||undefined} className="btn-primary mp-action-main" data-introduction-request={premium&&!person.connectionId||undefined}>
-            <span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? memberAr.openChat : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? memberAr.request : "اشترك وابدأ التعارف"}</strong></span>
+            <span className="mp-action-copy"><strong>{busy?'جارٍ إرسال الطلب…':person.connectionId ? person.connectionStatus === "accepted" ? (person.familyManager ? 'محادثة الأسرة' : memberAr.openChat) : "عرض طلب التعارف" : person.atCapacity || person.viewerAtCapacity ? "اكتمل عدد التعارفات حاليًا" : premium ? (person.familyManager ? 'إرسال طلب إلى الأسرة' : memberAr.request) : "اشترك وابدأ التعارف"}</strong></span>
             <span className="mp-action-symbol" aria-hidden="true">{person.connectionStatus==='accepted'?<MessageCircle size={18}/>:person.connectionStatus==='pending'?<Clock3 size={18}/>:<AddPersonMark/>}</span>
           </button>
           {!person.connectionId && (person.atCapacity || person.viewerAtCapacity) && <p className="cm-help"><LockKeyhole size={14} />اكتمل عدد الارتباطات المتاح لأحد الطرفين. يمكنك العودة لاحقًا.</p>}
@@ -1555,6 +1561,7 @@ export function Chat({
   const [requestedStarter, setRequestedStarter] = useState(initialStarter);
   const [offeredStarter, setOfferedStarter] = useState<PublicStarterKey>();
   const starterKey = (['lifeTogether', 'valuesStatement', 'lookingFor', 'bio'] as const).find(key => connection.person[key]?.trim());
+  const chatName = connection.person.familyManager ? `أسرة ${connection.person.alias}` : connection.person.alias;
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(Boolean(initialRoom));
   useCapturePrivacy(profileOpen || (familyOpen && source.family) ? null : 'chat');
@@ -1826,11 +1833,16 @@ export function Chat({
     <section className="cm-chat" ref={screen} data-conversation-id={connection.id} data-private-hidden={privateHidden || undefined}>
       {privateHidden && <div className="cm-chat-privacy-cover" aria-label="المحادثة مخفية أثناء مغادرة التطبيق"><LockKeyhole size={32}/><span>خصوصيتكما أولًا</span></div>}
       <header className="cm-chat-head">
-        <h1 className="mi-sr-only" tabIndex={-1}>محادثة مع {connection.person.alias}</h1>
+        <h1 className="mi-sr-only" tabIndex={-1}>محادثة مع {chatName}</h1>
         <button data-nf-back={!recording && !privateHidden && !thread.hasDraft && !replyDraft || undefined} className="icon-btn cm-chat-back" onClick={() => { typing.stop(); back(); }} aria-label={backLabel}><ArrowRight size={15} /></button>
-        <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
+        <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}${connection.person.familyManager ? '، التواصل مع ' + connection.person.familyManager : ''}`} onClick={event => openPartnerProfile(event.currentTarget)}>
           <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
-          <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {exclusive && <ExclusiveBadge/>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : 'الملف الشخصي'}</small></span>
+          <span className="cm-chat-person-copy"><strong>{connection.person.familyManager
+            ? <><span className="wd-family-chat-name">{chatName}</span><span className="wd-family-chat-compact"><bdi>{connection.person.alias}</bdi><span>بإدارة {connection.person.familyManager}</span></span></>
+            : chatName} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {exclusive && <ExclusiveBadge/>}</strong>
+            <small>{connection.person.familyManager && <span className="wd-family-chat-contact"><UsersRound size={13} aria-hidden="true"/>التواصل مع {connection.person.familyManager}</span>}
+              {typing.peerTyping ? <span className="cm-typing" role="status">{connection.person.familyManager ? 'جارٍ الكتابة' : 'يكتب الآن'}<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : !connection.person.familyManager && 'الملف الشخصي'}</small>
+          </span>
         </button>
         {voice && <CallPermissionButton source={source} connection={connection} disabled={voice.occupied || !canSend || recording} onCall={() => voice.start(connection)}/>}
         <button className="cm-guide-button" aria-label="خيارات المحادثة" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal size={21}/></button>
@@ -1869,7 +1881,7 @@ export function Chat({
               <button type="button" className="cm-first-starter" disabled={!canSend} onClick={() => addProfileQuote(starterKey)}><MessageCircle size={15}/> اسأل عن هالنقطة <ChevronLeft size={13}/></button>
             </div> : <><span className="cm-first-icon"><MessageCircle size={25} aria-hidden="true" /></span>
             <h2>كل بداية، حديث</h2>
-            <p>مساحة لك ولـ{connection.person.alias}. ابدأ بتحية، أو بسؤال يفتح باب المعرفة.</p>
+            <p>{connection.person.familyManager ? `ابدأ الحديث مع العائلة بسؤال عن ${connection.person.alias}.` : `مساحة لك ولـ${connection.person.alias}. ابدأ بتحية، أو بسؤال يفتح باب المعرفة.`}</p>
             <button type="button" className="cm-first-starter" disabled={!canSend} onClick={() => setInsightsOpen(true)}><Sparkles size={14}/> فكرة لبداية الحديث <ChevronLeft size={13}/></button></>}
           </div>}
           {thread.rows.map((msg, i) => {
@@ -1900,12 +1912,12 @@ export function Chat({
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
               {msg.id === reading.firstUnreadId && <div className="cm-unread-divider" role="separator" aria-label="رسائل لم تقرأها"><span>رسائل لم تقرأها</span></div>}
               <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReport && !canReply && !canDelete && !canReact}
-                actionLabel={(msg.senderIsMe ? 'رسالة منك' : 'رسالة من ' + connection.person.alias) + (day ? '، ' + time.format(new Date(msg.createdAt)) : '')} actionDescriptionId={messageActionHelp}
+                actionLabel={(msg.senderIsMe ? 'رسالة منك' : 'رسالة من ' + chatName) + (day ? '، ' + time.format(new Date(msg.createdAt)) : '')} actionDescriptionId={messageActionHelp}
                 onHold={() => openMessageActions(msg)} onTap={continues ? () => setStampId(id => id === msg.id ? null : msg.id) : undefined}>
               <div className={"cm-bubble" + (msg.senderIsMe ? " self" : "") + (status?.status === "failed" ? " failed" : "")}
                 data-composed={msg.senderIsMe && msg.clientId === composedId.current && composedId.current ? "" : undefined}>
                 {!deleted && msg.reply && <button type="button" className="cm-reply-quote" aria-label="الانتقال إلى الرسالة الأصلية" onClick={() => { setReplyNotice(''); atBottom.current = false; setJumpToId(msg.reply!.id); setVoiceSeek(msg.reply!.atSeconds != null && !msg.reply!.deletedAt && !deletedIds.has(msg.reply!.id) ? {id:msg.reply!.id,atSeconds:msg.reply!.atSeconds} : null); }}>
-                  <strong>{msg.reply.senderIsMe ? 'أنت' : connection.person.alias}</strong><span dir="auto">{msg.reply.deletedAt || deletedIds.has(msg.reply.id) ? "تم حذف هذه الرسالة" : <>{msg.reply.body}{msg.reply.atSeconds != null && <> · <bdi dir="ltr">{voiceTimeLabel(msg.reply.atSeconds)}</bdi></>}</>}</span>
+                  <strong>{msg.reply.senderIsMe ? 'أنت' : chatName}</strong><span dir="auto">{msg.reply.deletedAt || deletedIds.has(msg.reply.id) ? "تم حذف هذه الرسالة" : <>{msg.reply.body}{msg.reply.atSeconds != null && <> · <bdi dir="ltr">{voiceTimeLabel(msg.reply.atSeconds)}</bdi></>}</>}</span>
                 </button>}
                 {deleted ? <p className="cm-deleted-message"><Ban size={16}/>تم حذف هذه الرسالة</p> : msg.attachment ? <MessageMedia source={source} requestId={connection.id} attachment={msg.attachment} senderIsMe={msg.senderIsMe} localFile={status?.localFile} onReplyAt={canReply ? seconds => chooseReply(msg, seconds) : undefined} seekTo={voiceSeek?.id === msg.id ? voiceSeek : undefined}/> : <p dir="auto">{msg.body}</p>}
                 <div className="cm-message-meta">
@@ -1917,7 +1929,7 @@ export function Chat({
                       <span className="cm-receipt-label">{read ? 'قُرئت' : msg.deliveredAt ? 'تم التسليم' : 'أُرسلت'}</span></span>)}
                 </div>
               </div>
-              {!deleted && <MessageReactions reactions={msg.reactions} self={msg.senderIsMe} name={connection.person.alias}
+              {!deleted && <MessageReactions reactions={msg.reactions} self={msg.senderIsMe} name={chatName}
                 pending={thread.pendingReactionIds.has(msg.id)} disabled={!canReact}
                 open={() => openMessageActions(msg)} />}
               </SwipeReply>
@@ -1946,7 +1958,7 @@ export function Chat({
         <button type="button" aria-label="تجاهل الاقتباس" onClick={() => setOfferedStarter(undefined)}><X size={15}/></button>
       </div>}
       {canDraft && <ChatComposer outbox={thread.outbox} composer={composer} canSend={canSend} conversationAllowed={conversationAllowed}
-        typing={typing} onSubmit={submit} name={connection.person.alias}>
+        typing={typing} onSubmit={submit} name={chatName}>
         <ChatMediaComposer source={source} disabled={!canSend} callActive={Boolean(voice?.occupied)} onRecording={setRecording} onSend={draft => {
           atBottom.current = true;
           composedId.current = draft.clientId;
@@ -2588,12 +2600,13 @@ function Requests({
               setNotice("");
               window.scrollTo(0, 0);
             }}
-            aria-label={`${row.status === "accepted" ? "فتح محادثة" : "عرض طلب"} ${row.person.alias}`}
+            aria-label={`${row.status === "accepted" ? "فتح محادثة" : "عرض طلب"} ${row.person.alias}${row.person.familyManager ? '، حساب عائلي بإدارة ' + row.person.familyManager : ''}`}
             aria-describedby={row.unreadCount ? "unread-" + row.id : undefined}
           >
             <PersonAvatar person={row.person} source={source} className="cm-avatar" />
             <div className="cm-request-copy">
               <strong>{row.person.alias} <VerifiedBadge claims={row.person.manualVerifications} compact interactive={false}/> {row.person.exclusive && <ExclusiveBadge/>}</strong>
+              <FamilyManagedIdentity manager={row.person.familyManager}/>
               <span className="cm-inbox-preview">
                 {row.status === "accepted"
                   ? row.lastMessage ? (row.lastMessage.senderIsMe ? "أنت: " : "") + row.lastMessage.body : "ابدأ المحادثة"

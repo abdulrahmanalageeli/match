@@ -497,6 +497,7 @@ function DiscoveryPortrait({ person, source, priority = false, heading = false }
         {person.familyManager && <span>بإدارة {person.familyManager}</span>}
         {person.occupation && <span><BriefcaseBusiness size={13} />{person.occupation}</span>}
         {timeline && marriageTimelineLabels[timeline] && <span><Clock3 size={13} />الزواج {marriageTimelineLabels[timeline]}</span>}</div>
+      {person.interests.length>0&&<p className="df-identity-interests"><span>اهتمامات</span><span dir="auto">{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</span></p>}
       {(!person.portrait||person.isDemo)&&!(person.isDemo&&(source.simulation||source.demoInteractions||source.familyTestMode))&&<small className="df-portrait-source">{person.isDemo ? photo ? 'شخصية توضيحية · صورة مولّدة' : 'حساب توضيحي' : avatar ? "صورة رمزية" : photo ? "شخصية توضيحية · صورة مولّدة" : <><LockKeyhole size={11} /> الصور تُشارك بخصوصية</>}</small>}
     </div>
   </>;
@@ -534,7 +535,6 @@ function PersonCard({
       {person.recommendationKind==='close' && <span className="df-close-recommendation" title="أحد تفضيلاتكما غير متحقق">ترشيح قريب <small>· أحد التفضيلات غير متحقق</small></span>}
       {compact && <span className="dr-card-state" data-full={person.atCapacity||undefined}><i/>{person.connectionStatus === "accepted" ? "تعارف متبادل" : person.connectionStatus === "pending" ? "طلب قيد الانتظار" : person.atCapacity ? "مكتمل التعارف حاليًا" : "متاح للتعارف"}</span>}
       {personalLine && <p className="cm-person-bio" dir="auto">{personalLine}</p>}
-      {person.interests.length>0&&<p className="df-card-interests">{person.interests.slice(0, 2).map(safeInterest).join(" · ")}</p>}
       {context && !canReadFit && <p className="df-card-reason">{context}</p>}
       {canReadFit ? <div className="df-card-fit-summary">
         <button type="button" className="df-read-fit" onClick={explain}

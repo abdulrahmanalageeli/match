@@ -621,15 +621,16 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 .phone-app .cm-shell .df-discovery .df-recommendation {
   --card-gutter: clamp(13px, 4vw, 19px);
   margin: 0;
-  border: 1px solid var(--line);
-  border-radius: 19px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 22px;
+  box-shadow: 0 14px 36px rgb(42 25 32 / 3.5%), inset 0 0 0 .5px rgb(255 255 255 / 72%);
 }
 .phone-app .cm-shell .df-discovery .df-card-portrait {
   display: block;
   box-sizing: border-box;
   height: auto;
   aspect-ratio: auto;
-  padding: 8px 8px 0;
+  padding: 7px 7px 0;
   background: transparent;
   color: var(--ink);
 }
@@ -638,7 +639,7 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
   inset: auto;
   width: 100%;
   aspect-ratio: 1.45 / 1;
-  border-radius: 12px;
+  border-radius: 16px 16px 13px 13px;
 }
 @media (max-width: 520px) {
   .df-card-portrait > .df-portrait-media:not([data-protected]) { aspect-ratio: 5 / 3; }
@@ -651,7 +652,7 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 .df-card-portrait .df-portrait-placeholder .cm-avatar.large { margin: 0; }
 .phone-app .cm-shell .df-card-portrait .df-portrait-identity {
   position: static;
-  padding: 12px calc(var(--card-gutter) - 8px) 0;
+  padding: 11px calc(var(--card-gutter) - 7px) 0;
 }
 .df-member-heading, .df-member-heading .df-identity-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
 .df-member-heading { justify-content: space-between; }
@@ -675,12 +676,123 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 .df-portrait-source { display: flex; align-items: center; gap: 4px; margin-top: 3px; font-size: .64rem; line-height: 1.45; color: var(--muted); }
 .phone-app .cm-shell .df-discovery .df-card-copy { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; column-gap: 10px; padding: 8px var(--card-gutter) 2px; }
 .phone-app .cm-shell .df-discovery .df-card-copy .cm-person-bio { grid-column: 1/-1; color: var(--ink); font-size: .88rem; line-height: 1.7; margin: 0 0 8px; }
-.df-card-interests, .df-card-copy > .df-card-reason { grid-column: 1/-1; margin: 0 0 8px; color: var(--muted); font-size: .74rem; }
+.df-card-copy > .df-card-reason { grid-column: 1/-1; margin: 0 0 8px; color: var(--muted); font-size: .74rem; }
 .df-card-copy::before { content: ""; grid-column: 1/-1; height: 1px; background: var(--arrival-rule); order: 1; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary { order: 2; margin: 4px 0; gap: 8px; }
 .phone-app .cm-shell .df-discovery .df-card-fit-summary .df-card-reason { padding-inline-start: 8px; font-size: .72rem; line-height: 1.55; overflow-wrap: break-word; }
 .df-card-fit-summary .df-read-fit { flex-shrink: 0; max-width: 100%; }
 .phone-app .cm-shell .df-card-copy > .df-open-profile { order: 3; grid-column: 2; justify-self: end; min-height: 44px; gap: 4px; font-size: .75rem; }
+
+/* Give each recommendation a composed identity masthead before its score. */
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-member-heading {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(52px, 1fr) auto minmax(52px, 1fr);
+  align-items: center;
+  min-height: 32px;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-member-heading .df-identity-line {
+  grid-column: 2;
+  grid-row: 1;
+  justify-content: center;
+  gap: 3px 7px;
+  text-align: center;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-member-heading .df-identity-line h2 {
+  font-size: 1.32rem;
+  font-weight: 650;
+  letter-spacing: -.018em;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-member-heading .df-member-age {
+  padding-block-start: 3px;
+  font-size: .72rem;
+  font-variant-numeric: tabular-nums;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-member-heading > .wd-member-badge-labeled {
+  position: static;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  max-width: 52px;
+  transform: none;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-meta {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 !important;
+  margin-block-start: 7px;
+  padding-block: 9px 10px;
+  text-align: center;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-meta::before,
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-meta::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--arrival-rule) 16%, var(--arrival-rule) 84%, transparent);
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-meta::before { inset-block-start: 0; }
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-meta::after { inset-block-end: 0; }
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-meta > span {
+  justify-content: center;
+  min-width: 0;
+  padding-inline: 7px;
+  line-height: 1.45;
+  text-wrap: balance;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-meta > span + span {
+  border-inline-start: 1px solid color-mix(in srgb, var(--arrival-rule) 74%, transparent);
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-meta:has(> span:nth-child(4)) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  row-gap: 9px !important;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-meta:has(> span:nth-child(4)) > span:nth-child(3) {
+  border-inline-start: 0;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-interests {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: .72rem;
+  line-height: 1.55;
+  text-align: center;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-interests > span:first-child {
+  flex: none;
+  color: color-mix(in srgb, var(--accent) 78%, var(--muted));
+  font-size: .66rem;
+  font-weight: 650;
+}
+.phone-app .cm-shell .df-discovery .df-card-portrait .df-identity-interests > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phone-app .cm-shell .df-discovery .df-card-copy {
+  padding-block-start: 10px;
+}
+.phone-app .cm-shell .df-discovery .df-card-copy .cm-person-bio {
+  position: relative;
+  padding-inline-start: 13px;
+  text-wrap: pretty;
+}
+.phone-app .cm-shell .df-discovery .df-card-copy .cm-person-bio::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: .38em;
+  width: 2px;
+  border-radius: 99px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 65%, transparent) 28%, color-mix(in srgb, var(--accent) 65%, transparent) 72%, transparent);
+}
 @media (max-width: 360px) {
   .phone-app .cm-shell .df-discovery .df-card-fit-summary:has(.df-card-reason) { grid-column: 1/-1; }
 }

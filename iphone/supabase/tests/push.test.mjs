@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFile, readdir } from 'node:fs/promises';
 import { createDatabase, addUser, asMember, asService } from './harness.mjs';
 import {seedCommunicationMember,signCommunicationAgreement} from './communication-fixture.mjs';
 
@@ -233,13 +234,132 @@ test('per-connection deadlines, optional analysis and local overnight quiet hour
   const quiet=async utc=>(await db.query("select marriage.push_quiet(controls,$2) q from marriage.push_preferences where member_id=$1",[b.id,utc])).rows[0].q;
   assert.equal(await quiet('2026-11-18T19:00:00Z'),true);assert.equal(await quiet('2026-11-19T04:00:00Z'),false);
   const insert=async()=> (await db.query("insert into marriage.deep_analyses(connection_id,requester_id,recipient_id,status) values($1,$2,$3,'requested') returning id",[first,a.id,b.id])).rows[0].id;
-  await insert();assert.deepEqual(await service("public.marriage_push_claim('sandbox',10)"),[]);
-  await call(b,'public.marriage_push_controls($1)',[{analysis:true}]);const report=await insert();
-  const [invite]=await service("public.marriage_push_claim('sandbox',10)");assert.equal(invite.kind,'analysis');
-  assert.equal((await detail(invite)).preview,'private');
-  await db.query("update marriage.deep_analyses set status='declined' where id=$1",[report]);assert.equal(await detail(invite),null);
+  const claim=()=>service("public.marriage_push_claim('sandbox',20)");
+  const delivery=job=>service('public.nisfayn_push_delivery($1,$2,false,$3)',[job.id,job.leaseId,job.token]);
+  const notices=async member=>(await call(member,'public.marriage_push_updates(null)'))
+   .filter(item=>item.event.startsWith('analysis:')&&item.target===first);
+  const token=member=>member.id.replaceAll('-','').repeat(2);
+  const secondToken=randomUUID().replaceAll('-','').repeat(2);
+  await call(b,'public.marriage_push_register($1,$2,$3)',[secondToken,'sandbox',randomUUID()]);
+  const optional=await insert();
+  assert.deepEqual(await claim(),[],'analysis push requires category opt-in');
+  assert.deepEqual((await notices(b)).map(row=>row.event),['analysis:invited'],'the in-app invitation remains available');
+  await db.query("update marriage.deep_analyses set status='declined' where id=$1",[optional]);
+  for(const member of [a,b,c]){
+   await call(member,'public.marriage_push_enable(true)');
+   await call(member,'public.marriage_push_controls($1)',[{analysis:true}]);
+  }
+  const hour=(await db.query("select extract(hour from now() at time zone 'Asia/Riyadh')::int h")).rows[0].h;
+  await call(b,'public.marriage_push_controls($1)',[{quiet:true,start:(hour+23)%24,end:(hour+2)%24,zone:'Asia/Riyadh'}]);
+  const expectJobs=async(phase,report,tokens)=>{
+   const keys=['analysis:'+phase+':'+report];
+   if(phase==='invited')keys.push('analysis:requested:'+report);
+   const queued=(await db.query('select o.kind,d.token from marriage.push_outbox o join marriage.push_devices d using(installation_id) where o.event_key=any($1::text[])',[keys])).rows;
+   assert.deepEqual(queued.map(row=>row.token).sort(),[...tokens].sort(),phase+' must enqueue one job per eligible installation');
+   assert(queued.every(row=>row.kind==='update'));
+   const batch=await claim();
+   assert.deepEqual(batch.map(job=>job.token).sort(),[...tokens].sort(),phase+' must reach each intended installation exactly once');
+   for(const job of batch){
+    assert.equal(job.kind,'update');assert.equal(job.requestId,first);
+    const payload=await delivery(job);
+    assert.equal(payload.event,'analysis:'+phase);assert.equal(payload.target,first);assert.equal(payload.preview,'private');
+    if([token(b),secondToken].includes(job.token))assert.equal(payload.passive,true);
+   }
+   assert.deepEqual(await claim(),[]);
+   return batch;
+  };
+  const invitation=await insert();
+  await db.query("update marriage.deep_analyses set status='requested' where id=$1",[invitation]);
+  const invites=await expectJobs('invited',invitation,[token(b),secondToken]);
+  assert.deepEqual(await notices(a),[]);assert.deepEqual(await notices(c),[]);
+  const invitations=await notices(b);assert.equal(invitations.length,1);
+  const [notice]=invitations;
+  await call(c,'public.marriage_push_updates($1)',[notice.id]);
+  assert.equal((await notices(b))[0].unread,true,'an outsider cannot mark the participant’s invitation read');
+  await call(b,'public.marriage_push_controls($1)',[{analysis:false}]);
+  assert.equal(await delivery(invites[0]),null,'revoking opt-in invalidates a worker lease');
+  await call(b,'public.marriage_push_controls($1)',[{analysis:true}]);
+  await call(b,"public.marriage_deep_analysis($1,'decline')",[first]);
+  for(const job of invites)assert.equal(await delivery(job),null);
+  assert.deepEqual(await notices(b),[]);
+
+  const report=await insert();
   await db.query("update marriage.deep_analyses set status='shared',fingerprint=md5(jsonb_build_object('a',marriage.deep_evidence(requester_id),'b',marriage.deep_evidence(recipient_id))::text) where id=$1",[report]);
-  const [ready]=await service("public.marriage_push_claim('sandbox',10)");assert.equal(ready.kind,'analysis');
-  assert.equal((await detail(ready)).preview,'private');
+  const shared=await expectJobs('shared',report,[token(a),token(b),secondToken]);
+  for(const member of [a,b])assert.deepEqual((await notices(member)).map(row=>row.event),['analysis:shared']);
+  assert.deepEqual(await notices(c),[]);
+  await db.query("insert into marriage.personality_answers select $1,code,'C' from marriage.personality_questions where ordinal=1",[a.id]);
+  for(const job of shared)assert.equal(await delivery(job),null,'a changed answer invalidates a previously leased shared report alert');
+  for(const member of [a,b])assert.deepEqual(await notices(member),[]);
+  await db.query("update marriage.push_outbox set lease_until=now()-interval '1 second' where id=any($1::uuid[])",[shared.map(job=>job.id)]);
+  assert.deepEqual(await claim(),[],'stale analysis notifications cannot be retried');
  }finally {await db.close();}
+});
+
+test('analysis push migration reconciles outstanding invitations without redelivering sent invitations or losing a worker lease',async()=>{
+ const db=await createDatabase({throughMigration:'20261127221139_strict_discovery_recommendations.sql'});
+ try{
+  const {add,call,service}=await fixture(db);
+  const a=await add('woman'),b=await add('man');
+  const connection=await call(a,'public.marriage_request($1)',[b.id]);
+  await call(b,"public.marriage_act($1,'accept')",[connection]);
+  await call(b,'public.marriage_push_enable(true)');
+  await call(b,'public.marriage_push_controls($1)',[{analysis:true}]);
+
+  // Each real historical insert enqueues the legacy and actionable jobs together.
+  // Columns are the starting states of those jobs and the expected surviving kind.
+  const cases=[
+   ['pending','pending','update'],
+   ['leased','pending','analysis'],
+   ['pending','leased','update'],
+   ['leased','leased','update'],
+   ['sent','leased',null],
+   ['leased','sent',null],
+   ['failed','pending','update'],
+   ['pending','revoked','analysis'],
+   ['pending','expired','analysis'],
+   ['pending','exhausted','analysis'],
+   ['pending','absent','analysis'],
+   ['absent','pending','update']
+  ];
+  const expected=new Set(), sent=new Set(), activeLeases=new Map(), twins=[];
+  for(const [legacy,canonical,winner] of cases){
+   const report=(await db.query("insert into marriage.deep_analyses(connection_id,requester_id,recipient_id,status) values($1,$2,$3,'requested') returning id",[connection,a.id,b.id])).rows[0].id;
+   const jobs=(await db.query("select id,kind from marriage.push_outbox where installation_id=$1 and event_key in ($2,$3)",[b.installation,'analysis:requested:'+report,'analysis:invited:'+report])).rows;
+   assert.deepEqual(jobs.map(job=>job.kind).sort(),['analysis','update'],'the fixture must contain two genuine historical jobs');
+   for(const {id,kind} of jobs){
+    const state=kind==='analysis'?legacy:canonical;
+    if(state==='absent'){await db.query('delete from marriage.push_outbox where id=$1',[id]);continue;}
+    twins.push(id);
+    if(kind===winner)expected.add(id);
+    if(state==='leased'){
+     const lease=randomUUID();activeLeases.set(id,lease);
+     await db.query("update marriage.push_outbox set lease_id=$2,lease_until=now()+interval '10 minutes',attempts=1 where id=$1",[id,lease]);
+    }else if(['failed','revoked','sent'].includes(state)){
+     await db.query('update marriage.push_outbox set finished_at=now(),outcome=$2 where id=$1',[id,state]);
+     if(state==='sent')sent.add(id);
+    }else if(state==='expired'){
+     await db.query("update marriage.push_outbox set expires_at=now()-interval '1 minute' where id=$1",[id]);
+    }else if(state==='exhausted'){
+     await db.query('update marriage.push_outbox set attempts=5 where id=$1',[id]);
+    }
+   }
+  }
+  const dir=new URL('../migrations/',import.meta.url);
+  const files=(await readdir(dir)).filter(file=>file.endsWith('_deduplicate_deep_analysis_notifications.sql'));
+  assert.equal(files.length,1);
+  await db.exec((await readFile(new URL(files[0],dir),'utf8')).replace(/\r\n/g,'\n'));
+  const rows=(await db.query('select id,outcome,finished_at from marriage.push_outbox where id=any($1::uuid[])',[twins])).rows;
+  assert.deepEqual(new Set(rows.filter(row=>row.finished_at===null).map(row=>row.id)),expected);
+  assert.deepEqual(new Set(rows.filter(row=>row.outcome==='sent').map(row=>row.id)),sent);
+  const claim=()=>service("public.marriage_push_claim('sandbox',50)");
+  const available=await claim();
+  const seen=new Set(available.map(job=>job.id));
+  for(const [id,lease] of activeLeases){
+   assert.equal(await service('public.marriage_push_validate($1,$2)',[id,lease]),expected.has(id),'the worker must revalidate an existing lease');
+   if(expected.has(id)){assert(!seen.has(id));seen.add(id);}
+  }
+  assert.deepEqual(seen,expected,'every survivor is claimed exactly once or already held by a valid worker');
+  assert.deepEqual(await claim(),[]);
+ }finally{await db.close();}
 });

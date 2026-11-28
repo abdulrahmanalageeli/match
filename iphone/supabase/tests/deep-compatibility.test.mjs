@@ -37,12 +37,16 @@ const decisions=value=>Object.fromEntries(sections.map((_,i)=>['f'+(i+1),value])
 test('deep analysis requires higher tier and mutual consent; drafts and partner evidence never leak',async()=>{
  const {db,a,b,c,call,job,grant,connection,rpc}=await setup();
  try{
+  const analysisNotices=async user=>(await asMember(db,user.id,user.sessionId,()=>rpc('public.marriage_push_updates(null)')))
+   .filter(row=>row.target===connection&&row.event.startsWith('analysis:')).map(row=>row.event);
   assert.equal((await call(a)).canRequest,false);
   await assert.rejects(call(a,'request'),/وسام/);
   await grant();
   const requested=await call(a,'request');assert.equal(requested.status,'requested');
   assert.ok(requested.createdAt);assert.ok(requested.eventAt);
   assert.equal((await call(a,'request')).id,requested.id,'request retry is idempotent');
+  assert.deepEqual(await analysisNotices(b),['analysis:invited']);
+  assert.deepEqual(await analysisNotices(a),[]);assert.deepEqual(await analysisNotices(c),[]);
   assert.equal((await db.query('select snapshot from marriage.deep_analyses')).rows[0].snapshot,null,'no answers copied before both consent');
   assert.equal((await job('claim')).status,'idle');
   await assert.rejects(call(c),/القائم/);
@@ -57,6 +61,7 @@ test('deep analysis requires higher tier and mutual consent; drafts and partner 
   const malformed=report();malformed.findings[0].evidence[1].key='invented';
   await assert.rejects(job('publish',claim.lease,malformed),/الدليل/);
   assert.equal((await job('publish',claim.lease,report())).status,'review');
+  for(const member of [a,b])assert.deepEqual(await analysisNotices(member),['analysis:review']);
   const reviewA=await call(a),reviewB=await call(b);
   assert.equal(reviewA.findings.length,0);assert.equal(reviewB.findings.length,0);
   assert.equal(reviewA.review[0].ownEvidence[0].value,'لا يشبهني إطلاقًا');
@@ -69,10 +74,12 @@ test('deep analysis requires higher tier and mutual consent; drafts and partner 
   assert.equal(JSON.stringify(reviewA).includes('يشبهني كثيرًا'),false);
   await assert.rejects(call(a,'review',{f1:true}),/كل إفصاح/);
   await call(a,'review',decisions(true));
+  assert.deepEqual(await analysisNotices(a),[]);assert.deepEqual(await analysisNotices(b),['analysis:review']);
   assert.equal((await call(b)).findings.length,0,'first reviewer cannot release shared text');
   await db.query("update marriage.deep_analyses set status_at='2000-01-01T00:00:00Z' where id=$1",[requested.id]);
   const shared=await call(b,'review',{...decisions(true),f2:false});
   assert.equal(shared.status,'shared');assert.equal(shared.findings.length,6);
+  for(const member of [a,b])assert.deepEqual(await analysisNotices(member),['analysis:shared']);
   assert.ok(Date.parse(shared.eventAt)>Date.parse('2000-01-02T00:00:00Z'),'shared report receives its real chat event time');
   assert.equal(shared.findings.some(f=>f.id==='f2'),false);
   assert.equal(shared.findings.some(f=>f.id==='f1'),false,'approved summary cannot indirectly reveal a source refused on another finding');
@@ -81,6 +88,7 @@ test('deep analysis requires higher tier and mutual consent; drafts and partner 
   assert.equal(shared.findings.some(f=>'reviewText' in f),false);
   assert.equal((await db.query("select jsonb_array_length(report->'findings') n from marriage.deep_analyses")).rows[0].n,6,'denied and dependent findings deleted');
   await call(b,'cancel');assert.equal((await call(a)).findings.length,0);
+  for(const member of [a,b])assert.deepEqual(await analysisNotices(member),[]);
   assert.equal((await db.query('select report,snapshot from marriage.deep_analyses')).rows[0].report,null);
  }finally{await db.close();}
 });

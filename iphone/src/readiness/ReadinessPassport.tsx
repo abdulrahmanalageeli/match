@@ -21,9 +21,9 @@ function ownerResult(value: unknown): ReadinessPassport {
   return value as ReadinessPassport;
 }
 
-function PassportFrame({ children, onBack, shared = false }: { children: ReactNode; onBack: () => void; shared?: boolean }) {
+function PassportFrame({ children, onBack, shared = false, swipeBack = true }: { children: ReactNode; onBack: () => void; shared?: boolean; swipeBack?: boolean }) {
   return <main className="app-screen rp-screen" dir="rtl"><div className="screen-content rp-content">
-    <header className="rp-navigation"><button type="button" className="rp-back" onClick={onBack}><ArrowRight size={18} /> {shared ? 'الملف الشخصي' : 'الإعدادات'}</button><Brand compact /></header>
+    <header className="rp-navigation"><button type="button" data-nf-back={swipeBack || undefined} className="rp-back" onClick={onBack}><ArrowRight size={18} /> {shared ? 'الملف الشخصي' : 'الإعدادات'}</button><Brand compact /></header>
     {children}
   </div></main>;
 }
@@ -133,7 +133,7 @@ export function ReadinessPassportPanel({ source, onBack }: { source: CommunitySo
   }
   const ready = preparationItems.filter(item => preparation[item.id] === 'ready').length;
   const activeGrants = passport?.grants.filter(item => Date.parse(item.expiresAt) > Date.now() && connections.some(connection => connection.id === item.connectionId)) ?? [];
-  return <PassportFrame onBack={onBack}>
+  return <PassportFrame swipeBack={!busy && !changed && consent === Boolean(passport?.consentedAt) && !sections.length && !connectionId} onBack={onBack}>
     <PassportCover count={ready} updatedAt={passport?.updatedAt} />
     <div className="rp-intro"><LockKeyhole size={16} /><p>الجواز اختياري ولا يظهر في الاستكشاف.</p></div>
     {error && <div role="alert" className="rp-feedback rp-error"><p>{error}</p>{!passport && <button type="button" className="btn-secondary" onClick={() => setRetry(value => value + 1)}>إعادة المحاولة</button>}</div>}

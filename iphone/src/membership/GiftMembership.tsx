@@ -153,7 +153,7 @@ export function GiftMembership({owner,target,back,attention,settle,refreshAccoun
   }));
   const missingPrice = planPrices.some(row=>!row.price);
   const openGifts=attention?new Intl.NumberFormat('ar-SA').format(attention):'';
-  return <Frame back={back} backDisabled={busy} title="إهداء العضوية" className="wd-gift-page">
+  return <Frame swipeBack={!value.trim()} back={back} backDisabled={busy} title="إهداء العضوية" className="wd-gift-page">
     <div className="wd-gift-nav" aria-label="خيارات الإهداء" role="group">
       <button type="button" aria-pressed={tab==='create'} onClick={()=>changeTab('create')}>هدية جديدة</button>
       <button type="button" aria-pressed={tab==='gifts'} onClick={()=>changeTab('gifts')}>هداياي{openGifts && <b>{openGifts}</b>}</button>

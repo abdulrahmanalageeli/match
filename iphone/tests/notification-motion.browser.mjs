@@ -12,6 +12,7 @@ const fixture = `
 import React, {useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {NotificationFeed} from '/src/notifications/NotificationFeed';
+import {MemberNoticeBanner} from '/src/notifications/MemberNoticeBanner';
 import {MotionPressButton} from '/src/motion/Reanimated';
 import '/src/design.css';
 import '/src/community/community.css';
@@ -22,7 +23,13 @@ const events=Array.from({length:13},(_,i)=>({id:'visit-'+i,kind:'profile_visit',
 window.qa={opened:0,reads:0,hold:false};
 const source={watch:()=>()=>{},notifications:()=>window.qa.hold?new Promise(resolve=>{window.qa.release=()=>resolve(events)}):Promise.resolve(events),progress:()=>Promise.resolve(undefined),readNotifications:()=>{window.qa.reads++;return new Promise((resolve,reject)=>{window.qa.reject=reject})}};
 function Fixture(){const [connections,setConnections]=useState([]);window.qa.refresh=()=>{window.qa.hold=true;setConnections([{id:'accepted',status:'accepted',direction:'incoming',person}])};return <main className="phone-app"><MotionPressButton id="press-test">متابعة</MotionPressButton><NotificationFeed source={source} connections={connections} onProfile={()=>{window.qa.opened++}} onConversation={()=>{}} onRequest={()=>{}}/></main>}
-createRoot(document.getElementById('root')).render(<Fixture/>);`;
+function NoticeFixture(){
+  const [visible,setVisible]=useState(false);
+  window.qa.notice=()=>{window.qa.noticeAction=null;window.qa.noticeActions=[];setVisible(true)};
+  const finish=action=>{window.qa.noticeAction=action;window.qa.noticeActions.push(action);setVisible(false)};
+  return visible && <MemberNoticeBanner notice={{key:'visit',kind:'visit',person}} onOpen={()=>finish('open')} onDismiss={()=>finish('dismiss')}/>;
+}
+createRoot(document.getElementById('root')).render(<><Fixture/><NoticeFixture/></>);`;
 const server = await createServer({
   cacheDir: resolve('node_modules/.vite-notification-motion'),
   optimizeDeps: { entries: [], include: ['react', 'react-dom/client', 'react/jsx-runtime', 'lucide-react', 'react-native-reanimated', 'react-native-worklets'] },
@@ -77,6 +84,41 @@ try {
   await press.dispatchEvent('pointerdown', { button: 0 });
   assert.equal(await press.evaluate(el => getComputedStyle(el).scale), 'none');
   await press.dispatchEvent('pointerup', { button: 0 });
+  const touch = await page.context().newCDPSession(page);
+  const send = (type, touchPoints = []) => touch.send('Input.dispatchTouchEvent', {type, touchPoints});
+  for (const reduced of [false,true]) {
+    await page.emulateMedia({reducedMotion:reduced ? 'reduce' : 'no-preference'});
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--nf-safe-top','50px');
+      window.qa.notice();
+    });
+    const pill = page.locator('.nf-member-notice[data-expanded=true]');
+    await pill.waitFor();
+    const open = pill.locator('.nf-member-notice-open');
+    const {x,y,width,height} = await open.boundingBox();
+    const point = {x:x+width/2,y:y+height/2};
+    await send('touchStart',[point]);
+    await send('touchMove',[{...point,y:point.y-14}]);
+    assert.equal(await pill.evaluate(el=>getComputedStyle(el).transform !== 'none'),!reduced);
+    await send('touchEnd');
+    assert.equal(await pill.getAttribute('data-phase'),'enter','short drag should settle without opening');
+    await send('touchStart',[point]);
+    await send('touchMove',[{...point,y:point.y-36}]);
+    await send('touchEnd');
+    await page.waitForFunction(()=>window.qa.noticeAction === 'dismiss');
+    await page.locator('.nf-member-notice').waitFor({state:'detached'});
+    await page.evaluate(()=>window.qa.notice());
+    await pill.waitFor();
+    await page.waitForTimeout(400);
+    await pill.locator('.nf-member-notice-open').tap();
+    await page.waitForFunction(()=>window.qa.noticeAction === 'open',undefined,{timeout:3500});
+    assert.deepEqual(await page.evaluate(()=>window.qa.noticeActions),['open']);
+    await page.evaluate(()=>window.qa.notice());
+    await pill.waitFor();
+    await pill.locator('.nf-member-notice-close').press('Enter');
+    await page.waitForFunction(()=>window.qa.noticeAction === 'dismiss');
+    assert.deepEqual(await page.evaluate(()=>window.qa.noticeActions),['dismiss']);
+  }
   assert.deepEqual(errors, []);
   console.log('PASS: pending/failed receipts never block navigation; refresh preserves rows and scroll; 390/320px and reduced motion');
 } finally { await browser?.close(); await server.close(); }

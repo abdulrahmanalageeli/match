@@ -28,6 +28,7 @@ export function Frame({
   back,
   children,
   backDisabled = false,
+  swipeBack = false,
   className = "",
   headerAction,
 }: {
@@ -35,6 +36,7 @@ export function Frame({
   back: Click;
   children: ReactNode;
   backDisabled?: boolean;
+  swipeBack?: boolean;
   className?: string;
   headerAction?: ReactNode;
 }) {
@@ -53,6 +55,7 @@ export function Frame({
           type="button"
           className="f-icon"
           aria-label="رجوع"
+          data-nf-back={swipeBack || undefined}
           onClick={back}
           disabled={backDisabled}
         >
@@ -156,7 +159,7 @@ export function Auth({
   const receipt = login ? undefined : { ...agreements, version: LEGAL_NOTICE_VERSION, registrationVersion };
   const consentReview = ready && !login && <RegistrationAgreements value={agreements} change={setAgreements} onPrivacy={onPrivacy} disabled={locked}/>;
   return (
-    <Frame back={back} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
+    <Frame back={back} swipeBack={!phoneMode && !credentials.email && !credentials.password && !Object.values(agreements).some(Boolean)} backDisabled={locked} title={login ? "تسجيل الدخول" : "حساب جديد"} className="nf-auth-frame" headerAction={<KeyboardDismiss/>}>
       <section key={`${login ? 'login' : 'signup'}-${entryMode}`} className="nf-auth-hero" data-auth-stage={login ? 'login' : 'signup'} data-auth-mode={entryMode}>
         <div className="nf-auth-signature" aria-hidden="true">
           <span />

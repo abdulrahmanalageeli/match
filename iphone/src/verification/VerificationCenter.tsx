@@ -81,7 +81,7 @@ export function VerificationCenter({ source, onBack, focusRequest }: { source: M
   }
 
   return <main className="app-screen mv-screen" dir="rtl"><div className="screen-content mv-content">
-    <header className="mv-navigation"><button type="button" onClick={onBack}><ArrowRight size={18} />الإعدادات</button><Brand compact /></header>
+    <header className="mv-navigation"><button type="button" data-nf-back={!busy || undefined} onClick={onBack}><ArrowRight size={18} />الإعدادات</button><Brand compact /></header>
     <section className="mv-cover" aria-labelledby="mv-title"><h1 id="mv-title">توثيق بياناتك</h1><div className="mv-cover-foot"><LockKeyhole size={15} /><span>المراجعة محددة النطاق وليست توثيقًا حكوميًا</span></div></section>
     {!available ? <div className="mv-notice"><LockKeyhole size={20} /><h2>التوثيق مرتبط بحسابك</h2><p>سجّل الدخول بحسابك للوصول إلى المراجعة الخاصة.</p></div> : null}
     <div className="mv-notice" role="status"><LockKeyhole size={20} /><h2>إرسال المستندات متوقف مؤقتًا</h2><p>يمكنك متابعة طلباتك السابقة أو سحبها من هنا. لا ترسل المستندات في المحادثات أو إلى الدعم كبديل.</p><p>اعتماد ملف العضوية لا يعني التحقق من الهوية أو الحالة الاجتماعية.</p></div>

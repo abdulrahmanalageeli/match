@@ -27,7 +27,7 @@ export function MatchingExclusions({ source, onBack }: { source: CommunitySource
     return () => { current = false; };
   }, [source, attempt]);
   return <main className="app-screen st-screen" dir="rtl"><div className="screen-content st-content">
-    <header className="st-top"><Brand compact/><button className="st-back" type="button" onClick={onBack}><ArrowRight size={18}/> الإعدادات</button></header>
+    <header className="st-top"><Brand compact/><button data-nf-back={!reportId && !sending || undefined} className="st-back" type="button" onClick={onBack}><ArrowRight size={18}/> الإعدادات</button></header>
     <h1 className="st-title">الحظر وعدم إعادة الترشيح</h1>
     <p className="st-intro">الأشخاص الذين حظرتهم، والتعارفات التي أُغلقت دون إعادة ترشيح.</p>
     {loading ? <p role="status">جارٍ تحميل القائمة…</p> : error ? <div role="alert"><p>تعذّر تحميل القائمة.</p><button className="btn-secondary" onClick={() => setAttempt(value => value + 1)}>إعادة المحاولة</button></div> : rows.length ?

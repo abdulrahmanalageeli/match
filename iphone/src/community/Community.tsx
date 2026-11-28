@@ -349,7 +349,7 @@ function FilterSheet({
     });
   }
   return (
-    <Sheet title="تصفية الملفات" onClose={close} className="dr-filter-sheet">
+    <Sheet swipeToDismiss title="تصفية الملفات" onClose={close} className="dr-filter-sheet">
       <form className="cm-filter dr-filter-form" onSubmit={submit}>
         <div className="dr-filter-body">
           <h3 className="dr-filter-heading"><SlidersHorizontal size={15} aria-hidden="true"/>نطاق البحث</h3>
@@ -754,6 +754,7 @@ function Discovery({
   const needsRefresh = useRef(false);
   const actionPending = useRef(false);
   const pullStart = useRef<{ x: number; y: number } | null>(null);
+  const pageSwipe = useRef<{ id: number; x: number; y: number; claimed: boolean } | null>(null);
   const directorySurface = useRef<HTMLElement>(null);
   const pullAmount = useRef(0);
   const suppressPullClick = useRef(false);
@@ -1043,30 +1044,66 @@ function Discovery({
   }
   function startDirectoryPull(event: TouchEvent<HTMLElement>) {
     pullStart.current = null;
+    pageSwipe.current = null;
     suppressPullClick.current = false;
-    if (!canRefreshDirectory || window.scrollY > 2 || event.touches.length !== 1) return;
+    if (event.touches.length !== 1) return;
     const touch = event.touches[0];
-    pullStart.current = { x: touch.clientX, y: touch.clientY };
+    if (canRefreshDirectory && window.scrollY <= 2) pullStart.current = { x: touch.clientX, y: touch.clientY };
+    const target = event.target;
+    if (!(target instanceof Element) || !event.currentTarget.contains(target) || availability.exclusive ||
+        document.documentElement.hasAttribute('data-nf-keyboard') || window.getSelection()?.isCollapsed === false ||
+        filterOpen || fitPerson || reportTarget || rowBusy || pullRefreshing || document.querySelector('dialog[open], [aria-modal="true"]:not([hidden])') ||
+        touch.clientX <= 26 || touch.clientX >= window.innerWidth - 26 || (window.visualViewport?.scale ?? 1) !== 1) return;
+    const content = target.closest('.dr-pull-content, .df-discovery > .cm-panel');
+    if (!content || target.closest('button:not([data-weekly-person]), a, input, select, textarea, [contenteditable="true"], [role="slider"], [data-nf-gesture-owner]')) return;
+    for (let node: Element | null = target; node && node !== content; node = node.parentElement) {
+      if (node.scrollWidth > node.clientWidth + 1 && /^(auto|scroll)$/.test(getComputedStyle(node).overflowX)) return;
+    }
+    pageSwipe.current = {id:touch.identifier,x:touch.clientX,y:touch.clientY,claimed:false};
+  }
+  function trackDiscoveryPage(event: TouchEvent<HTMLElement>) {
+    const start = pageSwipe.current, touch = event.touches[0];
+    if (!start || !touch) return;
+    const dx = Math.abs(touch.clientX - start.x), dy = Math.abs(touch.clientY - start.y);
+    if (event.touches.length !== 1 || touch.identifier !== start.id || (!start.claimed && dy > 9 && dy * 1.35 >= dx)) {
+      pageSwipe.current = null;
+      return;
+    }
+    if (dx >= 12 && dx > dy * 1.5) {
+      start.claimed = true;
+      pullStart.current = null;
+      suppressPullClick.current = true;
+    }
   }
   function endDirectoryPull(event: TouchEvent<HTMLElement>) {
+    const swipe = pageSwipe.current;
+    pageSwipe.current = null;
     const start = pullStart.current;
     pullStart.current = null;
     const ready = start && event.changedTouches.length === 1 && pullAmount.current >= 52 && window.scrollY <= 2;
     pullAmount.current = 0;
     if (ready && canRefreshDirectory) void refreshDirectory();
     else if (!pullRefreshing) updatePullDistance.current?.(0);
+    if (!swipe?.claimed || event.touches.length || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0], dx = touch.clientX - swipe.x;
+    if (touch.identifier !== swipe.id) return;
+    if (event.cancelable) event.preventDefault();
+    if (Math.abs(dx) < Math.min(84,window.innerWidth * .18) || Math.abs(dx) < Math.abs(touch.clientY - swipe.y) * 1.5) return;
+    // The next panel is on the left in Arabic; a rightward swipe reveals it.
+    setOrder(dx > 0 ? 'all' : 'recommended');
   }
   return (
     <section
       className={"screen-content cm-view df-discovery"+(order==='all'?' dr-directory':'')}
       ref={directorySurface}
-      onPointerDownCapture={source.noteDiscoveryBrowse}
+      onPointerDownCapture={() => { suppressPullClick.current = false; source.noteDiscoveryBrowse?.(); }}
       onKeyDownCapture={source.noteDiscoveryBrowse}
       onWheelCapture={source.noteDiscoveryBrowse}
       onTouchStart={startDirectoryPull}
+      onTouchMove={trackDiscoveryPage}
       onTouchEnd={endDirectoryPull}
-      onTouchCancel={() => { pullStart.current = null; pullAmount.current = 0; if (!pullRefreshing) updatePullDistance.current?.(0); }}
-      onClickCapture={event => { if (suppressPullClick.current) { event.preventDefault(); event.stopPropagation(); suppressPullClick.current = false; } }}
+      onTouchCancel={() => { pageSwipe.current = null; pullStart.current = null; pullAmount.current = 0; if (!pullRefreshing) updatePullDistance.current?.(0); }}
+      onClickCapture={event => { if (event.detail && suppressPullClick.current) { event.preventDefault(); event.stopPropagation(); suppressPullClick.current = false; } }}
     >
       <ScenePaths className="df-arrival-paths" parallax />
       <header className="cm-header df-header">
@@ -1177,7 +1214,7 @@ function Discovery({
       </DirectoryPullContent>
       </>}
       {reportTarget&&<SafetySheet action="report" busy={rowBusy!==null} error={rowError} apply={reason=>void rowAction(reportTarget,'report',reason)} close={()=>{if(!rowBusy)setReportTarget(null);}}/>}
-      {!availability.exclusive&&premium&&!fitPerson?.compatibilityLocked&&fitPerson?.fit&&<Sheet title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
+      {!availability.exclusive&&premium&&!fitPerson?.compatibilityLocked&&fitPerson?.fit&&<Sheet swipeToDismiss title={`التوافق مع ${fitPerson.alias}`} onClose={()=>setFitPerson(null)}><FitDetails fit={fitPerson.fit}/></Sheet>}
       {!availability.exclusive && filterOpen && (
         <FilterSheet source={source} onSaved={()=>{setPreferenceRevision(n=>n+1);void refresh(false);}}
           filters={filters} allProfiles={order==='all'}
@@ -1382,7 +1419,7 @@ function ConversationGuide({ source, connection, close, onEnd, reviewExclusive, 
     }
   }, [progress, reviewExclusive]);
   const commitmentOpen = reviewCommitment || Boolean(progress?.consentMine || progress?.consentPeer);
-  return <Sheet title="مسار التعارف" onClose={() => { if (!busy) close(); }}>
+  return <Sheet swipeToDismiss={!commitmentOpen && !rewindConfirm && !busy} title="مسار التعارف" onClose={() => { if (!busy) close(); }}>
     <div className="nf-journey-guide" ref={guideBody}>
     <MotionReveal className="nf-journey-current" distance={6} duration={280}>
       <span className="nf-journey-eyebrow">خطوة بخطوة، باتفاقكما</span>
@@ -1452,7 +1489,7 @@ function ChatComposer({ outbox, composer, canSend, conversationAllowed, typing, 
     element.style.height = "0px";
     element.style.height = Math.min(element.scrollHeight, 110) + "px";
   }, [composer, draft]);
-  return <div className="cm-chat-compose">
+  return <div className="cm-chat-compose" data-nf-back-block={Boolean(draft || reply) || undefined}>
     {reply && <div className="cm-reply-draft" role="status"><Reply size={18} aria-hidden="true"/><div>
       <strong>رد على {reply.senderIsMe ? 'رسالتك' : name}</strong><span dir="auto">{reply.body}{reply.atSeconds != null && <> · <bdi dir="ltr">{voiceTimeLabel(reply.atSeconds)}</bdi></>}</span>
     </div><button type="button" className="icon-btn" aria-label="إلغاء الرد" onClick={() => outbox.replyTo()}><X size={18}/></button></div>}
@@ -1787,7 +1824,7 @@ export function Chat({
       {privateHidden && <div className="cm-chat-privacy-cover" aria-label="المحادثة مخفية أثناء مغادرة التطبيق"><LockKeyhole size={32}/><span>خصوصيتكما أولًا</span></div>}
       <header className="cm-chat-head">
         <h1 className="mi-sr-only" tabIndex={-1}>محادثة مع {connection.person.alias}</h1>
-        <button className="icon-btn cm-chat-back" onClick={() => { typing.stop(); back(); }} aria-label={backLabel}><ArrowRight size={15} /></button>
+        <button data-nf-back={!recording && !privateHidden && !thread.hasDraft && !replyDraft || undefined} className="icon-btn cm-chat-back" onClick={() => { typing.stop(); back(); }} aria-label={backLabel}><ArrowRight size={15} /></button>
         <button type="button" className="cm-chat-person" aria-label={`عرض ملف ${connection.person.alias}`} onClick={event => openPartnerProfile(event.currentTarget)}>
           <PersonAvatar person={connection.person} source={source} className="cm-avatar" />
           <span className="cm-chat-person-copy"><strong>{connection.person.alias} <VerifiedBadge claims={connection.person.manualVerifications} compact interactive={false}/> {exclusive && <ExclusiveBadge/>}</strong><small>{typing.peerTyping ? <span className="cm-typing" role="status">يكتب الآن<span className="cm-typing-dots" aria-hidden="true"><i/><i/><i/></span></span> : 'الملف الشخصي'}</small></span>
@@ -1913,7 +1950,7 @@ export function Chat({
             {actionPermissions?.canDelete && <MotionPressButton className="cm-message-action-delete" onClick={() => { setMessageActionId(null); setDeleteError(''); setDeleteTarget(actionMessage.id); }}><Trash2 size={18} aria-hidden="true"/><span>حذف لدى الجميع</span><ChevronLeft size={16} aria-hidden="true"/></MotionPressButton>}
           </div>
       </MessageFocus>}
-      {insightsOpen && <Sheet title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.compatibilityLocked ? undefined : connection.person.fit} name={connection.person.alias} disabled={!canSend || recording} hasDraft={thread.hasDraft || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
+      {insightsOpen && <Sheet swipeToDismiss title="حديث أقرب" onClose={() => setInsightsOpen(false)}><ChatInsights fit={connection.person.compatibilityLocked ? undefined : connection.person.fit} name={connection.person.alias} disabled={!canSend || recording} hasDraft={thread.hasDraft || Boolean(replyDraft)} usedMessages={thread.rows.filter(message => !message.deletedAt && !deletedIds.has(message.id) && !message.attachment && (!('status' in message) || message.status === 'saved')).map(message => message.body)} choose={chooseConversationPrompt}/></Sheet>}
       {libraryOpen && <ChatLibrary source={source} requestId={connection.id} name={connection.person.alias} onClose={() => setLibraryOpen(false)} onJump={id => { setLibraryOpen(false); atBottom.current = false; setJumpToId(id); }} />}
       {deleteTarget && <Sheet title="حذف الرسالة للجميع" onClose={() => { if (!deleting) setDeleteTarget(null); }}>
         <div className="cm-delete-confirm"><span className="cm-delete-emblem"><Trash2 size={25}/></span><p>تُحذف الرسالة ومرفقها من المحادثة لدى الطرفين، وتظهر مكانها عبارة «تم حذف هذه الرسالة».</p><small>متاح لرسائلك خلال ٤٨ ساعة من الإرسال. قد يكون الطرف الآخر شاهدها أو حفظ نسخة منها بالفعل.</small></div>
@@ -1921,7 +1958,7 @@ export function Chat({
         <button type="button" className="btn-primary" disabled={deleting} onClick={() => void deleteForEveryone()}>{deleting ? 'جارٍ الحذف…' : 'حذف لدى الجميع'}</button>
         <button type="button" className="btn-text" disabled={deleting} onClick={() => setDeleteTarget(null)}>الاحتفاظ بالرسالة</button>
       </Sheet>}
-      {toolsOpen && <Sheet title="خيارات المحادثة" onClose={() => setToolsOpen(false)}>
+      {toolsOpen && <Sheet swipeToDismiss title="خيارات المحادثة" onClose={() => setToolsOpen(false)}>
         <div className="cm-chat-tools">
           {canMute&&<button disabled={muting||muted===null} onClick={()=>void toggleThreadMute()}>{muted?<Volume2 size={20}/>:<VolumeX size={20}/>}<span><strong>{muted?'إلغاء كتم المحادثة':'كتم إشعارات المحادثة'}</strong><small>{muted?'ستصلك الرسائل الجديدة على جهازك.':'تبقى الرسائل داخل وُدَين من دون تنبيه على الجهاز.'}</small></span><ChevronLeft size={16}/></button>}
           {source.searchMessages && <button disabled={!canDraft} onClick={() => { setToolsOpen(false); setLibraryOpen(true); }}><Search size={20}/><span><strong>البحث والوسائط</strong><small>رسائلكما، الصور، والتسجيلات الصوتية</small></span><ChevronLeft size={16}/></button>}

@@ -222,16 +222,16 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
   if(profilePanel==='verification'&&source&&member)return <VerificationCenter source={source} profile={member} onBack={closePanel} focusRequest={verificationTarget}/>;
   if(profilePanel==='readiness'&&source)return <ReadinessPassportPanel source={source} onBack={closePanel}/>;
   if(profilePanel==='family'&&source)return <FamilyBridgePanel source={source} onBack={closePanel} focusLink={verificationTarget} initialRoom={familyRoomTarget}/>;
-  if(profilePanel==='history'&&source)return <section className="screen-content"><button type="button" className="btn-text" onClick={closePanel}>العودة إلى الإعدادات</button><RequestHistory source={source} targetId={verificationTarget}/></section>;
+  if(profilePanel==='history'&&source)return <section className="screen-content"><button type="button" className="btn-text" data-nf-back onClick={closePanel}>العودة إلى الإعدادات</button><RequestHistory source={source} targetId={verificationTarget}/></section>;
   if(profilePanel==='preview'&&member){
     const preview = state?.user.profileReviewPending ? summary.data?.approvedPreview : publicProfile(member,owner??'self',previewPhoto);
     return <main className="app-screen st-profile-view" dir="rtl">{preview ?
     <MemberProfile key={owner} person={{...preview,manualVerifications:ownClaims,membershipTier:tier}} source={state?.user.profileReviewPending ? undefined : source} preview back={closePanel} backText="الإعدادات"/> :
-    <div className="screen-content"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/>الإعدادات</button>
+    <div className="screen-content"><button className="mp-back" data-nf-back onClick={closePanel}><ArrowRight size={18}/>الإعدادات</button>
       <p role="status">{summary.error ? 'تعذّر تحميل النسخة المعتمدة.' : summary.data ? 'تقدر تعاين ملفك بعد ما تكتمل مراجعته.' : 'جارٍ تحميل النسخة المعتمدة…'}</p>{summary.error&&<button className="btn-secondary" onClick={summary.refresh}>إعادة المحاولة</button>}</div>}</main>;
   }
   if(profilePanel==='photos')return <main className="app-screen st-profile-view" dir="rtl"><div className="screen-content st-photo-manager">
-    <header className="mp-navigation"><button className="mp-back" onClick={closePanel}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header>
+    <header className="mp-navigation"><button className="mp-back" data-nf-back onClick={closePanel}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header>
     <h1>صوري وخصوصيتها</h1>
     {source?.gallery && <section className="st-section"><h2>صور تظهر في ملفي</h2><ProfileGallery source={source} editable onChanged={onProfileChanged}/></section>}
   </div></main>;
@@ -240,7 +240,7 @@ export function Settings({ testerSession, state, demoMember, demo, paused, busy,
       <div className="screen-content st-content">
         <header className="st-top">
           <Brand />
-          {onBack && <button className="st-back" type="button" onClick={onBack} aria-label="رجوع"><ArrowRight size={18} aria-hidden="true" /> رجوع</button>}
+          {onBack && <button data-nf-back className="st-back" type="button" onClick={onBack} aria-label="رجوع"><ArrowRight size={18} aria-hidden="true" /> رجوع</button>}
         </header>
         <h1 className="mi-sr-only">الإعدادات</h1>
         <section className="st-member-card" aria-label="ملفي الشخصي">

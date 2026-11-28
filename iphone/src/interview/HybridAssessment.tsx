@@ -684,7 +684,7 @@ export function HybridAssessment({
     </details>}
     <div className="wi-hybrid-stage" data-back={backwards.current || undefined}>
       {previousVisit && <div className="wi-step-nav">
-        <button type="button" className="wi-link" onClick={goBack} disabled={disabled}><ArrowRight size={15} aria-hidden="true"/> السابق</button>
+        <button type="button" className="wi-link" data-nf-back="local" onClick={goBack} disabled={disabled}><ArrowRight size={15} aria-hidden="true"/> السابق</button>
         {editField && <span>تعديل إجابتك</span>}
       </div>}
       <h1 id={headingId} ref={heading} tabIndex={-1}>{card ? activeField?.label ?? card.self.label : 'راجع إجاباتك'}</h1>

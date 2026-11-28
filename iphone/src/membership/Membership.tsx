@@ -60,7 +60,7 @@ export function Membership({back,measurementOwner,initialPlan,active,demo,price,
  const canMeasure=!demo&&!sandboxCheckout&&!active&&(!canBuy||Boolean(selectedPrice&&selectedPeriod));
  useEffect(()=>{if(canMeasure) launchEvent('offer_seen',offerKind,measurementOwner);},[canMeasure,offerKind,measurementOwner]);
  const leave=(choice:'left_offer'|'chose_free')=>{if(canMeasure || (choice==='chose_free' && !demo && !sandboxCheckout && !active))launchEvent(choice,offerKind,measurementOwner);back();};
- return <Frame title="عضوية وُدَين" back={()=>leave('left_offer')} className={`wd-paywall wd-paywall-${plan}`} headerAction={<img className="wd-header-logo" src="/brand/wudayn-emblem-v2.png" width="30" height="30" alt="شعار وُدَين"/>}>
+ return <Frame swipeBack={!busy} title="عضوية وُدَين" back={()=>leave('left_offer')} className={`wd-paywall wd-paywall-${plan}`} headerAction={<img className="wd-header-logo" src="/brand/wudayn-emblem-v2.png" width="30" height="30" alt="شعار وُدَين"/>}>
   <div className="wd-membership-topline"><p className="wd-current-membership">عضويتك الحالية <strong>{currentTier==='seriousness'?'وسام الجدية':active?'المميزة':'المجانية'}</strong></p>{openGifts&&<button type="button" className="wd-paywall-gift" onClick={openGifts}><Gift size={15}/>إهداء عضوية{giftAttention>0&&<b>{giftAttention.toLocaleString('ar-SA')}</b>}</button>}</div>
   {status==='expired'&&<p className="wd-billing-note">انتهت صلاحية عضويتك.</p>}
   {status==='trial'&&<p className="wd-billing-note">تجربتك المجانية مفعّلة.</p>}

@@ -36,7 +36,7 @@ export function JourneyCompletion({ paused, busy, demo, canPause, onBack, onPaus
   const title = useRef<HTMLHeadingElement>(null);
   useEffect(() => { window.scrollTo(0, 0); title.current?.focus(); }, []);
   return <main className="app-screen st-completion" dir="rtl"><div className="screen-content">
-    <header className="st-top"><button className="st-back" onClick={onBack}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header>
+    <header className="st-top"><button data-nf-back={!busy || undefined} className="st-back" onClick={onBack}><ArrowRight size={18}/> الإعدادات</button><Brand compact/></header>
     <span className="st-dialog-icon" aria-hidden="true"><HeartHandshake/></span>
     <h1 ref={title} tabIndex={-1}>نحو بداية جديدة</h1>
     <label className="st-completion-stage">ما الخطوة التي ترتّب لها؟<select value={stage} onChange={event => setStage(event.target.value)}>

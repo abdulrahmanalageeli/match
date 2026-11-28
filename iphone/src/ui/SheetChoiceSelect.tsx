@@ -2,6 +2,7 @@ import { useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps,
 import { createPortal } from 'react-dom';
 import { Check, ChevronLeft, Search, X } from '../BrandIcons';
 import { ChoiceSelect, normalizeChoiceSearch } from './ChoiceSelect';
+import { SheetGrabber } from './SheetGrabber';
 import './SheetChoiceSelect.css';
 
 /** A value row opens a focused picker; opening it does not summon the keyboard. */
@@ -103,6 +104,7 @@ export function SheetChoiceSelect({ label, value, onChange, options, placeholder
     {expanded && createPortal(<dialog ref={dialog} id={`${triggerId}-dialog`} className="nf-choice-sheet" dir="rtl" aria-labelledby={`${triggerId}-title`}
       onCancel={event => { event.preventDefault(); close(); }} onClose={() => setOpen(false)}
       onClick={event => { if (event.target === event.currentTarget) { const r = event.currentTarget.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) close(); } }}>
+      <SheetGrabber onDismiss={close}/>
       <header className="nf-choice-sheet-header"><button ref={cancel} type="button" onClick={close}>إلغاء</button><h2 id={`${triggerId}-title`}>{label}</h2><span aria-hidden="true"/></header>
       {searchable && <div className="nf-choice-sheet-search"><Search size={18} aria-hidden="true"/>
         <input type="search" role="combobox" aria-label={`بحث في ${label}`} aria-autocomplete="list" aria-expanded="true" aria-controls={listId}

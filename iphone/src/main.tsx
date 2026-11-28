@@ -13,6 +13,7 @@ import './motion.css'
 import { initializeDevicePreferences } from './settings/preferences'
 import { AppBoundary, initializeFaultReporting } from './monitoring'
 import { initializeKeyboardViewport } from './mobile/keyboardViewport'
+import { initializeEdgeBack } from './mobile/edgeBack'
 import { initializeSafeAreaLight } from './mobile/safeAreaLight'
 import './mobile/keyboard.css'
 import './onboarding/arrivalJourney.css'
@@ -35,6 +36,8 @@ if (signupReturn) window.history.replaceState(null, '', entryUrl.pathname)
 initializeDevicePreferences()
 initializeFaultReporting()
 const stopKeyboardViewport = initializeKeyboardViewport()
+const stopEdgeBack = initializeEdgeBack()
+if (import.meta.hot) import.meta.hot.dispose(stopEdgeBack)
 if (import.meta.hot) import.meta.hot.dispose(stopKeyboardViewport)
 const stopSafeAreaLight = initializeSafeAreaLight()
 if (import.meta.hot) import.meta.hot.dispose(stopSafeAreaLight)

@@ -797,7 +797,7 @@ export function GuidedApplication({ initial, previouslyApproved, nextPublicProfi
   return (
     <main className={`nf-intake${editing ? '' : ' nf-intake--new'}`} dir="rtl" data-editing={editing||undefined} data-basic-slides={usesBasicSlides||undefined} data-preview={preview||undefined} data-assessment={assessmentStep||undefined} data-chapter={editorHome ? 'studio' : chapter.key}>
       <header className="nf-intake-header">
-        <button className="f-icon" type="button" onClick={goBack} disabled={busy || leaving || photoBusy} aria-label={editing&&editorHome?'العودة إلى الإعدادات':'رجوع'}><ArrowRight size={19} aria-hidden="true" />{editing&&<span>{editorHome?'الإعدادات':'رجوع'}</span>}</button>
+        <button className="f-icon" type="button" data-nf-back onClick={goBack} disabled={busy || leaving || photoBusy} aria-label={editing&&editorHome?'العودة إلى الإعدادات':'رجوع'}><ArrowRight size={19} aria-hidden="true" />{editing&&<span>{editorHome?'الإعدادات':'رجوع'}</span>}</button>
         {editing ? (editorHome ? <h1 className="pe-nav-title">تعديل الملف</h1> : <strong className="pe-nav-title">تعديل الملف</strong>) : <div className="nf-intake-brand"><Brand compact /></div>}
         <div className="nf-intake-header-actions"><HelpButton topic="profile" label="مساعدة"/>{draftRef && !editing && <button type="button" className="nf-intake-later" onClick={() => void leaveForLater()} disabled={busy || photoBusy || leaving || chooseRecovery || (checkingDevice && !touched.current)}>{leaving ? "جارٍ الحفظ…" : "لاحقًا"}</button>}{exitPreview && <button type="button" className="f-icon" onClick={exitPreview} aria-label="العودة للبداية"><X size={19} aria-hidden="true"/></button>}</div>
       </header>

@@ -1,0 +1,32 @@
+[data-sheet-grab] { display: none; }
+@media (max-width: 599px) {
+  .nf-choice-sheet > [data-sheet-grab],
+  .nf-compatibility-change-sheet > [data-sheet-grab] { display: grid; }
+  .nf-choice-sheet > [data-sheet-grab] + .nf-choice-sheet-header,
+  .nf-compatibility-change-sheet > [data-sheet-grab] + header { padding-top: 0; }
+}
+@media (max-width: 560px) {
+  .wd-notice-sheet > [data-sheet-grab] { display: grid; }
+}
+@media (max-width: 540px) {
+  .cm-sheet > [data-sheet-grab] { display: grid; }
+  .cm-sheet:not(.dr-filter-sheet) > [data-sheet-grab] { margin-block-start: -10px; }
+  .dr-filter-sheet:has(> [data-sheet-grab])::before { display: none; }
+  .dr-filter-sheet > [data-sheet-grab] { margin-bottom: -8px; }
+}
+[data-sheet-grab] {
+  flex: none;
+  place-items: center;
+  width: 100%;
+  height: 24px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+[data-sheet-grab]::after {
+  content: '';
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted, #746870) 44%, transparent);
+}

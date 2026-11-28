@@ -53,7 +53,7 @@ export function RequestHistory({ source, title, targetId }: { source: CommunityS
     return () => { active = false; unwatch(); };
   }, [source, open, retry, cursor, targetId]);
   if (!source.requestHistory) return null;
-  return <details className="cm-request-history" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
+  return <details className="cm-request-history" data-nf-back-block={Boolean(incident) || undefined} open={open} onToggle={event => setOpen(event.currentTarget.open)}>
     <summary className="cm-history-heading"><Inbox size={18} aria-hidden="true"/><span><strong>{title || 'التعارفات السابقة'}</strong><small>الطلبات المغلقة والمنتهية مهلتها</small></span><ChevronLeft size={15} aria-hidden="true"/></summary>
     {loading && <p role="status">جارٍ تحميل السجل…</p>}
     {error ? <><p role="alert">تعذّر تحميل السجل.</p><button className="btn-text" onClick={() => setRetry(n => n + 1)}>إعادة المحاولة</button></> :

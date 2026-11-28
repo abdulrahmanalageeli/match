@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type Touch, type TouchEvent } from 'react';
 import { ChevronLeft, X } from '../BrandIcons';
 import type { PublicPerson } from '../community/data';
 import type { PushOpen } from './push';
@@ -81,6 +81,7 @@ function NoticeArt({ kind }: { kind: NoticeArtKind }) {
 const logoHoldMs = 700;
 const messageMs = 6500;
 const exitMs = 245 + logoHoldMs; // The capsule closes before the final logo hold.
+const swipeExitMs = 180;
 // The full catalog text stays in the announcement and button name. Each compact
 // title also works on the narrowest pill without losing the event or next step.
 const compactTitles: Readonly<Record<string, string | undefined>> = {
@@ -112,10 +113,12 @@ export function MemberNoticeBanner({ notice, onOpen, onDismiss }: {
   onOpen: () => void;
   onDismiss: () => void;
 }) {
-  const [exitAction, setExitAction] = useState<'dismiss' | 'open' | null>(null);
+  const [exitAction, setExitAction] = useState<'dismiss' | 'swipe' | 'open' | null>(null);
   const [presented, setPresented] = useState(false);
   const [hover, setHover] = useState(false);
   const [focus, setFocus] = useState(false);
+  const [touching, setTouching] = useState(false);
+  const finger = useRef<{id:number; x:number; y:number; time:number; axis:'pending'|'up'|'other'; button:HTMLButtonElement | null} | null>(null);
   const handled = useRef(false);
   const callbacks = useRef({ onOpen, onDismiss });
   callbacks.current = { onOpen, onDismiss };
@@ -124,10 +127,10 @@ export function MemberNoticeBanner({ notice, onOpen, onDismiss }: {
     return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => {
-    if (!presented || exitAction || hover || focus) return;
+    if (!presented || exitAction || hover || focus || touching) return;
     const timer = window.setTimeout(() => setExitAction('dismiss'), messageMs);
     return () => window.clearTimeout(timer);
-  }, [presented, exitAction, hover, focus]);
+  }, [presented, exitAction, hover, focus, touching]);
   useEffect(() => {
     if (!exitAction) return;
     const timer = window.setTimeout(() => {
@@ -135,9 +138,43 @@ export function MemberNoticeBanner({ notice, onOpen, onDismiss }: {
       handled.current = true;
       if (exitAction === 'open') callbacks.current.onOpen();
       else callbacks.current.onDismiss();
-    }, prefersQuietMotion() ? 0 : exitMs);
+    }, prefersQuietMotion() ? 0 : exitAction === 'swipe' ? swipeExitMs : exitMs);
     return () => window.clearTimeout(timer);
   }, [exitAction]);
+
+  function trackTouch(event: TouchEvent<HTMLElement>, touch: Touch) {
+    const start = finger.current;
+    if (!start || start.id !== touch.identifier) return;
+    const across = Math.abs(touch.clientX - start.x), up = start.y - touch.clientY;
+    if (start.axis === 'pending' && Math.max(across,Math.abs(up)) > 7) {
+      start.axis = up > across * 1.25 ? 'up' : 'other';
+    }
+    if (start.axis === 'up') {
+      event.currentTarget.style.setProperty('--nf-notice-lift', -Math.min(44,Math.max(0,up) * .8) + 'px');
+    }
+  }
+  function clearTouch(element: HTMLElement) {
+    finger.current = null;
+    setTouching(false);
+    element.style.removeProperty('--nf-notice-lift');
+  }
+  function finishTouch(event: TouchEvent<HTMLElement>) {
+    const start = finger.current, touch = event.changedTouches[0];
+    if (!start || !touch || start.id !== touch.identifier) return;
+    trackTouch(event,touch);
+    clearTouch(event.currentTarget);
+    // A browser can discard its synthesized click after a swipe. Resolve this
+    // touch once on release while keeping the native button for other inputs.
+    if (event.cancelable) event.preventDefault();
+    if (start.axis === 'pending') {
+      const releasedOn = document.elementFromPoint(touch.clientX,touch.clientY)?.closest('button');
+      if (start.button && releasedOn === start.button) start.button.click();
+      return;
+    }
+    const up = start.y - touch.clientY;
+    const flick = up >= 18 && up / Math.max(1,event.timeStamp - start.time) > .45;
+    if (start.axis === 'up' && (up >= 32 || flick)) setExitAction(current => current ?? 'swipe');
+  }
 
   const art = notice.kind === 'push' ? (notice.private ? 'notice' : pushNoticeArt(notice.push)) : notice.kind;
   const title = notice.kind === 'push' ? (notice.private ? 'إشعار جديد من وُدَين' : notice.title) :
@@ -148,9 +185,20 @@ export function MemberNoticeBanner({ notice, onOpen, onDismiss }: {
   const compactTitle = notice.kind === 'push' && !actor ? compactTitles[title] ?? title : title;
   const label = <><span>{compactTitle}</span>{actor && <>{' '}<bdi>{actor}</bdi></>}</>;
   return (
-    <aside className="nf-member-notice" data-kind={art} data-phase={exitAction ? 'exit' : 'enter'}
-      data-expanded={presented && !exitAction}
-      dir="rtl" aria-label="تنبيه"
+    <aside className="nf-member-notice" data-kind={art} data-phase={exitAction === 'swipe' ? 'swipe' : exitAction ? 'exit' : 'enter'}
+      data-expanded={presented && (!exitAction || exitAction === 'swipe')}
+      data-touching={touching || undefined}
+      dir="rtl" aria-label="تنبيه" data-nf-gesture-owner
+      onTouchStart={event => {
+        if (event.touches.length !== 1) { clearTouch(event.currentTarget); return; }
+        if (exitAction || !presented) return;
+        const touch = event.touches[0];
+        finger.current = {id:touch.identifier,x:touch.clientX,y:touch.clientY,time:event.timeStamp,axis:'pending',
+          button:(event.target as Element).closest('button')};
+        setTouching(true);
+      }}
+      onTouchMove={event => { if (event.touches.length === 1) trackTouch(event,event.touches[0]); else clearTouch(event.currentTarget); }}
+      onTouchEnd={finishTouch} onTouchCancel={event => clearTouch(event.currentTarget)}
       onPointerEnter={event => { if (event.pointerType === 'mouse') setHover(true); }}
       onPointerLeave={() => setHover(false)}
       onFocus={() => setFocus(true)}

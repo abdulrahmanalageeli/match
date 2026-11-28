@@ -390,7 +390,7 @@ export function ProposalDetail({
     <main className="app-screen mi-detail" dir="rtl">
       <div className="screen-content mi-detail-content">
         <header className="mi-detail-header">
-          <button className="mi-back" type="button"
+          <button data-nf-back={!busy || undefined} className="mi-back" type="button"
             onClick={event => navigateProfile(event.currentTarget, onBack, ".mi-home .mi-feature-link")}>
             <ArrowRight size={19} aria-hidden="true" />
             الترشيحات

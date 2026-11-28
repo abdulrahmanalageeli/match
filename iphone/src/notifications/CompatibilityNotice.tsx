@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronDown, Orbit, X } from "../BrandIcons";
 import type { CompatibilityChange } from '../compatibility/changes';
 import type { MatchFit } from '../compatibility/model';
 import { FitDetails } from '../compatibility/FitDetails';
+import { SheetGrabber } from '../ui/SheetGrabber';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import './compatibility-notice.css';
 
@@ -44,6 +45,7 @@ export function CompatibilityChangeSheet({ name, change, fit, onClose }: {
   }, []);
   return <dialog ref={dialog} className="nf-compatibility-change-sheet" dir="rtl" aria-labelledby={heading} aria-describedby={explanation}
     onCancel={event => { event.preventDefault(); onClose(); }}>
+    <SheetGrabber onDismiss={onClose}/>
     <header className="nf-compatibility-change-header">
       <span>تحديث التوافق</span>
       <button type="button" onClick={onClose} aria-label="إغلاق تحديث التوافق"><X size={20} aria-hidden="true"/></button>

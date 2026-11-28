@@ -126,7 +126,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     return ()=>{active=false;stop();clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
   },[check,source,person.id,attempt]);
   if(access !== 'allowed') return <article className="mp-profile screen-content" dir="rtl">
-    <button className="mp-back" type="button" onClick={back}><ArrowRight size={18}/>{backText}</button>
+    <button data-nf-back className="mp-back" type="button" onClick={back}><ArrowRight size={18}/>{backText}</button>
     {access === 'error' ? <p role="alert">ما قدرنا نفتح الملف. تأكد من اتصالك وجرّب مرة ثانية.</p>
       : access === 'denied' ? <p role="status">الملف غير متاح.</p>
       : <BrandWait label="جارٍ فتح الملف…"/>}
@@ -163,7 +163,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   if(passportOpen&&canOpenPassport)return <SharedReadinessPassportPanel key={passportConnection} source={source} connectionId={passportConnection} name={person.alias} onBack={()=>{setPassportOpen(false);requestAnimationFrame(()=>passportButton.current?.focus());}}/>;
   return <article ref={identity} className="mp-profile screen-content" dir="rtl" data-self-preview={preview||undefined}>
     <header className="mp-navigation">
-      <button type="button" className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button>
+      <button type="button" data-nf-back className="mp-back" onClick={back}><ArrowRight size={18}/>{backText}</button>
       <span>{preview?<><Eye size={14}/> معاينة ملفي</>:'ملف التعارف'}</span>
       {(interestAction||onReport||canGift)&&<div className="mp-navigation-actions">
         {interestAction&&!preview&&<button type="button" className="mp-interest" aria-label={`الاهتمام بـ ${person.alias}`} aria-pressed={Boolean(person.interested)} disabled={interestAction.busy} onClick={interestAction.toggle}>

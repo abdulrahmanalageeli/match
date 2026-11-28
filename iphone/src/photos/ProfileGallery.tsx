@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, ChevronLeft, ChevronRight, ImagePlus, LoaderCircle, Trash2, X } from "../BrandIcons";
 import type { CommunitySource, GalleryPhoto } from '../community/data';
 import { preparePhoto } from './photoData';
+import { usePhotoSwipe } from './usePhotoSwipe';
 import './gallery.css';
 import { SuccessNotice } from '../community/SuccessNotice';
 import { HelpButton } from '../help/HelpCenter';
@@ -17,6 +18,10 @@ export function ProfileGallery({ source, subject, name, editable = false, onChan
   const [saved,setSaved]=useState<'added'|'removed'|null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = photos.findIndex(photo => photo.id === selectedId);
+  const photoSwipe = usePhotoSwipe(() => setSelectedId(null), offset => {
+    const next = photos[selected + offset];
+    if (selected >= 0 && next) setSelectedId(next.id);
+  });
   const [remove, setRemove] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -96,7 +101,7 @@ export function ProfileGallery({ source, subject, name, editable = false, onChan
     try{await source.removeGallery(photo);setRemove(null);setRefresh(n=>n+1);setSaved('removed');if(editable)onChanged?.();}catch(e){setError(e instanceof Error?e.message:'تعذّر حذف الصورة.');}finally{setBusy(false);}
   }
   if(!source.gallery||!source.galleryUrl||(!editable&&!photos.length&&!loading&&!error))return null;
-  return <section className="pg-section" aria-label={editable?'معرض ملفي':'معرض الصور'}>
+  return <section className="pg-section" aria-label={editable?'معرض ملفي':'معرض الصور'} data-nf-back-block={busy || Boolean(remove) || undefined}>
     <header className="pg-heading"><div><span className="df-section-eyebrow">{editable?'لمحات تعبّر عنك':'من عالم '+(name||'الشخص')}</span><h2>{editable?'معرض ملفي':'حياة وراء الكلمات'}</h2></div>{(editable||photos.length>0)&&<span><Camera size={16}/>{editable?`${photos.length} / 3`:['','صورة واحدة','صورتان','٣ صور'][photos.length]}</span>}</header>
     {editable&&<p className="pg-caption">يمكنك عرض ثلاث صور إضافية لمن يحق له رؤية ملفك. بعد اعتماد الملف، تخضع الإضافة للمراجعة وتُحسب ضمن تعديله المتاح كل ٣٠ يومًا. يمكنك الحذف في أي وقت.</p>}
     {saved&&<SuccessNotice key={saved+refresh} title={saved==='added'?'لمحة جديدة في ملفك':'أُزيلت الصورة من المعرض'} detail={saved==='added'?'حُفظت صورتك، وتظهر للأعضاء المؤهلين بعد اعتماد مراجعة الملف.':'الصور المرسلة سابقًا داخل المحادثات لا تتأثر.'} quiet={saved==='removed'} close={()=>setSaved(null)}/>}
@@ -112,7 +117,7 @@ export function ProfileGallery({ source, subject, name, editable = false, onChan
     {error&&<p className="pg-error" role="alert">{error}<button className="btn-text" onClick={()=>setRefresh(n=>n+1)}>إعادة المحاولة</button></p>}
     <dialog ref={dialog} className="pg-lightbox" aria-label="عرض الصورة" onCancel={e=>{e.preventDefault();setSelectedId(null);}}>
       <button className="pg-close" onClick={()=>setSelectedId(null)} aria-label="إغلاق الصورة"><X/></button>
-      {selected>=0&&<div className="pg-lightbox-photo"><img key={photos[selected].id} src={photos[selected].url} alt={'صورة الملف '+(selected+1)}/></div>}
+      {selected>=0&&<div key={photos[selected].id} className="pg-lightbox-photo" {...photoSwipe}><img src={photos[selected].url} draggable={false} alt={'صورة الملف '+(selected+1)}/></div>}
       <div className="pg-lightbox-controls"><button disabled={selected<=0} aria-label="الصورة السابقة" onClick={()=>setSelectedId(photos[selected-1].id)}><ChevronRight/></button><span>{selected+1} / {photos.length}</span><button disabled={selected<0||selected===photos.length-1} aria-label="الصورة التالية" onClick={()=>setSelectedId(photos[selected+1].id)}><ChevronLeft/></button></div>
     </dialog>
   </section>;

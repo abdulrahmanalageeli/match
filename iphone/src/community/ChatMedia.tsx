@@ -6,6 +6,7 @@ import { feedback } from '../feedback/haptics';
 import { MotionPressButton, MotionReveal } from '../motion/Reanimated';
 import './chatMedia.css';
 import { nativePrivatePhoto, preparePrivatePhoto, showPrivatePhoto, closePrivatePhoto } from './privatePhoto';
+import { usePhotoSwipe } from '../photos/usePhotoSwipe';
 
 const seconds = (n: number) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
 export const voiceTimeLabel = (n: number) => seconds(n).replace(/\d/g, digit => '٠١٢٣٤٥٦٧٨٩'[Number(digit)]);
@@ -171,6 +172,7 @@ function RecordingWaveform({ stream }: { stream: MediaStream }) {
 function PhotoViewer({ url, close }: { url: string; close: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [ratio, setRatio] = useState<number>();
+  const photoSwipe = usePhotoSwipe(close);
   useEffect(() => { const node = dialog.current; node?.showModal(); return () => node?.close(); }, []);
   return <dialog ref={dialog} className="cm-photo-viewer" dir="rtl" aria-label="صورة المحادثة"
     onCancel={event => { event.preventDefault(); close(); }} onContextMenu={event => {
@@ -178,7 +180,7 @@ function PhotoViewer({ url, close }: { url: string; close: () => void }) {
       if (nativePrivatePhoto()) event.preventDefault();
     }}>
     <header><span><LockKeyhole size={17}/>بينكما فقط</span><button type="button" className="cm-photo-viewer-close" aria-label="إغلاق الصورة" onClick={close} autoFocus><X size={23}/></button></header>
-    <div className="cm-photo-viewer-image">
+    <div className="cm-photo-viewer-image" {...photoSwipe}>
       <div className="cm-photo-viewer-frame" style={ratio ? { width: `min(100cqw, ${100 * ratio}cqh)` } : undefined}>
         <img src={url} alt="الصورة المرسلة في المحادثة" draggable={nativePrivatePhoto() ? false : undefined}
           onLoad={({currentTarget}) => setRatio(currentTarget.naturalWidth / currentTarget.naturalHeight)}/>
@@ -377,7 +379,7 @@ export function ChatMediaComposer({ source, disabled, callActive, onRecording, o
     clearDraft();
   }
   if (!source.sendMedia || !source.mediaUrl) return null;
-  return <div className="cm-media-composer" data-capturing={recording || capturing.current || undefined} data-draft={Boolean(draft) || undefined}>
+  return <div className="cm-media-composer" data-nf-back-block={Boolean(draft) || busy || undefined} data-capturing={recording || capturing.current || undefined} data-draft={Boolean(draft) || undefined}>
     <input ref={picker} type="file" accept="image/jpeg,image/png,image/webp" className="cm-file-input" tabIndex={-1} aria-label="اختيار صورة للمحادثة" onChange={e => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; void photo(file); }}/>
     {recording || capturing.current ? <MotionReveal className="cm-voice-capture" distance={5} duration={220}>
       <div className="cm-recording" data-locked={locked || undefined}>

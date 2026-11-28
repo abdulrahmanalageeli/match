@@ -63,7 +63,7 @@ export function MemberPasswordRecovery({ callback, onBack }: { callback?: Recove
     finally { inflight.current = false; setBusy(false); }
   }
   const available = Boolean(flow && redirect);
-  return <Frame title="استعادة كلمة المرور" back={() => void leave()} backDisabled={busy || stage === 'checking'}>
+  return <Frame title="استعادة كلمة المرور" swipeBack={stage === 'done' || stage === 'invalid' || (stage === 'request' && !email)} back={() => void leave()} backDisabled={busy || stage === 'checking'}>
     <div className="nf-auth-heading"><span className="nf-letter">{stage === 'done' ? <Check size={23}/> : <LockKeyhole size={23}/>}</span>
       <h1>{stage === 'done' ? 'تم تغيير كلمة المرور' : stage === 'reset' ? 'اختر كلمة مرور جديدة' : 'استعد دخولك إلى وُدَين'}</h1>
     </div>

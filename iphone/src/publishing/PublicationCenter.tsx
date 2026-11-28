@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { Capacitor } from '@capacitor/core';
 import { ArrowLeft, Bell, ChevronDown, ChevronLeft, X } from '../BrandIcons';
 import { NoticeHeader } from '../ui/NoticeHeader';
+import { SheetGrabber } from '../ui/SheetGrabber';
 import { cloud, cloudSessionId } from '../cloud';
 import './publications.css';
 
@@ -104,6 +105,7 @@ export function PublicationCenter({owner,screen,enabled,openedId,onConsumed,navi
     {unavailable && <div className="wd-pub-banner" role="status">تعذّر عرض هذا التحديث الآن.<button className="wd-pub-dismiss" onClick={()=>{setUnavailable(false);callback.current();}} aria-label="إغلاق"><X size={15}/></button></div>}
     {children}
     {selected && <dialog ref={dialog} className="wd-notice-sheet wd-pub-detail" aria-labelledby="wd-publication-title" onCancel={()=>setSelected(null)}>
+      <SheetGrabber onDismiss={()=>setSelected(null)}/>
       <NoticeHeader sender="من فريق وُدَين" issuedAt={selected.stamp} onClose={()=>setSelected(null)}/>
       <article className="wd-pub-story">
         <h2 id="wd-publication-title" tabIndex={-1}>{selected.title}</h2>

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { X } from '../BrandIcons';
+import { SheetGrabber } from '../ui/SheetGrabber';
 
 export function Sheet({
   title,
@@ -7,12 +8,14 @@ export function Sheet({
   children,
   className,
   dismissDisabled = false,
+  swipeToDismiss = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   className?: string;
   dismissDisabled?: boolean;
+  swipeToDismiss?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const exit = useRef<Animation | null>(null);
@@ -55,6 +58,7 @@ export function Sheet({
         dismiss();
       }}
     >
+      {swipeToDismiss && !dismissDisabled && <SheetGrabber onDismiss={() => { if (!exit.current) close.current(); }}/>}
       <header>
         <h2>{title}</h2>
         <button className="icon-btn" onClick={dismiss} disabled={dismissDisabled} aria-label="إغلاق">

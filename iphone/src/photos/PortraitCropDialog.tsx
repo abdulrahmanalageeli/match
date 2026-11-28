@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
 import { initialPortraitCrop, portraitCropRect, validatePortraitDimensions, validatePortraitFile, type PortraitCrop } from './portraitPreparation';
 import './portrait-crop.css';
 
@@ -16,13 +16,28 @@ function CropPreview({ image, crop }: { image: HTMLImageElement; crop: PortraitC
 }
 
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
+type Point = {x:number; y:number};
+
+function measurePointers(points: Map<number, Point>) {
+  const [a,b] = points.values();
+  return b ? {x:(a.x+b.x)/2, y:(a.y+b.y)/2, span:Math.hypot(a.x-b.x,a.y-b.y)} : {...a, span:0};
+}
 
 export function PortraitCropDialog({ file, initialCrop = initialPortraitCrop, apply, cancel }: { file: File; initialCrop?: PortraitCrop; apply: (crop: PortraitCrop) => void; cancel: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const drag = useRef<{ id: number; x: number; y: number; crop: PortraitCrop } | null>(null);
+  const pointers = useRef(new Map<number, Point>());
+  const anchor = useRef<{x:number; y:number; span:number; crop:PortraitCrop} | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [error, setError] = useState('');
-  const [crop, setCrop] = useState(initialCrop);
+  const [crop, commitCrop] = useState(initialCrop);
+  const currentCrop = useRef(initialCrop);
+  function setCrop(next: PortraitCrop) { currentCrop.current = next; commitCrop(next); }
+  function reanchor() {
+    anchor.current = pointers.current.size ? {...measurePointers(pointers.current), crop:currentCrop.current} : null;
+  }
+  function finishPointer(event: PointerEvent<HTMLDivElement>) {
+    if (pointers.current.delete(event.pointerId)) reanchor();
+  }
   useEffect(() => {
     const node = dialog.current;
     node?.showModal();
@@ -47,27 +62,36 @@ export function PortraitCropDialog({ file, initialCrop = initialPortraitCrop, ap
   return <dialog ref={dialog} className="portrait-crop" aria-label="ضبط إطار الصورة" dir="rtl" onCancel={e => {e.preventDefault(); cancel();}}>
     <h2>ضبط إطار الصورة</h2>
     {image && <>
-      <p>حرّك الصورة ليظهر وجهك داخل الإطار. هذا هو القصّ المستخدم في ملفك.</p>
+      <p>حرّك الصورة لضبط الإطار، وباعد بين إصبعين للتكبير.</p>
       <div className="portrait-crop-stage" tabIndex={0} role="group" aria-label="موضع الصورة، استخدم مفاتيح الأسهم"
         onPointerDown={e => {
-          if (!e.isPrimary || e.button !== 0) return;
+          if (e.button !== 0 || pointers.current.size >= 2) return;
           e.currentTarget.setPointerCapture(e.pointerId);
-          drag.current = {id:e.pointerId, x:e.clientX, y:e.clientY, crop};
+          pointers.current.set(e.pointerId, {x:e.clientX, y:e.clientY});
+          reanchor();
         }}
-        onLostPointerCapture={() => {drag.current = null;}}
+        onPointerUp={finishPointer} onPointerCancel={finishPointer} onLostPointerCapture={finishPointer}
         onPointerMove={e => {
-          const start = drag.current;
-          if (!start || start.id !== e.pointerId) return;
-          const rect = portraitCropRect(image.naturalWidth, image.naturalHeight, start.crop);
-          const scale = e.currentTarget.clientWidth / rect.w;
-          const dx = (image.naturalWidth - rect.w) * scale, dy = (image.naturalHeight - rect.h) * scale;
-          setCrop({...start.crop, x:dx > 0 ? clamp(start.crop.x - (e.clientX-start.x)/dx) : start.crop.x,
-            y:dy > 0 ? clamp(start.crop.y - (e.clientY-start.y)/dy) : start.crop.y});
+          const start = anchor.current;
+          if (!start || !pointers.current.has(e.pointerId)) return;
+          pointers.current.set(e.pointerId, {x:e.clientX, y:e.clientY});
+          const point = measurePointers(pointers.current);
+          const zoom = start.span > 0 ? Math.max(1, Math.min(2.5, start.crop.zoom * point.span / start.span)) : start.crop.zoom;
+          const stage = e.currentTarget.getBoundingClientRect();
+          if (!stage.width || !stage.height) return;
+          const {naturalWidth:w, naturalHeight:h} = image;
+          const before = portraitCropRect(w,h,start.crop);
+          const after = portraitCropRect(w,h,{...start.crop,zoom});
+          // Keep the same source pixel under the fingertips as they move apart or pan.
+          const x = before.x + ((start.x-stage.left)*before.w - (point.x-stage.left)*after.w) / stage.width;
+          const y = before.y + ((start.y-stage.top)*before.h - (point.y-stage.top)*after.h) / stage.height;
+          setCrop({zoom, x:w > after.w ? clamp(x / (w-after.w)) : start.crop.x,
+            y:h > after.h ? clamp(y / (h-after.h)) : start.crop.y});
         }}
         onKeyDown={e => {
           const offsets: Record<string, [number, number]> = {ArrowRight:[-.05,0], ArrowLeft:[.05,0], ArrowUp:[0,.05], ArrowDown:[0,-.05]};
           const offset = offsets[e.key];
-          if (offset) { e.preventDefault(); setCrop(c => ({...c, x:clamp(c.x+offset[0]), y:clamp(c.y+offset[1])})); }
+          if (offset) { e.preventDefault(); setCrop({...crop, x:clamp(crop.x+offset[0]), y:clamp(crop.y+offset[1])}); }
         }}>
         <CropPreview image={image} crop={crop}/>
       </div>

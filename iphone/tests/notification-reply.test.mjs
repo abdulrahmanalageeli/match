@@ -3,6 +3,36 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 
+test('foreground iOS push presents only scoped metadata for the visible account without running tap actions', async () => {
+  const listeners={}, received=[], opened=[];
+  let cleanup;
+  const native={status:async()=>({installationId:'installation'}),setOwner:async()=>{},consumeOpen:async()=>({notification:null}),
+    addListener:async(name,fn)=>{listeners[name]=fn;return {remove(){}};}};
+  const modules={'@capacitor/core':{Capacitor:{isNativePlatform:()=>true,getPlatform:()=> 'ios'},registerPlugin:()=>native},
+    react:{useRef:current=>({current}),useEffect:fn=>{cleanup=fn();}},'./scope':{notificationScope:async()=>'tester-scope'},
+    '../../admin/server/updateEvents':{isUpdateEvent:value=>value==='agreement:proposed'},'../cloud':{},
+    '../testing/pair':{testRequest:()=>new Promise(()=>{})},'./webPush':{}};
+  const source=readFileSync(new URL('../src/notifications/push.ts',import.meta.url),'utf8').replaceAll('import.meta.env.VITE_MARRIAGE_PUSH_ENABLED',"'true'");
+  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const api={},dom={addEventListener(){},removeEventListener(){},hidden:false};
+  new Function('require','exports','document','window',code)(name=>modules[name],api,dom,dom);
+  api.usePushNotifications('tester:fixture',(...args)=>opened.push(args),undefined,event=>received.push(event));
+  await new Promise(resolve=>setImmediate(resolve));
+  const event = {scope:'tester-scope',kind:'analysis',requestId:'00000000-0000-4000-8000-000000000001',
+    deliveryId:'a0000000-0000-4000-8000-000000000001',analysisPhase:'shared'};
+  listeners.received({...event,body:'private',text:'private'});
+  listeners.received({...event,scope:'wrong-scope'});
+  listeners.received({...event,action:'reply'});
+  listeners.received({...event,requestId:'e0000000-0000-4000-8000-000000000001'});
+  listeners.received({...event,kind:'update',event:'unknown:event'});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(received,[{...event,requestId:'tester-pair'}]); assert.deepEqual(opened,[]);
+  dom.hidden = true; listeners.received(event);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(received.length,1);
+  cleanup();
+});
+
 test('a scoped tester closure tap opens its immutable archive ID on iOS',async()=>{
   const id='c0000000-0000-4000-8000-000000000052', opened=[], acks=[];
   const event={kind:'update',event:'introduction:closed',requestId:id,scope:'tester-scope',actionId:'open-closure'};

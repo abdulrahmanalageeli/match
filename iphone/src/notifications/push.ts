@@ -7,6 +7,7 @@ import { testRequest } from '../testing/pair';
 import { demoPeople, type CommunitySource } from '../community/data';
 import { deviceActivityNotice, type DemoAlertPreferences, type DeviceActivityNotice } from './simulationDeviceAlerts';
 const testerRequestId = '00000000-0000-4000-8000-000000000001';
+const routeUuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value);
 const isTester = (owner: string) => owner.startsWith('tester:');
 const currentOwner = async (owner: string) => isTester(owner) || (await cloudSessionId()) === owner;
 const pushRpc = <T,>(owner: string, action: string, payload = {}) => isTester(owner)
@@ -16,7 +17,8 @@ import { disableWebPush, enableWebPush, registerWebPushDevice, monitorWebPush, r
 
 import { isUpdateEvent, type IntroductionClosureContext, type UpdateEvent } from '../../admin/server/updateEvents';
 
-export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication' | 'simulation' | 'update';event?:UpdateEvent;scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string };
+export type PushOpen = { requestId: string; kind: 'request' | 'mutual' | 'message' | 'reminder' | 'family' | 'analysis' | 'publication' | 'simulation' | 'update';event?:UpdateEvent;scope?: string;actionId?:string;action?:'reply'|'read';text?:string;messageId?:string;roomId?:string;deliveryId?:string;analysisPhase?:'requested'|'shared' };
+export type ForegroundPushHandler = (event: PushOpen) => boolean | void | Promise<boolean | void>;
 export type InAppUpdate = {id:string;event:UpdateEvent;target:string;createdAt:string;unread:boolean;hasFamilyContact?:boolean;closureContext?:IntroductionClosureContext};
 
 const updateReads = new Map<string,Promise<InAppUpdate[]>>();
@@ -51,6 +53,7 @@ interface NativePush {
   badge(options:{count:number;scope:string}):Promise<void>;
   addListener(event: 'registration', listener: (device: Device) => void): Promise<PluginListenerHandle>;
   addListener(event: 'opened', listener: (event: PushOpen) => void): Promise<PluginListenerHandle>;
+  addListener(event: 'received', listener: (event: PushOpen) => void): Promise<PluginListenerHandle>;
 }
 const native = registerPlugin<NativePush>('NisfaynPush');
 export const nativePush = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
@@ -171,14 +174,15 @@ export async function disablePush(owner: string) {
 }
 
 // No permission prompt on launch. Only rebind already authorized, opted-in devices.
-export function usePushNotifications(owner: string | null, onOpen: (requestId: string, kind: PushOpen['kind'],event?:PushOpen) => void|Promise<void>, simulation?: CommunitySource | null) {
-  const callback = useRef({owner,onOpen});
-  callback.current = {owner,onOpen};
+export function usePushNotifications(owner: string | null, onOpen: (requestId: string, kind: PushOpen['kind'],event?:PushOpen) => void|Promise<void>, simulation?: CommunitySource | null, onForeground?: ForegroundPushHandler) {
+  const callback = useRef({owner,onOpen,onForeground});
+  callback.current = {owner,onOpen,onForeground};
   useEffect(() => {
     if (!owner || !pushConfigured || (isTester(owner) && !nativePush)) return;
     if (!nativePush) {
       if (!webPushSupported()) return;
-      return monitorWebPush(owner, event => { if (callback.current.owner === owner) void callback.current.onOpen(event.requestId, event.kind,event); });
+      return monitorWebPush(owner, event => { if (callback.current.owner === owner) void callback.current.onOpen(event.requestId, event.kind,event); },
+        event => callback.current.owner === owner ? callback.current.onForeground?.(event) : false);
     }
     const notificationOwner = owner;
     let binding: Promise<string | null> | undefined;
@@ -221,6 +225,24 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
     let registrationRetry: ReturnType<typeof setTimeout> | undefined;
     let registrationFailures = 0;
     const listeners: PluginListenerHandle[] = [];
+    const validRemote = (event: PushOpen) => routeUuid(event.requestId) &&
+      ['request','mutual','message','reminder','family','analysis','publication','update'].includes(event.kind) &&
+      (event.kind !== 'update' || isUpdateEvent(event.event));
+    const canRoute = (event: PushOpen) => isTester(notificationOwner) === (event.requestId === testerRequestId)
+      || (isTester(notificationOwner) && event.kind === 'update' && event.event === 'introduction:closed');
+    const receive = async (event: PushOpen) => {
+      if (!active || document.hidden || !callback.current.onForeground || event.action || event.actionId) return;
+      if (event.kind === 'simulation' ? !simulation || !routeUuid(event.requestId) : !validRemote(event) || !canRoute(event)) return;
+      const scope = await getBinding();
+      if (!scope || event.scope !== scope || !await currentOwner(notificationOwner) || !active || document.hidden || callback.current.owner !== owner) return;
+      const requestId = event.requestId === testerRequestId && event.kind !== 'simulation' ? 'tester-pair' : event.requestId;
+      await callback.current.onForeground?.({scope,requestId,kind:event.kind,
+        ...(event.kind === 'update' ? {event:event.event} : {}),
+        ...(event.kind === 'analysis' && (event.analysisPhase === 'requested' || event.analysisPhase === 'shared') ? {analysisPhase:event.analysisPhase} : {}),
+        ...(routeUuid(event.deliveryId) ? {deliveryId:event.deliveryId} : {}),
+        ...(routeUuid(event.messageId) ? {messageId:event.messageId} : {}),
+        ...(routeUuid(event.roomId) ? {roomId:event.roomId} : {})});
+    };
     const open = async () => {
       if(!active)return;
       if(opening){reopen=true;return;}
@@ -237,10 +259,9 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
         if (notification.actionId) { await native.acknowledgeOpen({actionId:notification.actionId}); acknowledged=true; }
         return;
       }
-      if (/^[0-9a-f-]{36}$/i.test(notification.requestId) && ['request','mutual','message','reminder','family','analysis','publication','update'].includes(notification.kind) && (notification.kind !== 'update' || isUpdateEvent(notification.event))) {
+      if (validRemote(notification)) {
         const pairedChat = notification.requestId === testerRequestId;
-        const testerArchive = isTester(owner) && notification.kind === 'update' && notification.event === 'introduction:closed';
-        if (scope !== notification.scope || (isTester(owner) !== pairedChat && !testerArchive)) {
+        if (scope !== notification.scope || !canRoute(notification)) {
           if(notification.actionId){await native.acknowledgeOpen({actionId:notification.actionId});acknowledged=true;}return;
         }
         await callback.current.onOpen(pairedChat ? 'tester-pair' : notification.requestId, notification.kind,notification);
@@ -281,6 +302,7 @@ export function usePushNotifications(owner: string | null, onOpen: (requestId: s
     };
     void native.addListener('registration', device => { if (active && registration?.owner !== owner) void bind(owner, device).catch(() => { void refresh(); }); }).then(handle => { if (active) listeners.push(handle); else void handle.remove(); }).catch(() => {});
     void native.addListener('opened', () => { void open().catch(() => {}); }).then(handle => { if (active) listeners.push(handle); else void handle.remove(); }).catch(() => {});
+    void native.addListener('received', event => { void receive(event).catch(() => {}); }).then(handle => { if (active) listeners.push(handle); else void handle.remove(); }).catch(() => {});
     const resume = () => { registrationFailures = 0; void refresh(); };
     document.addEventListener('visibilitychange', resume);
     window.addEventListener('online', resume);

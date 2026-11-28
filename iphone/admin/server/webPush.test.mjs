@@ -25,7 +25,8 @@ test('Web Push uses generic encrypted payload, bounded TTL and accurate provider
   const sender = openWebPush({ subject: 'mailto:support@example.com', publicKey: 'public', privateKey: 'private' }, async (...args) => { captured = args; return { statusCode: 201 }; });
   assert.equal(await sender.send({ ...job, name: 'PRIVATE NAME', body: 'PRIVATE MESSAGE' }), 'sent');
   const payload = JSON.parse(captured[1]);
-  assert.deepEqual(Object.keys(payload).sort(), ['body', 'kind', 'requestId', 'title']);
+  assert.deepEqual(Object.keys(payload).sort(), ['body', 'deliveryId', 'kind', 'requestId', 'title']);
+  assert.equal(payload.deliveryId,job.id);
   assert(!JSON.stringify(payload).includes('PRIVATE'));
   assert.equal(captured[2].contentEncoding, 'aes128gcm');
   assert(captured[2].TTL > 0 && captured[2].TTL <= 60);
@@ -45,6 +46,9 @@ test('Family routing stays exact without disclosing preview content', () => {
   assert.equal(payload.roomId,roomId);assert.equal(payload.messageId,messageId);
   assert(!JSON.stringify(payload).includes('PRIVATE'));
   assert.equal(webPushPayload({...job,kind:'reminder'}).kind,'reminder');
+  const analysis = webPushPayload({...job,kind:'analysis',details:{preview:'private',badge:0,analysisPhase:'shared'}});
+  assert.equal(analysis.analysisPhase,'shared');
+  assert.equal(analysis.body,'إشعار جديد');
   const launch = webPushPayload({...job,kind:'publication',details:{preview:'private',launch:true,badge:0}});
   assert.equal(launch.launch,true); assert.match(launch.body,/انطلق وُدَين/);
 });

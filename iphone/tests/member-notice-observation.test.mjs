@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MemberNoticeObservation, incomingNotices, visitNotices, allowsMemberNotice } from '../src/notifications/memberNoticeObservation.ts';
+import { memberPushNotice, pushCategory, simulatedChatNotices, simulatedInterestNotices } from '../src/notifications/memberPushNotice.ts';
+import { updateEvents } from '../admin/server/updateEvents.ts';
 
 const time=Date.parse('2026-11-28T12:00:00Z');
 const person={id:'person',alias:'سارة'};
@@ -48,4 +50,68 @@ test('foreground notice preferences respect the category, local quiet hours and 
   assert.equal(allowsMemberNotice('visit',{...prefs,interest:false},time),false);
   assert.equal(allowsMemberNotice('request',{...prefs,connections:false},time),false);
   assert.equal(allowsMemberNotice('request',null,time),false);
+});
+
+test('every supported delivery has concise Arabic copy, a preference and its original route',()=>{
+  const target='signed-in-target';
+  const routes=['request','mutual','message','family','reminder','analysis','publication'].map(kind=>({kind,requestId:target}));
+  for(const event of Object.keys(updateEvents))routes.push({kind:'update',event,requestId:target});
+  for(const push of routes){
+    const notice=memberPushNotice(push), category=pushCategory(push);
+    assert.ok(category,push.event||push.kind);
+    assert.match(notice.title,/[\u0600-\u06ff]/);
+    assert.equal(notice.push,push);
+    assert.equal(allowsMemberNotice(category,{[category]:true,quiet:false},time),true);
+    if(category!=='publication')assert.equal(allowsMemberNotice(category,{[category]:false,quiet:false},time),false);
+  }
+  for(const [phase,event] of [['requested','analysis:invited'],['shared','analysis:shared']])
+    assert.equal(memberPushNotice({kind:'analysis',requestId:target,analysisPhase:phase}).title,updateEvents[event][0]);
+  assert.equal(memberPushNotice({kind:'update',event:'unknown:event',requestId:target}),undefined);
+  assert.equal(memberPushNotice({kind:'simulation',requestId:target}),undefined);
+});
+
+test('push and authorized snapshots share one request pill in either order; a replay stays dismissed',()=>{
+  for(const pushFirst of [true,false]){
+    const q=new MemberNoticeObservation(), push=memberPushNotice({kind:'request',requestId:'pair',deliveryId:'delivery'});
+    q.observe('request',[],q.epoch,true);
+    if(pushFirst)q.deliver(push,q.epoch);
+    q.observe('request',incomingNotices([request('pair')],time),q.epoch,true);
+    if(!pushFirst)assert.equal(q.deliver(push,q.epoch),false);
+    assert.equal(q.first().person.alias,'سارة');
+    q.dismiss(q.first().key);
+    assert.equal(q.first(),null);
+    assert.equal(q.deliver(push,q.epoch),false);
+  }
+});
+
+test('queue preserves distinct repeat updates and separate family messages, and discards late deliveries',()=>{
+  const q=new MemberNoticeObservation();
+  const routes=[
+    {kind:'update',event:'agreement:extension',deliveryId:'first'},
+    {kind:'update',event:'agreement:extension',deliveryId:'second'},
+    {kind:'family',roomId:'family-room',messageId:'first-message'},
+    {kind:'family',roomId:'family-room',messageId:'second-message'},
+  ].map(fields=>memberPushNotice({requestId:'same-connection',...fields}));
+  for(const item of routes){assert.equal(q.deliver(item,q.epoch),true);assert.equal(q.deliver(item,q.epoch),false);}
+  q.observe('request',[],q.epoch,true);
+  for(const item of routes){assert.equal(q.first().key,item.key);q.dismiss(item.key);}
+  const old=q.epoch;q.reset();
+  assert.equal(q.deliver(memberPushNotice({requestId:'other',kind:'mutual'}),old),false);
+  assert.equal(q.first(),null);
+});
+
+test('simulated notices name only the verified fictional peer and use the same destinations as real activity',()=>{
+  const peer={...person,isDemo:true};
+  const chat={id:'pair',status:'accepted',person:peer,unreadCount:1,celebrationKey:'match'};
+  const log=['reply','match'].map(kind=>({kind,id:kind,personId:peer.id,connectionId:chat.id,at:new Date(time).toISOString()}));
+  const items=simulatedChatNotices([chat],log);
+  assert.deepEqual(items.map(item=>[item.actor,item.key,item.push.kind]),[['سارة','message:reply','message'],['سارة','match:pair','mutual']]);
+  assert.equal(items[0].push.messageId,'reply');
+  assert.deepEqual(simulatedChatNotices([chat],[{...log[0],id:'old-read-reply'},...log]),items);
+  assert.equal(simulatedChatNotices([{...chat,celebrationKey:undefined}],log).length,1);
+  for(const row of [{...chat,person},{...chat,status:'closed'}])assert.deepEqual(simulatedChatNotices([row],log),[]);
+  assert.deepEqual(simulatedChatNotices([chat],[{...log[0],personId:'other'}]),[]);
+  const social={...visit('interest'),kind:'interest',person:peer};
+  assert.equal(simulatedInterestNotices([social])[0].push.requestId,peer.id);
+  assert.deepEqual(simulatedInterestNotices([{...social,person},{...social,readAt:'read'}]),[]);
 });

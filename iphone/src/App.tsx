@@ -352,7 +352,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     if (badgeOwner) void setPushBadge(count, badgeOwner).catch(() => {});
   }, [badgeOwner]);
   const chatUnread = useUnreadCount(memberAccess ? source : null, updatePushBadge);
-  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; foreground?: MemberNotice['kind']; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean;journey?:boolean;interest?:boolean } | null>(null);
+  const [conversationIntent, setConversationIntent] = useState<{ source: NonNullable<typeof source>; id: string; requestOnly?: boolean; foreground?: 'request' | 'visit'; messageId?:string;roomId?:string;agreement?:boolean;analysis?:boolean;journey?:boolean;interest?:boolean } | null>(null);
   const [pushPanel,setPushPanel]=useState<{owner:string;panel:"family"|"family_room"|"history"|"verification"|"support"|"safety";id:string}>();
   const matchToAcknowledge = useRef<{id:string;source:NonNullable<typeof source>}|null>(null);
   const clearConversationIntent = useCallback(() => {
@@ -429,7 +429,6 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     pendingNotification.current=null;
     if(pending.owner===(tester?.session??token))void openNotification(pending.id,pending.kind,pending.event);
   });
-  usePushNotifications(tester ? `tester:${tester.session}` : !demo ? token : null,openNotification,simulationAlerts);
   const curatedPrevious = useRef<{ owner: string | null; id?: string; status?: Proposal["status"] } | null>(null);
   const [curatedMatch, setCuratedMatch] = useState<{ owner: string | null; id: string; name: string; at: string } | null>(null);
   useEffect(() => {
@@ -536,14 +535,21 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     !publicationOpen && !policy && !confirm && !onboardingPreview && !error;
   const showArrivalGuide = canShowArrivalPrompt && (!guideSeen || guideReplayed) &&
     (guideReplayed || (!startAtLogin && !openLogin));
-  const showMemberNotices = !loading && !busy && !socialPending && !showArrivalGuide && !policy && !confirm &&
-    !publicationOpen && !reportReceipt && !(membershipReceipt && !receiptDismissed) && !live?.user.profileReviewPending &&
-    ['main','discover','curated','inbox','chats','settings'].includes(view);
-  const activity = useMemberActivity(memberAccess && !paused && !onboardingPreview ? source : null, showMemberNotices, badgeOwner);
+  const showMemberNotices = (demo || Boolean(token && live?.user.id === token)) && !loading && !busy &&
+    !socialPending && !showArrivalGuide && !onboardingPreview && !policy && !confirm && !error &&
+    !publicationOpen && !reportReceipt && !(membershipReceipt && !receiptDismissed) &&
+    view !== 'login' && view !== 'register';
+  const activity = useMemberActivity(memberAccess && !paused && !onboardingPreview && !live?.user.profileReviewPending ? source : null, showMemberNotices, badgeOwner);
+  usePushNotifications(badgeOwner,openNotification,simulationAlerts,push => activity.receivePush(push,simulationAlerts));
   const memberNotice=activity.notice;
   function openMemberNotice(notice: MemberNotice) {
-    if (!source || activity.notice?.key !== notice.key) return;
+    if (activity.notice?.key !== notice.key) return;
     activity.dismissNotice(notice.key);
+    if (notice.kind === 'push') {
+      void openNotification(notice.push.requestId,notice.push.kind,notice.push);
+      return;
+    }
+    if (!source) return;
     const id = notice.kind === 'request' ? notice.requestId : notice.key.slice('visit:'.length);
     if (!id) return;
     matchToAcknowledge.current = null;

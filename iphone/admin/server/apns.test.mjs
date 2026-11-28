@@ -45,7 +45,8 @@ test('APNs provider token is signed ES256 P1363 and payload contains only generi
  assert.deepEqual(JSON.parse(Buffer.from(parts[1],'base64url')),{iss:config.teamId,iat:1_800_000_000});
  assert(verify('sha256',Buffer.from(parts.slice(0,2).join('.')),{key:pair.publicKey,dsaEncoding:'ieee-p1363'},Buffer.from(parts[2],'base64url')));
  const payload=pushPayload({...job,alias:'PRIVATE NAME',body:'PRIVATE MESSAGE'});
- assert.deepEqual(Object.keys(payload).sort(),['aps','kind','requestId']);
+ assert.deepEqual(Object.keys(payload).sort(),['aps','deliveryId','kind','requestId']);
+ assert.equal(payload.deliveryId,job.id);
  assert(!JSON.stringify(payload).includes('PRIVATE'));
  assert.equal(payload.aps.sound,'default');
  for (const kind of ['request','mutual','message','reminder','family','analysis']) {

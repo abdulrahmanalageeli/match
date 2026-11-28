@@ -29,10 +29,10 @@ export function classifyWebPush(status: number): DeliveryResult {
   return 'failed';
 }
 
-export function webPushPayload(job: Pick<WebPushJob, 'requestId' | 'kind' | 'details'>) {
+export function webPushPayload(job: Pick<WebPushJob, 'requestId' | 'kind' | 'details'> & { id?: string }) {
   const payload = pushPayload({ ...job, details: job.details ? { ...job.details, preview: 'private' } : undefined });
   // No profile names, message previews, photographs, member IDs or auth tokens.
-  return { title: payload.aps.alert.title, body: payload.aps.alert.body, ...(job.kind==='publication' && job.details?.launch === true ? {launch:true} : {}), requestId: payload.requestId, kind: payload.kind, ...(payload.event ? {event:payload.event} : {}), ...(payload.scope ? {scope:payload.scope} : {}), ...(job.details?.passive || job.details?.sound === false ? {silent:true} : {}), ...(payload.messageId ? { messageId: payload.messageId } : {}), ...(payload.roomId ? { roomId: payload.roomId } : {}) };
+  return { title: payload.aps.alert.title, body: payload.aps.alert.body, ...(job.kind==='publication' && job.details?.launch === true ? {launch:true} : {}), requestId: payload.requestId, kind: payload.kind, ...(payload.event ? {event:payload.event} : {}), ...(payload.scope ? {scope:payload.scope} : {}), ...(job.details?.passive || job.details?.sound === false ? {silent:true} : {}), ...(payload.messageId ? { messageId: payload.messageId } : {}), ...(payload.roomId ? { roomId: payload.roomId } : {}), ...(payload.deliveryId ? {deliveryId:payload.deliveryId} : {}), ...(payload.analysisPhase ? {analysisPhase:payload.analysisPhase} : {}) };
 }
 
 export function openWebPush(config: WebPushConfig, send: typeof webPush.sendNotification = webPush.sendNotification) {

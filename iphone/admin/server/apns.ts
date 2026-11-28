@@ -10,7 +10,7 @@ export type ApnsConfig = { teamId: string; keyId: string; privateKey: string; to
 export type DeliveryResult = 'sent' | 'invalid' | 'retry' | 'failed';
 export type CallPushJob = {callId:string;installation:string;token:string;environment:'sandbox'|'production'};
 
-export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>) {
+export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'> & { id?: string }) {
   const copy: Record<PushKind, string> = {
     publication: 'وصلك تحديث من وُدَين.',
     update: 'إشعار جديد',
@@ -42,6 +42,8 @@ export function pushPayload(job: Pick<PushJob, 'requestId' | 'kind' | 'details'>
     ...(receipt ? {'mutable-content':1} : {}),
     ...(!discreet && job.kind==='message'?{category:'NISFAYN_MESSAGE'}:{}) }, requestId: target, kind: job.kind,
     ...(event ? {event} : {}),
+    ...(job.id && /^[0-9a-f-]{36}$/i.test(job.id) ? {deliveryId:job.id} : {}),
+    ...(job.kind === 'analysis' && (details?.analysisPhase === 'requested' || details?.analysisPhase === 'shared') ? {analysisPhase:details.analysisPhase} : {}),
     ...(receipt ? {receipt} : {}),
     ...(details?.scope ? {scope:details.scope} : {}),
     ...(details?.roomId&&/^[0-9a-f-]{36}$/i.test(details.roomId)?{roomId:details.roomId}:{}),

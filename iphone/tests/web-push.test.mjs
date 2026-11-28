@@ -9,7 +9,7 @@ function browser({ permission = 'default', account = 'member-a', previousOwner, 
  const subscription = { options: {}, toJSON: () => ({ endpoint: 'https://web.push.apple.com/test', keys: { auth: 'a', p256dh: 'b' } }), unsubscribe: async () => { calls.push('unsubscribe'); return true; } };
  const registration = { pushManager: { getSubscription: async () => null, subscribe: async options => { calls.push(['subscribe', options]); return subscription; } }, getNotifications: async () => [] };
  const serviceWorker = { register: async () => registration, ready: Promise.resolve(registration), getRegistration: async () => registration, addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener() {} };
- const document = { hidden: false, addEventListener() {}, removeEventListener() {} };
+ const document = { hidden: false, hasFocus: () => true, addEventListener() {}, removeEventListener() {} };
  const Notification = { permission, requestPermission() { calls.push('permission'); this.permission = 'granted'; return Promise.resolve('granted'); } };
  const context = { exports: {}, console, Uint8Array, URL, Promise, atob: value => Buffer.from(value, 'base64').toString('binary'), crypto: { randomUUID: () => '11111111-1111-1111-1111-111111111111' },
   navigator: { userAgent: ios ? 'iPhone' : 'Chrome', platform: ios ? 'iPhone' : 'Win32', maxTouchPoints: 0, serviceWorker },
@@ -93,4 +93,40 @@ test('service worker shows only generic notifications and opens only same-origin
  assert.equal(new URL(opened[1]).searchParams.has('family'), false); assert.equal(new URL(opened[1]).searchParams.has('test'), false);
  handlers.get('push')({ data: { json: () => ({ requestId: 'bad', kind: 'message' }) }, waitUntil() { throw new Error('must not notify'); } });
  assert.equal(shown.length, 2);
+});
+
+test('foreground push reaches only the focused app, keeps payloads private, and never triggers a tap', async () => {
+  const {api, listeners, pending, context} = browser();
+  const received = [], opened = [], worker = new Map(), shown = [];
+  api.monitorWebPush('member-a', value => opened.push(value), value => received.push(value));
+  const send = value => listeners.get('message')({data:{type:'nisfayn-push-received',notification:value}});
+  const route = {kind:'analysis',scope:'member-a-scope',requestId:'11111111-1111-1111-1111-111111111111',
+    deliveryId:'22222222-2222-2222-2222-222222222222',analysisPhase:'shared'};
+  send({...route,body:'PRIVATE',action:'reply',text:'PRIVATE'});
+  send({...route,scope:'other-account'});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(JSON.parse(JSON.stringify(received)),[route]);
+  context.document.hidden = true;
+  send(route);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(received.length,1); assert.equal(opened.length,0); assert.equal(pending.size,0);
+
+  const messages = [];
+  const client = (url, focused, visibilityState) => ({url,focused,visibilityState,postMessage:message=>messages.push({url,message})});
+  const origin = 'https://nisfayn.example';
+  const windows = [client(origin+'/?test=1',true,'visible'),client(origin+'/',false,'visible'),client(origin+'/',true,'hidden'),client(origin+'/index.html',true,'visible')];
+  const self = {location:{origin},addEventListener:(name,fn)=>worker.set(name,fn),clients:{matchAll:async()=>windows},
+    registration:{showNotification:async(...args)=>shown.push(args)}};
+  vm.runInNewContext(readFileSync(new URL('../public/sw.js', import.meta.url),'utf8'),{self,URL});
+  let work;
+  const payload = {...route,scope:'f'.repeat(64),body:'PRIVATE'};
+  worker.get('push')({data:{json:()=>payload},waitUntil:p=>{work=p;}}); await work;
+  assert.equal(shown.length,1);
+  assert.equal(messages.length,1); assert.equal(messages[0].url,origin+'/index.html');
+  assert.equal(messages[0].message.type,'nisfayn-push-received');
+  assert.equal(messages[0].message.notification.analysisPhase,'shared');
+  assert.equal(messages[0].message.notification.deliveryId,route.deliveryId);
+  assert(!JSON.stringify([messages,shown]).includes('PRIVATE'));
+  windows.pop(); worker.get('push')({data:{json:()=>payload},waitUntil:p=>{work=p;}}); await work;
+  assert.equal(messages.length,1); assert.equal(shown.length,2);
 });

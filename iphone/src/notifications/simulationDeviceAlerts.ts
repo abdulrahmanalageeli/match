@@ -5,25 +5,43 @@ import type { PushControls, PushPreview } from './push';
 export type DeviceActivityNotice = { eventId: string; dueAt: number; body: string; sound: boolean };
 export type DemoAlertPreferences = { controls: PushControls; preview: PushPreview };
 
-export async function simulationActivityDestination(source: CommunitySource, id: string) {
+export async function resolveSimulationActivity(source: CommunitySource, id: string, current = () => true) {
   const controller=source.simulation;
   if (!controller) return null;
   // Private paired sessions refresh exclusivity and retire closed connections here.
   await source.inbox();
+  if (!current()) return null;
   controller.reconcileActivity(id);
-  const event=controller.snapshot().log.find(row=>row.id===id);
-  if (!event || !['request','match','reply'].includes(event.kind)) return null;
+  const {log}=controller.snapshot();
+  const event=log.find(row=>row.id===id);
+  if (!event) return null;
+  if (event.kind === 'profile_visit' || event.kind === 'interest') {
+    const activity = (await source.notifications?.())?.find(row => row.id === id && row.kind === event.kind
+      && row.person.isDemo && row.person.id === event.personId);
+    return activity && current() ? {type:'activity' as const, activity} : null;
+  }
+  if (!['request','match','reply'].includes(event.kind)) return null;
   const requestOnly=event.kind==='request', connectionId=requestOnly ? event.id : event.connectionId;
   const row=(await source.inbox()).find(connection=>connection.id===connectionId && connection.person.isDemo && connection.person.id===event.personId);
-  if (!row || row.status !== (requestOnly?'pending':'accepted')) return null;
-  return {id:row.id,requestOnly,messageId:event.kind==='reply'?id:undefined};
+  if (!row || row.status !== (requestOnly?'pending':'accepted') || !current()) return null;
+  return {type:'connection' as const, connection:row, event, log};
+}
+
+export async function simulationActivityDestination(source: CommunitySource, id: string) {
+  const result = await resolveSimulationActivity(source,id);
+  if (!result) return null;
+  if (result.type === 'activity') return result.activity.kind === 'profile_visit'
+    ? {id:result.activity.id, requestOnly:true, foreground:'visit' as const}
+    : {id:result.activity.person.id, requestOnly:true, interest:true};
+  return {id:result.connection.id,requestOnly:result.event.kind==='request',messageId:result.event.kind==='reply'?id:undefined};
 }
 
 export function deviceActivityNotice(plan: PlannedDemoActivity | undefined, preferences: DemoAlertPreferences | null,
   alias: string | undefined, now = Date.now()): DeviceActivityNotice | null {
   if (!plan || !alias || !preferences || !Number.isFinite(plan.dueAt) || plan.dueAt <= now) return null;
   const { controls, preview } = preferences;
-  if (!(plan.kind === 'reply' ? controls.message : controls.connections)) return null;
+  const category = {reply:'message', profile_visit:'interest', interest:'interest', request:'connections', match:'connections'} as const;
+  if (!controls[category[plan.kind]]) return null;
   let sound = controls.sound;
   if (sound && controls.quiet) {
     try {

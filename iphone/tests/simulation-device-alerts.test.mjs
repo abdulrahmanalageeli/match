@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { deviceActivityNotice, simulationActivityDestination } from '../src/notifications/simulationDeviceAlerts.ts';
 
-const controls = {connections:true, message:true, sound:true, quiet:true, start:22, end:7, zone:'Asia/Riyadh'};
+const controls = {connections:true, interest:true, message:true, sound:true, quiet:true, start:22, end:7, zone:'Asia/Riyadh'};
 const plan = {id:'da042b07-4f72-48a2-8004-c09af6ce52d9', kind:'interest', personId:'fictional-1', dueAt:Date.UTC(2030,0,1,20)};
 const alias = 'نوف';
 test('notification previews use the scheduled Riyadh time, category switch and chosen privacy', () => {
@@ -13,7 +13,14 @@ test('notification previews use the scheduled Riyadh time, category switch and c
   assert.equal(render({},'event').body,'اهتمام جديد بملفك');
   assert.equal(render({},'name').body,'اهتمام جديد بملفك من نوف');
   assert.equal(render({},'content').body,'اهتمام جديد بملفك من نوف');
-  assert.equal(render({connections:false}),null);
+  for (const kind of ['interest','profile_visit']) {
+    assert.equal(render({interest:false},'event',{...plan,kind}),null);
+    assert.ok(render({connections:false},'event',{...plan,kind}));
+  }
+  for (const kind of ['request','match']) {
+    assert.equal(render({connections:false},'event',{...plan,kind}),null);
+    assert.ok(render({interest:false},'event',{...plan,kind}));
+  }
   const message={...plan,kind:'reply'},match={...plan,kind:'match'};
   assert.equal(render({connections:false},'name',message).body,'رسالة جديدة من نوف');
   assert.equal(render({message:false},'content',message),null);
@@ -79,7 +86,7 @@ test('an excluded recipient clears pending alerts and discards an old simulation
   b.tap('phone-scope');await b.settle();assert.equal(b.opens.length,0);assert.deepEqual(b.acknowledgments,['tap']);b.close();
 });
 test('a cold tap reconciles the exact event and opens only the original fictional connection', async()=>{
-  for(const kind of ['request','reply','match','interest']){
+  for(const kind of ['request','reply','match']){
     const id=plan.id, connectionId=kind==='request'?id:'accepted-fictional';
     let committed=false,validated=false;
     const connection={id:connectionId,status:kind==='request'?'pending':'accepted',person:{id:plan.personId,isDemo:true}};
@@ -89,11 +96,33 @@ test('a cold tap reconciles the exact event and opens only the original fictiona
       async inbox(){validated=true;return [connection];}
     };
     const result=await simulationActivityDestination(source,id);
-    if(kind==='interest') assert.equal(result,null);
-    else assert.deepEqual(result,{id:connectionId,requestOnly:kind==='request',messageId:kind==='reply'?id:undefined});
+    assert.deepEqual(result,{id:connectionId,requestOnly:kind==='request',messageId:kind==='reply'?id:undefined});
     connection.person.isDemo=false;
     assert.equal(await simulationActivityDestination(source,id),null);
     connection.person.isDemo=true;connection.status='closed';
     assert.equal(await simulationActivityDestination(source,id),null);
+  }
+});
+
+test('a simulated visit or interest tap resolves only the matching visible demo activity',async()=>{
+  for (const kind of ['profile_visit','interest']) {
+    const event = {...plan,kind};
+    const activity = {id:event.id,kind,person:{id:event.personId,isDemo:true}};
+    let rows = [activity], refreshed = false, reconciled = false;
+    const source = {
+      async inbox(){refreshed=true;return [];},
+      simulation:{reconcileActivity(id){assert.ok(refreshed);assert.equal(id,event.id);reconciled=true;},
+        snapshot(){return {log:reconciled?[event]:[]};}},
+      async notifications(){assert.ok(reconciled);return rows;}
+    };
+    assert.deepEqual(await simulationActivityDestination(source,event.id),kind==='profile_visit'
+      ? {id:event.id,requestOnly:true,foreground:'visit'} : {id:event.personId,requestOnly:true,interest:true});
+    for (const candidate of [
+      {...activity,id:'different-event'}, {...activity,kind:'screenshot'},
+      {...activity,person:{id:event.personId,isDemo:false}}, {...activity,person:{id:'another-person',isDemo:true}},
+    ]) {
+      rows=[candidate]; assert.equal(await simulationActivityDestination(source,event.id),null);
+    }
+    rows=[]; assert.equal(await simulationActivityDestination(source,event.id),null);
   }
 });

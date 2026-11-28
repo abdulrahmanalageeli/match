@@ -19,7 +19,7 @@
   border-radius: 24px;
   background: transparent;
   box-shadow: none;
-  pointer-events: auto;
+  pointer-events: none;
 }
 .nf-member-notice-surface::before {
   --notice-pattern: url("./artwork/rose-weave.svg") center / clamp(140px, 54vw, 240px) auto no-repeat;
@@ -50,7 +50,8 @@
     border-color: var(--control-line);
   }
 }
-.nf-member-notice-content { display: flex; align-items: center; width: 100%; min-width: 0; }
+.nf-member-notice-content { display: flex; align-items: center; width: 100%; min-width: 0; pointer-events: auto; }
+.nf-member-notice-seal { display: none; }
 .nf-member-notice-surface button {
   position: relative;
   padding: 0;
@@ -79,12 +80,19 @@
   width: 31px;
   height: 31px;
 }
-.nf-member-notice-label { display: flex; flex: 1; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; text-align: start; }
-.nf-member-notice-label bdi { min-width: 0; color: var(--accent); font-size: 1.0625rem; font-weight: 700; line-height: 1.36; }
-.nf-member-notice-label > span { flex: none; max-width: 45%; color: #665b62; font-size: .8125rem; line-height: 1.4; font-weight: 400; }
+.nf-member-notice-label { display: flex; flex: 1; align-items: baseline; gap: .28em; min-width: 0; white-space: nowrap; color: #604f59; font-size: .875rem; line-height: 1.4; font-weight: 400; text-align: start; }
+.nf-member-notice-label > span { flex: none; max-width: calc(100% - 3em); }
+.nf-member-notice-label > span:only-child { max-width: 100%; color: var(--accent); font-weight: 600; }
+.nf-member-notice-label > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nf-member-notice-label bdi { color: var(--accent); font-size: 1.0625rem; font-weight: 700; }
+.nf-member-notice-action { display: inline-flex; flex: none; align-items: center; gap: 3px; color: var(--accent); font-size: .75rem; font-weight: 500; line-height: 1.4; }
+@media (max-width: 359px) {
+  .nf-member-notice-action > span { display: none; }
+}
 .nf-member-notice-surface .nf-member-notice-close { flex: 0 0 44px; color: var(--muted); }
 .nf-member-notice button:focus-visible { outline-offset: 0; }
 .nf-member-notice[data-phase="exit"] .nf-member-notice-surface { opacity: 0; pointer-events: none; }
+.nf-member-notice[data-phase="exit"] .nf-member-notice-content { pointer-events: none; }
 /* The iris stays round behind a moving lid. Both lid paths pivot at the eye corners. */
 .nf-notice-lids { transform-box: view-box; transform-origin: 16px 16px; }
 .nf-notice-flap { transform-box: view-box; transform-origin: 16px 14px; }
@@ -129,14 +137,57 @@
 @keyframes nf-notice-eye-close { to { transform: scaleY(.08); } }
 @keyframes nf-notice-letter-away { to { transform: translateY(18px); } }
 @keyframes nf-notice-fold { to { transform: scaleY(-.7); } }
+@keyframes nf-notice-seal-in { from { opacity: 0; transform: scale(.77); } to { opacity: 1; transform: none; } }
+@keyframes nf-notice-seal-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.78); } }
+@keyframes nf-notice-seal-glint {
+  0% { background-position: 100% 50%; opacity: 0; }
+  30%, 68% { opacity: .86; }
+  100% { background-position: 0% 50%; opacity: 0; }
+}
+@keyframes nf-notice-enamel-settle {
+  from { transform: translateY(1.1px) rotate(var(--notice-tilt, -4deg)) scale(.94); }
+  72% { transform: translateY(-.2px) rotate(.5deg) scale(1.015); }
+  to { transform: none; }
+}
+@keyframes nf-notice-inlay-reveal {
+  from { opacity: .15; stroke-dashoffset: 1; }
+  to { opacity: 1; stroke-dashoffset: 0; }
+}
 
 @media (prefers-reduced-motion: no-preference) {
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="enter"] .nf-member-notice-surface {
+    animation: nf-notice-seal-in 190ms cubic-bezier(.15,.77,.26,1) backwards;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice-seal {
+    display: block; position: absolute; top: 50%; right: 50%; z-index: 1; pointer-events: none;
+    width: 26px; height: 26px; transform: translate(50%, -50%);
+    transition: right 360ms cubic-bezier(.18,.86,.22,1), opacity 95ms ease-out 225ms;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice-seal img {
+    display: block; width: 100%; height: 100%; object-fit: contain;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice-seal::after {
+    content: ""; position: absolute; inset: 0; opacity: 0;
+    -webkit-mask: url("./artwork/wudayn-imprint.webp") center / contain no-repeat;
+    mask: url("./artwork/wudayn-imprint.webp") center / contain no-repeat;
+    background: linear-gradient(112deg, transparent 36%, #f1afbf61 44%, #fff3e8ed 49%, #e7a9be45 55%, transparent 63%)
+      100% 50% / 280% 100% no-repeat;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="enter"][data-expanded="false"] .nf-member-notice-seal::after {
+    animation: nf-notice-seal-glint 420ms ease-in-out 165ms backwards;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-member-notice-seal::after {
+    animation: nf-notice-seal-glint 420ms ease-in-out 310ms reverse backwards;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-member-notice-seal { right: 27.5px; opacity: 0; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-member-notice-seal {
+    transition: right 210ms cubic-bezier(.45,.04,.47,1) 35ms, opacity 85ms ease-out 45ms;
+  }
   html:not([data-nf-motion="reduced"]) .nf-member-notice-surface::before {
-    transition: left 380ms cubic-bezier(.18,.86,.22,1.035), right 380ms cubic-bezier(.18,.86,.22,1.035),
-      transform 300ms cubic-bezier(.2,.8,.3,1), opacity 110ms ease-out;
+    transition: left 365ms cubic-bezier(.18,.86,.22,1), right 365ms cubic-bezier(.18,.86,.22,1);
   }
   html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="false"] .nf-member-notice-surface::before {
-    left: calc(50% - 23px); right: calc(50% - 23px); transform: scale(.91); opacity: 0;
+    left: calc(50% - 21.5px); right: calc(50% - 21.5px);
   }
   html:not([data-nf-motion="reduced"]) .nf-member-notice-content {
     clip-path: inset(-8px -12px round 24px);
@@ -145,27 +196,38 @@
   html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="false"] .nf-member-notice-content {
     clip-path: inset(-8px calc(50% - 20px) round 24px);
   }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-member-notice-surface { opacity: 1; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-member-notice-surface {
+    opacity: 1; animation: nf-notice-seal-out 175ms ease-in 770ms forwards;
+  }
   html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-member-notice-surface::before {
-    transition: left 195ms cubic-bezier(.48,.05,.68,.38) 45ms, right 195ms cubic-bezier(.48,.05,.68,.38) 45ms,
-      transform 150ms ease-in 90ms, opacity 85ms ease-in 155ms;
+    transition: left 210ms cubic-bezier(.45,.04,.47,1) 35ms, right 210ms cubic-bezier(.45,.04,.47,1) 35ms;
   }
   html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-member-notice-content {
-    transition: clip-path 195ms cubic-bezier(.48,.05,.68,.38) 45ms;
+    transition: clip-path 210ms cubic-bezier(.45,.04,.47,1) 35ms;
   }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice :is(.nf-member-notice-art, .nf-member-notice-close, .nf-member-notice-label > *) {
+  html:not([data-nf-motion="reduced"]) .nf-member-notice :is(.nf-member-notice-art, .nf-member-notice-close, .nf-member-notice-action, .nf-member-notice-label > *) {
     transition: opacity 145ms ease-out 85ms;
   }
   html:not([data-nf-motion="reduced"]) .nf-member-notice .nf-member-notice-label bdi { transition-delay: 45ms; }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="false"] :is(.nf-member-notice-art, .nf-member-notice-close, .nf-member-notice-label > *) { opacity: 0; }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] :is(.nf-member-notice-close, .nf-member-notice-label > *) { transition: opacity 90ms ease-in; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-member-notice-art { transition: opacity 130ms ease-out 225ms; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-notice-enamel {
+    transform-box: fill-box; transform-origin: center;
+    animation: nf-notice-enamel-settle 530ms cubic-bezier(.2,.72,.22,1) 230ms backwards;
+  }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-notice-inlay {
+    stroke-dasharray: 1;
+    animation: nf-notice-inlay-reveal 550ms ease-out 340ms backwards;
+  }
+  .nf-member-notice:is([data-kind="match"], [data-kind="call"], [data-kind="notice"]) { --notice-tilt: 7deg; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="false"] :is(.nf-member-notice-art, .nf-member-notice-close, .nf-member-notice-action, .nf-member-notice-label > *) { opacity: 0; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] :is(.nf-member-notice-close, .nf-member-notice-action, .nf-member-notice-label > *) { transition: opacity 90ms ease-in; }
   html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-member-notice-art { transition: opacity 110ms ease-in 45ms; }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="enter"] .nf-notice-lids { animation: nf-notice-look 3.2s ease-in-out both; }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="enter"] .nf-notice-iris { animation: nf-notice-gaze 3.2s ease-in-out both; }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="enter"] .nf-notice-envelope { animation: nf-notice-envelope-settle 1s ease-in-out both; }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="enter"] .nf-notice-flap { animation: nf-notice-unfold 560ms ease-in-out 85ms both; }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="enter"] .nf-notice-letter { animation: nf-notice-letter-rise 740ms cubic-bezier(.3,.7,.3,1) 220ms both; }
-  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="enter"] .nf-notice-heart { animation: nf-notice-heartbeat 740ms ease-in-out 1.45s both; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-notice-lids { animation: nf-notice-look 3.2s ease-in-out 150ms both; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-notice-iris { animation: nf-notice-gaze 3.2s ease-in-out 150ms both; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-notice-envelope { animation: nf-notice-envelope-settle 1s ease-in-out both; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-notice-flap { animation: nf-notice-unfold 560ms ease-in-out 85ms both; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-notice-letter { animation: nf-notice-letter-rise 740ms cubic-bezier(.3,.7,.3,1) 220ms both; }
+  html:not([data-nf-motion="reduced"]) .nf-member-notice[data-expanded="true"] .nf-notice-heart { animation: nf-notice-heartbeat 740ms ease-in-out 1.45s both; }
   html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-notice-lids { animation: nf-notice-eye-close 150ms ease-in both; }
   html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-notice-letter { animation: nf-notice-letter-away 145ms ease-in both; }
   html:not([data-nf-motion="reduced"]) .nf-member-notice[data-phase="exit"] .nf-notice-flap { animation: nf-notice-fold 120ms ease-in 55ms both; }

@@ -7,6 +7,7 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
     static let tokenEvent = Notification.Name("NisfaynPushToken")
     static let failureEvent = Notification.Name("NisfaynPushFailure")
     static let openEvent = Notification.Name("NisfaynPushOpen")
+    static let receiveEvent = Notification.Name("NisfaynPushReceived")
     static let simulationRequest = "wudayn.simulation.activity"
     var token: String?
     var pending: [[String:String]] = []
@@ -42,36 +43,47 @@ final class NisfaynPushCenter: NSObject, UNUserNotificationCenterDelegate {
         token = value.map { String(format: "%02x", $0) }.joined()
         NotificationCenter.default.post(name: Self.tokenEvent, object: nil)
     }
+    private func routingInfo(_ request: UNNotificationRequest) -> [String:String]? {
+        let info = request.content.userInfo
+        let localSimulation = request.identifier == Self.simulationRequest && request.trigger is UNTimeIntervalNotificationTrigger
+        guard let scope = info["scope"] as? String, scope == self.scope,
+              let id = info["requestId"] as? String, UUID(uuidString: id) != nil,
+              let kind = info["kind"] as? String,
+              (localSimulation ? kind == "simulation" : ["request", "mutual", "message", "reminder", "family", "analysis", "publication", "update"].contains(kind)) else { return nil }
+        var payload = ["scope":scope, "requestId":id, "kind":kind]
+        for key in ["messageId", "roomId", "deliveryId"] {
+            if let value = info[key] as? String, UUID(uuidString:value) != nil { payload[key] = value }
+        }
+        // Older senders put their message/update job UUID in the APNs collapse identifier.
+        if payload["deliveryId"] == nil, UUID(uuidString:request.identifier) != nil { payload["deliveryId"] = request.identifier }
+        if localSimulation { payload["deliveryId"] = id }
+        if kind == "analysis", let phase = info["analysisPhase"] as? String, ["requested","shared"].contains(phase) { payload["analysisPhase"] = phase }
+        if kind == "update", let event = info["event"] as? String, event.range(of: "^[a-z_]+:[a-z_]+$", options: .regularExpression) != nil { payload["event"] = event }
+        return payload
+    }
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        // Foreground chat already refreshes privately; do not display duplicate banners.
-        completionHandler([])
+        DispatchQueue.main.async {
+            if NisfaynPrivacy.shared.mayOpen, let payload = self.routingInfo(notification.request) {
+                NotificationCenter.default.post(name: Self.receiveEvent, object: payload)
+            }
+            completionHandler([])
+        }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
-        let info = response.notification.request.content.userInfo
-        let request = response.notification.request
-        let localSimulation = request.identifier == Self.simulationRequest && request.trigger is UNTimeIntervalNotificationTrigger
-        if let id = info["requestId"] as? String, UUID(uuidString: id) != nil,
-           let kind = info["kind"] as? String, (localSimulation ? kind == "simulation" : ["request", "mutual", "message", "reminder", "family", "analysis", "publication", "update"].contains(kind)) {
-            DispatchQueue.main.async {
-                guard let scope = info["scope"] as? String, scope == self.scope else { completionHandler(); return }
-                var payload = ["scope":scope,"requestId":id,"kind":kind,"actionId":UUID().uuidString.lowercased()]
-                if let messageId = info["messageId"] as? String,UUID(uuidString:messageId) != nil { payload["messageId"] = messageId }
-                if kind == "update", let event = info["event"] as? String, event.range(of: "^[a-z_]+:[a-z_]+$", options: .regularExpression) != nil { payload["event"] = event }
-                if let roomId = info["roomId"] as? String,UUID(uuidString:roomId) != nil { payload["roomId"] = roomId }
-                if response.actionIdentifier == "NISFAYN_READ" { payload["action"] = "read" }
-                if response.actionIdentifier == "NISFAYN_REPLY",let reply = response as? UNTextInputNotificationResponse {
-                    payload["action"] = "reply";payload["text"] = String(reply.userText.prefix(1000))
-                }
-                self.pending.append(payload)
-                if self.pending.count > 8 { self.pending.removeFirst() }
-                NotificationCenter.default.post(name: Self.openEvent, object: nil)
-                completionHandler()
+        DispatchQueue.main.async {
+            defer { completionHandler() }
+            guard var payload = self.routingInfo(response.notification.request) else { return }
+            payload["actionId"] = UUID().uuidString.lowercased()
+            if response.actionIdentifier == "NISFAYN_READ" { payload["action"] = "read" }
+            if response.actionIdentifier == "NISFAYN_REPLY", let reply = response as? UNTextInputNotificationResponse {
+                payload["action"] = "reply";payload["text"] = String(reply.userText.prefix(1000))
             }
-            return
+            self.pending.append(payload)
+            if self.pending.count > 8 { self.pending.removeFirst() }
+            NotificationCenter.default.post(name: Self.openEvent, object: nil)
         }
-        completionHandler()
     }
 }
 
@@ -99,6 +111,7 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
         NotificationCenter.default.addObserver(self, selector: #selector(tokenReceived), name: NisfaynPushCenter.tokenEvent, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(registrationFailed), name: NisfaynPushCenter.failureEvent, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(notificationOpened), name: NisfaynPushCenter.openEvent, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(notificationReceived(_:)), name: NisfaynPushCenter.receiveEvent, object: nil)
     }
     deinit { NotificationCenter.default.removeObserver(self); timeout?.cancel() }
 
@@ -122,6 +135,9 @@ final class NisfaynPushPlugin: CAPPlugin, CAPBridgedPlugin {
     }
     @objc private func notificationOpened() {
         if let payload = NisfaynPushCenter.shared.pendingOpen { notifyListeners("opened", data: payload) }
+    }
+    @objc private func notificationReceived(_ notification: Notification) {
+        if let payload = notification.object as? [String:String] { notifyListeners("received", data: payload) }
     }
     @objc func consumeOpen(_ call: CAPPluginCall) {
         DispatchQueue.main.async {

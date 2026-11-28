@@ -1,8 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { MemberNoticeObservation, incomingNotices, visitNotices, allowsMemberNotice } from './memberNoticeObservation';
-import { defaultPushControls, pushControls, type PushControls } from './push';
+import { defaultPushControls, pushControls, type PushControls, type PushOpen } from './push';
+import { memberPushNotice, pushCategory, simulatedChatNotices, simulatedInterestNotices, type NoticeCategory } from './memberPushNotice';
+import type { MemberNotice } from './MemberNoticeBanner';
+import { resolveSimulationActivity } from './simulationDeviceAlerts';
 import memberAr from '../member-copy.ts';
-import type { CommunitySource } from '../community/data';
+import type { CommunitySource, Connection } from '../community/data';
 import { denied } from '../community/chatOutbox';
 import { publishChatScreenshots } from './chatScreenshots';
 import { compatibilitySnapshot, compareCompatibility, type CompatibilityChange, type CompatibilitySnapshot } from '../compatibility/changes';
@@ -20,23 +23,26 @@ function blockedSurface() {
 }
 
 export function useMemberActivity(source: CommunitySource | null, present = false, pushOwner: string | null = null) {
-  const observed = useMemo(() => new MemberNoticeObservation(), [source]);
+  const observed = useMemo(() => new MemberNoticeObservation(), [source, pushOwner]);
   const notice = useSyncExternalStore(observed.subscribe, observed.first, () => null);
   const controls = useRef<PushControls | null>(null);
+  const pendingControls = useRef<Promise<void> | null>(null);
+  const recentInbox = useRef<{source: CommunitySource; rows: Connection[]} | null>(null);
   const refreshNow = useRef<{source: CommunitySource; refresh: () => void} | null>(null);
   useLayoutEffect(() => {
     controls.current = null;
     observed.reset();
-    if (!source || !present) return;
+    if ((!source && !pushOwner) || !present) return;
     let revision = 0;
     const preferences = () => {
       const current = ++revision;
       controls.current = pushOwner ? null : defaultPushControls;
-      if (pushOwner) void pushControls(pushOwner).then(value => {
+      pendingControls.current = pushOwner ? pushControls(pushOwner).then(value => {
         if (revision === current) controls.current = value;
-      }).catch(() => {});
+      }).catch(() => {}) : null;
     };
     const refreshCurrent = () => { if (refreshNow.current?.source===source) refreshNow.current.refresh(); };
+    const visibilityChanged = () => { observed.reset(); retryPreferences(); };
     const retryPreferences = () => { if (!document.hidden && !controls.current) preferences(); };
     const settingsChanged = () => { observed.reset(); preferences(); refreshCurrent(); };
     const opened = (event: Event) => {
@@ -46,13 +52,13 @@ export function useMemberActivity(source: CommunitySource | null, present = fals
     preferences();
     refreshCurrent();
     window.addEventListener('online', retryPreferences);
-    document.addEventListener('visibilitychange', retryPreferences);
+    document.addEventListener('visibilitychange', visibilityChanged);
     window.addEventListener('wudayn:push-controls', settingsChanged);
     window.addEventListener('wudayn:member-notice-opened', opened);
     return () => {
-      revision++; controls.current = null;
+      revision++; controls.current = null; pendingControls.current = null; observed.reset();
       window.removeEventListener('online', retryPreferences);
-      document.removeEventListener('visibilitychange', retryPreferences);
+      document.removeEventListener('visibilitychange', visibilityChanged);
       window.removeEventListener('wudayn:push-controls', settingsChanged);
       window.removeEventListener('wudayn:member-notice-opened', opened);
     };
@@ -72,6 +78,7 @@ export function useMemberActivity(source: CommunitySource | null, present = fals
     let active=true, busy=false, again=false;
     let activityAt=0, trailing:number|undefined, activityRead=0, applied=0;
     const fits=new Map<string, CompatibilitySnapshot>();
+    const allowed = (category: NoticeCategory) => !!controls.current && !blockedSurface() && allowsMemberNotice(category,controls.current,Date.now());
     async function refresh() {
       if (!active || document.hidden) return;
       if (busy) { again=true; return; }
@@ -86,14 +93,24 @@ export function useMemberActivity(source: CommunitySource | null, present = fals
             if(!active || seq < applied) return;
             applied=seq;
             publishChatScreenshots(owner,rows);
-            observed.observe('visit',visitNotices(rows),epoch,!!controls.current && !blockedSurface() && allowsMemberNotice('visit',controls.current,Date.now()));
+            const interestAllowed = allowed('interest');
+            observed.observe('visit',visitNotices(rows),epoch,interestAllowed);
+            observed.observe('sim-interest',simulatedInterestNotices(rows),epoch,interestAllowed);
           }).catch(error=>{ if(active && seq>=applied && epoch===observed.epoch && denied(error)) observed.reset(); });
         } else if(trailing===undefined) {
           trailing=window.setTimeout(()=>{trailing=undefined;void refresh();},delay);
         }
         const connections=await owner.inbox();
         if(!active)return;
-        observed.observe('request',incomingNotices(connections,Date.now()),epoch,!!controls.current && !blockedSurface() && allowsMemberNotice('request',controls.current,Date.now()));
+        if (epoch === observed.epoch) recentInbox.current = {source:owner, rows:connections};
+        const connectionsAllowed = allowed('connections');
+        observed.observe('request',incomingNotices(connections,Date.now()),epoch,connectionsAllowed);
+        const simulator = owner.demoInteractions?.simulation ?? owner.simulation;
+        if (simulator) {
+          const notices = simulatedChatNotices(connections,simulator.snapshot().log);
+          observed.observe('sim-match',notices.filter(item => item.push.kind === 'mutual'),epoch,connectionsAllowed);
+          observed.observe('sim-message',notices.filter(item => item.push.kind === 'message'),epoch,allowed('message'));
+        }
         const rows=connections.filter(row=>row.status==='accepted');
         const observedFits=rows.map(row=>({row,before:fits.get(row.id),now:compatibilitySnapshot(row.person.fit)}));
         fits.clear();
@@ -116,13 +133,13 @@ export function useMemberActivity(source: CommunitySource | null, present = fals
     }
     const beat=()=>{if(!document.hidden)void owner.heartbeat?.().catch(()=>{});};
     refreshNow.current = {source: owner, refresh};
-    const visibility = () => { observed.reset(); activityAt=0; void refresh(); };
+    const visibility = () => { activityAt=0; void refresh(); };
     void refresh();beat();
     const stop=owner.watch(refresh), heartbeat=owner.heartbeat?window.setInterval(beat,30000):undefined;
     document.addEventListener('visibilitychange',visibility);
     document.addEventListener('visibilitychange',beat);
     return ()=>{
-      refreshNow.current=null;active=false;stop();window.clearTimeout(trailing);window.clearInterval(heartbeat);
+      refreshNow.current=null;recentInbox.current=null;active=false;stop();window.clearTimeout(trailing);window.clearInterval(heartbeat);
       document.removeEventListener('visibilitychange',visibility);
       document.removeEventListener('visibilitychange',beat);
     };
@@ -131,5 +148,44 @@ export function useMemberActivity(source: CommunitySource | null, present = fals
   const read=(id:string,key:string)=>setState(current=>current?.source===source?{
     ...current,changes:current.changes.map(row=>row.id===id&&row.change.key===key?{...row,unread:false}:row),
   }:current);
-  return {changes,read,notice:present ? notice : null,dismissNotice:(key:string)=>observed.dismiss(key)};
+  async function receivePush(push: PushOpen, simulation?: CommunitySource | null) {
+    if (!present || blockedSurface()) return false;
+    const epoch = observed.epoch;
+    if (!controls.current) await pendingControls.current;
+    const eligible = (category: NoticeCategory) => epoch === observed.epoch && !blockedSurface() &&
+      allowsMemberNotice(category,controls.current,Date.now());
+    if (epoch !== observed.epoch || !controls.current || blockedSurface()) return false;
+    if (push.kind === 'simulation') {
+      if (!source || !simulation?.simulation) return false;
+      const result = await resolveSimulationActivity(simulation,push.requestId,() => epoch === observed.epoch && !blockedSurface());
+      if (!result) return false;
+      let candidate: MemberNotice | undefined, category: NoticeCategory;
+      if (result.type === 'activity') {
+        category = 'interest';
+        candidate = (result.activity.kind === 'profile_visit' ? visitNotices([result.activity]) : simulatedInterestNotices([result.activity]))[0];
+      } else {
+        const {event,connection,log} = result;
+        category = event.kind === 'reply' ? 'message' : 'connections';
+        candidate = event.kind === 'request' ? incomingNotices([connection],Date.now())[0]
+          : simulatedChatNotices([connection],log).find(item => item.key ===
+            (event.kind === 'match' ? 'match:' + connection.id : 'message:' + event.id));
+      }
+      return !!candidate && eligible(category) && observed.deliver(candidate,epoch);
+    }
+    const category = pushCategory(push);
+    if (!category || !eligible(category)) return false;
+    if (!source && !['account','membership','publication'].includes(category)) return false;
+    const item = memberPushNotice(push);
+    if (!item) return false;
+    const peer = recentInbox.current?.source === source && recentInbox.current?.rows.find(row => row.id === push.requestId);
+    if (peer && push.kind === 'request' && peer.status === 'pending' && peer.direction === 'incoming') {
+      return observed.deliver({kind:'request',key:item.key,person:peer.person,requestId:peer.id},epoch);
+    }
+    if (peer && peer.status === 'accepted' && (push.kind === 'message' || push.kind === 'mutual')) {
+      item.title = push.kind === 'message' ? 'وصلتك رسالة من' : 'تعارف متبادل مع';
+      item.actor = peer.person.alias;
+    }
+    return observed.deliver(item,epoch);
+  }
+  return {changes,read,notice:present ? notice : null,receivePush,dismissNotice:(key:string)=>observed.dismiss(key)};
 }

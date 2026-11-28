@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { X } from '../BrandIcons';
+import { ChevronLeft, X } from '../BrandIcons';
 import type { PublicPerson } from '../community/data';
+import type { PushOpen } from './push';
+import { updateEvents } from '../../admin/server/updateEvents';
+import { MemberNoticeSymbol, pushNoticeArt, type NoticeArtKind } from './MemberNoticeSymbol';
 import eyeRim from './artwork/enamel-eye.webp?inline';
 import envelopePocket from './artwork/stationery-pocket.webp?inline';
 import wudaynImprint from './artwork/wudayn-imprint.webp?inline';
@@ -11,10 +14,19 @@ export type MemberNotice = {
   key: string;
   person: PublicPerson;
   requestId?: string;
+} | {
+  kind: 'push';
+  key: string;
+  push: PushOpen;
+  title: string;
+  actor?: string;
+  actionLabel?: string;
+  private?: boolean;
 };
 
-function NoticeArt({ kind }: { kind: MemberNotice['kind'] }) {
+function NoticeArt({ kind }: { kind: NoticeArtKind }) {
   const aperture = useId().replace(/:/g, '');
+  if (kind !== 'request' && kind !== 'visit') return <MemberNoticeSymbol kind={kind} id={aperture}/>;
   return (
     <svg className="nf-member-notice-art" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
       {kind === 'visit' ? <>
@@ -66,8 +78,34 @@ function NoticeArt({ kind }: { kind: MemberNotice['kind'] }) {
   );
 }
 
-const lifetimeMs = 6500;
-const exitMs = 240;
+const logoHoldMs = 700;
+const messageMs = 6500;
+const exitMs = 245 + logoHoldMs; // The capsule closes before the final logo hold.
+// The full catalog text stays in the announcement and button name. Each compact
+// title also works on the narrowest pill without losing the event or next step.
+const compactTitles: Readonly<Record<string, string | undefined>> = {
+  [updateEvents['introduction:declined'][0]]: 'اعتذر الطرف الآخر عن طلبك',
+  [updateEvents['family_room:invited'][0]]: 'دعوة لمحادثة عائلية',
+  [updateEvents['family_room:ready'][0]]: 'اتفقتم على محادثة الأهل',
+  [updateEvents['analysis:invited'][0]]: 'دعوة لتحليل لونا المعمّق',
+  [updateEvents['agreement:proposed'][0]]: 'الميثاق بانتظار توقيعك',
+  [updateEvents['agreement:due'][0]]: 'ينتهي الميثاق خلال يوم',
+  [updateEvents['agreement:family_invited'][0]]: 'اقتراح للتواصل مع الأهل',
+  [updateEvents['agreement:family_confirmed'][0]]: 'تم الاتفاق على تواصل الأهل',
+  [updateEvents['agreement:family_contact'][0]]: 'شاركت معك رقم أهلها',
+  [updateEvents['journey:invited'][0]]: 'خطوة تعارف تنتظر ردّك',
+  [updateEvents['rematch:invited'][0]]: 'طلب للرجوع إلى التعارف',
+  [updateEvents['family_link:pending'][0]]: 'طلب ربط في جسر الأهل',
+  [updateEvents['family_link:reviewed'][0]]: 'تحديث على طلب ربط الأهل',
+  [updateEvents['family_link:expired'][0]]: 'انتهت صلاحية رابط الأهل',
+  [updateEvents['application:corrections'][0]]: 'طلب انضمامك يحتاج تحديث',
+  [updateEvents['verification:changes_requested'][0]]: 'طلب التوثيق يحتاج تحديث',
+  [updateEvents['verification:rejected'][0]]: 'تحديث على طلب التوثيق',
+  [updateEvents['membership:payment'][0]]: 'راجع دفعة العضوية',
+  [updateEvents['gift:invited'][0]]: 'دعوة لقبول هدية عضوية',
+};
+const prefersQuietMotion = () => document.documentElement.dataset.nfMotion === 'reduced' ||
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function MemberNoticeBanner({ notice, onOpen, onDismiss }: {
   notice: MemberNotice;
@@ -82,49 +120,53 @@ export function MemberNoticeBanner({ notice, onOpen, onDismiss }: {
   const callbacks = useRef({ onOpen, onDismiss });
   callbacks.current = { onOpen, onDismiss };
   useEffect(() => {
-    // Paint the compact capsule first so an early dismissal can reverse its transition.
-    let frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(() => setPresented(true));
-    });
-    return () => cancelAnimationFrame(frame);
+    const timer = window.setTimeout(() => setPresented(true), prefersQuietMotion() ? 0 : logoHoldMs);
+    return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => {
-    if (exitAction || hover || focus) return;
-    const timer = window.setTimeout(() => setExitAction('dismiss'), lifetimeMs);
+    if (!presented || exitAction || hover || focus) return;
+    const timer = window.setTimeout(() => setExitAction('dismiss'), messageMs);
     return () => window.clearTimeout(timer);
-  }, [exitAction, hover, focus]);
+  }, [presented, exitAction, hover, focus]);
   useEffect(() => {
     if (!exitAction) return;
-    const reduced = document.documentElement.dataset.nfMotion === 'reduced' ||
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const timer = window.setTimeout(() => {
       if (handled.current) return;
       handled.current = true;
       if (exitAction === 'open') callbacks.current.onOpen();
       else callbacks.current.onDismiss();
-    }, reduced ? 0 : exitMs);
+    }, prefersQuietMotion() ? 0 : exitMs);
     return () => window.clearTimeout(timer);
   }, [exitAction]);
 
-  const request = notice.kind === 'request';
-  const title = request ? 'طلب تعارف' : 'زيارة لملفك';
-  const action = request ? 'مراجعة الطلب' : 'عرض الملف';
+  const art = notice.kind === 'push' ? (notice.private ? 'notice' : pushNoticeArt(notice.push)) : notice.kind;
+  const title = notice.kind === 'push' ? (notice.private ? 'إشعار جديد من وُدَين' : notice.title) :
+    notice.kind === 'request' ? 'وصلك طلب تعارف من' : 'زيارة لملفك من';
+  const actor = notice.kind === 'push' ? (notice.private ? undefined : notice.actor) : notice.person.alias;
+  const action = notice.kind === 'push' ? (notice.private ? 'عرض الإشعار' : notice.actionLabel ?? 'عرض الإشعار') :
+    notice.kind === 'request' ? 'مراجعة الطلب' : 'عرض الملف';
+  const compactTitle = notice.kind === 'push' && !actor ? compactTitles[title] ?? title : title;
+  const label = <><span>{compactTitle}</span>{actor && <>{' '}<bdi>{actor}</bdi></>}</>;
   return (
-    <aside className="nf-member-notice" data-kind={notice.kind} data-phase={exitAction ? 'exit' : 'enter'}
+    <aside className="nf-member-notice" data-kind={art} data-phase={exitAction ? 'exit' : 'enter'}
       data-expanded={presented && !exitAction}
       dir="rtl" aria-label="تنبيه"
       onPointerEnter={event => { if (event.pointerType === 'mouse') setHover(true); }}
       onPointerLeave={() => setHover(false)}
       onFocus={() => setFocus(true)}
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocus(false); }}>
-      <span className="mi-sr-only" role="status" aria-atomic="true">{presented && <>{title} من <bdi>{notice.person.alias}</bdi></>}</span>
+      <span className="mi-sr-only" role="status" aria-atomic="true">{presented && <>{title}{actor && <>{' '}<bdi>{actor}</bdi></>}</>}</span>
       <div className="feedback nf-member-notice-surface">
+        <span className="nf-member-notice-seal" aria-hidden="true">
+          <img src={wudaynImprint} width="26" height="26" alt=""/>
+        </span>
         <div className="nf-member-notice-content">
-          <button type="button" className="nf-member-notice-open" onClick={() => setExitAction(current => current ?? 'open')}>
-            <NoticeArt kind={notice.kind}/>
-            <span className="nf-member-notice-label">
-              <bdi>{notice.person.alias}</bdi>
-              <span>{title}</span>
+          <button type="button" className="nf-member-notice-open" aria-label={compactTitle !== title ? title + '، ' + action : undefined}
+            onClick={() => setExitAction(current => current ?? 'open')}>
+            <NoticeArt kind={art}/>
+            <span className="nf-member-notice-label">{label}</span>
+            <span className="nf-member-notice-action" aria-hidden="true">
+              <span>{art === 'request' ? 'مراجعة' : 'عرض'}</span><ChevronLeft size={13}/>
             </span>
             <span className="mi-sr-only">{action}</span>
           </button>

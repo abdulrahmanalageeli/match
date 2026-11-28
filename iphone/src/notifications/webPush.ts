@@ -2,7 +2,7 @@ import { publicationBuild } from '../publishing/appBuild';
 import { callRpc, cloudSessionId } from '../cloud';
 import { notificationScope } from './scope';
 import { isUpdateEvent } from '../../admin/server/updateEvents';
-import type { PushOpen } from './push';
+import type { ForegroundPushHandler, PushOpen } from './push';
 
 const installationKey = 'nisfayn.web-push.installation';
 const ownerKey = 'nisfayn.web-push.owner';
@@ -111,7 +111,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
   try { sessionStorage.setItem(pendingKey, JSON.stringify({ scope:event.data.notification.scope, requestId: event.data.notification.requestId, kind: event.data.notification.kind, ...routeIds(event.data.notification) })); } catch { /* Active listener still handles it. */ }
 });
 
-export function monitorWebPush(owner: string, onOpen: (value: PushOpen) => void) {
+export function monitorWebPush(owner: string, onOpen: (value: PushOpen) => void, onForeground?: ForegroundPushHandler) {
   let active = true, refreshing = false;
   const open = async (value: unknown) => {
     if (active && validOpen(value) && (await cloudSessionId()) === owner) {
@@ -119,7 +119,17 @@ export function monitorWebPush(owner: string, onOpen: (value: PushOpen) => void)
       if (value.scope === await notificationScope(owner,installationId()) && active) onOpen(value);
     }
   };
-  const message = (event: MessageEvent) => { if (event.data?.type === 'nisfayn-push-open') void open(event.data.notification).catch(() => {}); };
+  const receive = async (value: unknown) => {
+    if (!onForeground || !active || document.hidden || !validOpen(value) || (await cloudSessionId()) !== owner) return;
+    if (value.scope !== await notificationScope(owner,installationId()) || !active || document.hidden || !document.hasFocus()) return;
+    await onForeground({requestId:value.requestId,kind:value.kind,scope:value.scope,...routeIds(value),
+      ...(typeof value.deliveryId === 'string' && /^[0-9a-f-]{36}$/i.test(value.deliveryId) ? {deliveryId:value.deliveryId} : {}),
+      ...(value.kind === 'analysis' && (value.analysisPhase === 'requested' || value.analysisPhase === 'shared') ? {analysisPhase:value.analysisPhase} : {})});
+  };
+  const message = (event: MessageEvent) => {
+    if (event.data?.type === 'nisfayn-push-open') void open(event.data.notification).catch(() => {});
+    else if (event.data?.type === 'nisfayn-push-received') void receive(event.data.notification).catch(() => {});
+  };
   const refresh = async () => {
     if (!active || refreshing || document.hidden) return;
     refreshing = true;

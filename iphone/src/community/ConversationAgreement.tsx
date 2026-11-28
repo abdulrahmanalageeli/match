@@ -12,7 +12,7 @@ const shortDeadlineFormat=new Intl.DateTimeFormat('ar-SA',{day:'numeric',month:'
 const daysFormat=new Intl.NumberFormat('ar-SA',{numberingSystem:'arab'});
 const signedExclusive=(pact:SeriousnessAgreement)=>Boolean(pact.exclusive && pact.womanSignedAt && pact.manSignedAt);
 
-export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,onFamilyContact,openDetails,hasHistory,noticeSlot,peerAlias,journeyStage}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;onFamilyContact?:()=>void;openDetails?:boolean|number;hasHistory?:boolean;noticeSlot?:HTMLElement|null;peerAlias?:string;journeyStage?:number|null}){
+export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourney,onFamilyContact,openDetails,hasHistory,noticeSlot,peerAlias,journeyStage,journeyLine}:{source:CommunitySource;requestId:string;onAllowed:(allowed:boolean)=>void;onEnd?:()=>void;onJourney?:()=>void;onFamilyContact?:()=>void;openDetails?:boolean|number;hasHistory?:boolean;noticeSlot?:HTMLElement|null;peerAlias?:string;journeyStage?:number|null;journeyLine?:(detail?:string)=>ReactNode}){
  const [agreement,setAgreement]=useState<SeriousnessAgreement|null>(null),[days,setDays]=useState(14),[signed,setSigned]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[expanded,setExpanded]=useState(false);
  const [loadError,setLoadError]=useState(false),[retry,setRetry]=useState(0);
  const [signature,setSignature]=useState<{requestId:string;name?:string;revision:number}|null>(null);
@@ -181,17 +181,28 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
      <p>إذا وافقتوا عليها أنتم الاثنين، يختفي ملف كل واحد منكم من الاكتشاف وتتوقف الترشيحات والطلبات الجديدة. تُغلق المحادثات والطلبات الأخرى وتظهر شارة «تعارف حصري» بجانب اسميكم.</p>
    </div>
  </div>;
- if(allowed&&!agreement.womanSignedAt&&!agreement.deadline)return withUpdates(null);
+ if(allowed&&!agreement.womanSignedAt&&!agreement.deadline && !expanded)return withUpdates(journeyLine?.());
+ const extensionRequest=agreement.extension;
+ const familyRequest=!familyAgreed && (mine || peer);
+ const decisionLabel=extensionRequest ? 'طلب تمديد المدة' : 'طلب التواصل مع الأهل';
+ const awaitingPeer=extensionRequest ? extensionRequest.actor===agreement.actor : mine;
+ const deadlineHint=familyAgreed?'التواصل مع الأهل':agreement.exclusive?'تعارف حصري':
+   remaining!==null && remaining>0 ? dueSoon?'باقي أقل من يوم':`باقي ${durationLabel(Math.ceil(remaining/86400000))}` : undefined;
  if(allowed)return withUpdates(<div className="cm-agreement-summary">
-  {agreement.status==='accepted' && decisions ? !expanded && decisionNotice('خطوتكما التالية',decisions,'مراجعة الطلب') : <button onClick={()=>setExpanded(value=>!value)} aria-expanded={expanded} data-due-soon={!agreement.exclusive&&dueSoon || undefined} aria-label={familyAgreed?'تفاصيل التواصل مع الأهل':agreement.exclusive?'تفاصيل الميثاق والتعارف الحصري':`تفاصيل اتفاقكما حتى ${date}`}><CalendarDays size={15}/><span>{familyAgreed?'التواصل مع الأهل':agreement.exclusive?'الميثاق':agreement.deadline ? `${dueSoon?'موعدكما':'حتى'} ${shortDeadlineFormat.format(new Date(agreement.deadline))}` : 'تفاصيل الاتفاق'}</span></button>}
-  {expanded&&<AgreementDetails host={noticeSlot} close={()=>setExpanded(false)}>
+  {agreement.status==='accepted' && (extensionRequest || familyRequest)
+    ? <button className="cm-pact-request" data-pending={!awaitingPeer||undefined} onClick={()=>setExpanded(!expanded)} aria-expanded={expanded}>
+        {extensionRequest?<CalendarDays size={16}/>:<Users size={16}/>}<span>{decisionLabel}</span>
+        <small>{awaitingPeer?`بانتظار ردّ ${peerAlias||peerName}`:'بانتظار ردّك'}</small><ChevronLeft size={13}/>
+      </button>
+    : journeyLine ? journeyLine(deadlineHint) : <button onClick={()=>setExpanded(!expanded)} aria-expanded={expanded} aria-label={`تفاصيل اتفاقكما ${date}`}><CalendarDays size={15}/><span>{deadlineHint||'ميثاق التعارف'}</span><ChevronLeft size={13}/></button>}
+  {expanded&&<AgreementDetails host={noticeSlot} focusDecision={extensionRequest?'extension':familyRequest?'family':undefined} close={()=>setExpanded(false)}>
     <span className="cm-agreement-mark"><CalendarDays size={25}/></span>
     <h2>{memberAr.agreementTitle}</h2>
     {!familyAgreed && <p className="cm-agreement-deadline">{agreement.exclusive?'اتفقتما على التعارف الحصري':`مدة التعارف حتى ${date}`}</p>}
     {familyAgreed?<>{familyStatus}{sharedNumber}</>:!agreement.exclusive&&nextStep}
-    {familyActions}
+    <div data-pact-decision="family">{familyActions}</div>
     {shareContact}
-    {agreement.status==='accepted'&&!agreement.exclusive&&<div className="cm-extension-actions">
+    {agreement.status==='accepted'&&!agreement.exclusive&&<div className="cm-extension-actions" data-pact-decision="extension">
       {dueSoon&&<p>باقي أقل من يوم على نهاية المدة.</p>}
       {agreement.extension?<><p>{agreement.extension.actor===agreement.actor?'اقتراح التمديد بانتظار موافقة الطرف الآخر.':`يقترح الطرف الآخر تمديد المدة ${durationLabel(agreement.extension.days)}.`}</p>{agreement.extension.actor!==agreement.actor&&<button className="btn-secondary" disabled={busy} onClick={()=>void submit('extension_accept')}>الموافقة على التمديد</button>}</>:<button className="btn-secondary" disabled={busy} onClick={()=>void submit('extend')}>اقتراح أسبوع إضافي</button>}
       {onJourney&&<button className="btn-secondary" onClick={()=>{setExpanded(false);onJourney();}}>مراجعة التعارف الحصري</button>}
@@ -262,9 +273,15 @@ export function ConversationAgreement({source,requestId,onAllowed,onEnd,onJourne
  </>);
 }
 
-function AgreementDetails({close,children,host}:{close:()=>void;children:ReactNode;host?:HTMLElement|null}) {
+function AgreementDetails({close,children,host,focusDecision}:{close:()=>void;children:ReactNode;host?:HTMLElement|null;focusDecision?:'extension'|'family'}) {
  const ref=useRef<HTMLElement>(null);
- useEffect(()=>{ref.current?.focus({preventScroll:true});if(host)host.scrollTop=0;},[host]);
+ useEffect(()=>{
+   const section=ref.current;
+   if(!section)return;
+   const control=focusDecision && section.querySelector<HTMLElement>(`[data-pact-decision="${focusDecision}"] button:not(:disabled)`);
+   if(control){control.focus({preventScroll:true});control.scrollIntoView({block:'nearest'});}
+   else {section.focus({preventScroll:true});if(host)host.scrollTop=0;}
+ },[host,focusDecision]);
  const details=<section ref={ref} tabIndex={-1} className="cm-agreement-inline" dir="rtl" aria-label="تفاصيل اتفاق التعارف">
   <button className="icon-btn cm-agreement-close" aria-label="إغلاق تفاصيل الاتفاق" onClick={close}><X size={19}/></button>{children}
  </section>;

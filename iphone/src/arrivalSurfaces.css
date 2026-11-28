@@ -450,6 +450,16 @@ html:has(.dr-directory) { overscroll-behavior-y: contain; }
 .phone-app .cm-shell .cm-chat[data-conversation-id] .cm-message-meta { font-size: 0.625rem; line-height: 1.4; margin-top: 5px; }
 .phone-app .cm-shell .cm-chat .cm-bubble:has(> p[dir="auto"], > .cm-deleted-message) {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 8px; padding: 5px 11px;
+  border-start-start-radius: 9.72px;
+  border-start-end-radius: 16.2px;
+  border-end-start-radius: 9.72px;
+  border-end-end-radius: 4.5px;
+}
+.phone-app .cm-shell .cm-chat .cm-bubble.self:has(> p[dir="auto"], > .cm-deleted-message) {
+  border-start-start-radius: 16.2px;
+  border-start-end-radius: 9.72px;
+  border-end-start-radius: 4.5px;
+  border-end-end-radius: 9.72px;
 }
 .phone-app .cm-shell .cm-chat .cm-bubble > p[dir="auto"] { min-width: 0; max-width: 100%; }
 .phone-app .cm-shell .cm-chat .cm-bubble > :is(p[dir="auto"], .cm-deleted-message) + .cm-message-meta { margin: 0; margin-inline-start: auto; }
@@ -820,3 +830,30 @@ html[data-nf-chat-keyboard] .phone-app .cm-shell .cm-chat[data-conversation-id] 
 .dr-refined-exclusions .dr-exclusion-options label:has(input:focus-visible)::before { outline: 2px solid var(--accent); }
 .dr-relocation-fields > p, .dr-relocation-fields > small { margin: 0; padding-block: 4px; color: var(--muted); font-size: .78rem; }
 .phone-app .dr-filter-age-row label { border-radius: 8px; background: var(--raised-tint); }
+
+/* Grouped messages keep their timestamps available on tap. */
+.phone-app .cm-chat .cm-message-row[data-joined] { margin-block-start: -2px; }
+.phone-app .cm-chat .cm-message-row[data-continues]:not([data-show-time]) .cm-message-meta {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip-path: inset(50%);
+}
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-pact-request {
+  flex-direction: row; max-width: 100%; text-align: start;
+}
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-agreement-summary > .cm-journey-summary {
+  max-width: 100%; color: var(--accent-fill);
+}
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] :is(.cm-journey-summary, .cm-pact-request) small {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.phone-app .cm-shell .cm-chat[data-conversation-id] .cm-chat-plan[data-ready] .cm-pact-request[data-pending] small {
+  color: var(--accent-fill); font-weight: 600;
+}
+
+.phone-app .cm-shell .cm-chat .cm-bubble:has(> .cm-message-photo) > .cm-reply-quote {
+  margin: 0; padding: 6px 10px; border-radius: 0; background: var(--surface); color: var(--ink); text-shadow: none;
+}
+
+/* A paused recording has two distinct touch targets: the quoted moment and the seek track. */
+.cm-chat[data-conversation-id] .cm-voice-note:has(.cm-reply-moment) .cm-reply-moment { min-height: 30px; position: relative; z-index: 1; }
+.cm-chat[data-conversation-id] .cm-voice-note:has(.cm-reply-moment) .cm-audio-seek { min-height: 27px; }
+.cm-chat[data-conversation-id] .cm-voice-note:has(.cm-reply-moment) .cm-audio-seek input { top: 0; bottom: 0; height: 100%; transform: none; }

@@ -16,7 +16,7 @@ export function chatError(error: unknown) {
     ? error.message : "تعذّر الاتصال. تحقّق من اتصالك وحاول مجددًا.";
 }
 
-// Drafts stay in memory. Real iPhone sends are journaled before the first RPC.
+// A draft is restored only after the thread has been authorized by the source.
 class Outbox {
   private state: Snapshot = { draft: "", outgoing: [] };
   private listeners = new Set<() => void>();
@@ -27,11 +27,43 @@ class Outbox {
     return () => { this.listeners.delete(listener); };
   };
   private restored = false;
+  private draftRestored = false;
+  private draftRevision = 0;
   private generation = 0;
+  private async restoreDraft(page: Message[]) {
+    const drafts = this.source.drafts;
+    if (!drafts || this.draftRestored) return;
+    const revision = this.draftRevision;
+    const saved = await drafts.read(this.requestId);
+    if (revision !== this.draftRevision) return;
+    let reply: MessageReply | undefined;
+    if (saved?.reply) {
+      const reference = saved.reply;
+      let original = page.find(row => row.id === reference.id);
+      if (!original && this.source.messageChanges) {
+        try { [original] = await this.source.messageChanges(this.requestId, [reference.id]); }
+        catch (error) {
+          if (denied(error)) throw error;
+          reply = { ...reference, body: 'رسالة سابقة' };
+        }
+      }
+      if (original && !original.deletedAt) {
+        const media = original.attachment;
+        const body = media ? (media.kind === 'audio' ? 'رسالة صوتية' : media.viewOnce ? 'صورة لمرة واحدة' : 'صورة') : original.body.slice(0, 240);
+        reply = { id: original.id, senderIsMe: original.senderIsMe, body, atSeconds: media?.kind === 'audio' ? reference.atSeconds : undefined };
+      } else if (!original && !this.source.messageChanges) {
+        reply = { ...reference, body: 'رسالة سابقة' };
+      }
+    }
+    if (revision !== this.draftRevision) return;
+    this.draftRestored = true;
+    if (saved) this.update({ ...this.state, draft: saved.text, reply }, false);
+  }
   async restore(page: Message[] = []) {
-    const journal = this.source.pendingSends;
-    if (!journal || this.restored) return;
     const generation = this.generation;
+    await this.restoreDraft(page).catch(error => { if (denied(error)) throw error; });
+    const journal = this.source.pendingSends;
+    if (!journal || this.restored || generation !== this.generation) return;
     const rows = await journal.list(this.requestId);
     const confirmed = new Set(page.flatMap(row => row.senderIsMe && row.clientId ? [row.clientId] : []));
     const missing = rows.filter(row => !confirmed.has(row.clientId)).map(row => row.clientId);
@@ -68,7 +100,12 @@ class Outbox {
     this.source = source;
     this.requestId = requestId;
   }
-  private update(state: Snapshot) {
+  private update(state: Snapshot, persistDraft = true) {
+    if (persistDraft && (state.draft !== this.state.draft || state.reply !== this.state.reply)) {
+      this.draftRestored = true;
+      this.draftRevision++;
+      void this.source.drafts?.write(this.requestId, state.draft, state.reply).catch(() => {});
+    }
     this.state = state;
     this.listeners.forEach((listener) => listener());
   }
@@ -76,9 +113,12 @@ class Outbox {
   replyTo(reply?: MessageReply) { this.update({ ...this.state, reply }); }
   clear(forgetPending = true) {
     this.generation++;
+    this.draftRevision++;
+    this.draftRestored = false;
     this.restored = false;
     if (forgetPending) void this.source.pendingSends?.clearThread(this.requestId).catch(() => {});
-    this.update({ draft: "", outgoing: [] });
+    if (forgetPending) void this.source.drafts?.write(this.requestId, '').catch(() => {});
+    this.update({ draft: "", outgoing: [] }, false);
   }
   enqueue(body: string) {
     const clientId = crypto.randomUUID();
@@ -92,16 +132,20 @@ class Outbox {
     const item: Outgoing = {
       id: clientId, clientId, senderIsMe: true, createdAt: new Date().toISOString(), status: 'sending',
       body: kind === 'audio' ? 'رسالة صوتية' : viewOnce ? 'صورة لمرة واحدة' : 'صورة',
+      ...(this.state.reply && {reply:{...this.state.reply}}),
       attachment: {id: clientId, kind, mime:file.type, size:file.size, duration, viewOnce}, localFile:file,
     };
-    this.update({...this.state, outgoing:[...this.state.outgoing, item]});
+    this.update({draft:this.state.draft, outgoing:[...this.state.outgoing, item]});
     void this.upload(item);
   }
   private async upload(item: Outgoing) {
     const {attachment, localFile, clientId} = item;
     if (!attachment || !localFile || !this.source.sendMedia) return;
     try {
-      const id = await this.source.sendMedia(this.requestId, localFile, attachment.kind, clientId, attachment.duration, attachment.viewOnce);
+      const media = [this.requestId, localFile, attachment.kind, clientId, attachment.duration, attachment.viewOnce] as const;
+      const id = item.reply
+        ? await this.source.sendMedia(...media, item.reply.id, item.reply.atSeconds)
+        : await this.source.sendMedia(...media);
       this.replace(clientId, {id, status:'saved'});
     } catch (error) {
       this.replace(clientId, {status:'failed', error:chatError(error)});
@@ -128,7 +172,7 @@ class Outbox {
     // Start the durable write immediately, even while an earlier send is in flight.
     const stored = this.source.pendingSends?.put({
       requestId: this.requestId, clientId, body: pending.body, createdAt: pending.createdAt,
-      ...(pending.reply ? {reply: {id: pending.reply.id, senderIsMe: pending.reply.senderIsMe}} : {}),
+      ...(pending.reply ? {reply: {id: pending.reply.id, senderIsMe: pending.reply.senderIsMe, ...(pending.reply.atSeconds !== undefined && {atSeconds:pending.reply.atSeconds})}} : {}),
     }).then(() => true, () => false);
     this.queue = this.queue.then(async () => {
       const durable = await stored;
@@ -136,7 +180,7 @@ class Outbox {
       if (!item) return;
       try {
         if (durable === false) throw Error('تعذّر حفظ محاولة الإرسال على جهازك. حاول مجددًا.');
-        const id = await this.source.send(this.requestId, item.body, clientId, item.reply?.id);
+        const id = await this.source.send(this.requestId, item.body, clientId, item.reply?.id, item.reply?.atSeconds);
         this.replace(clientId, { id, status: "saved" });
         void this.source.pendingSends?.remove(new Set([clientId])).catch(() => {});
       } catch (error) {
@@ -178,6 +222,7 @@ export async function sendNotificationReply(source: CommunitySource, requestId: 
 }
 
 export function discardClosedDrafts(source: CommunitySource, openIds: Set<string>) {
+  void source.drafts?.retain(openIds).catch(() => {});
   void source.pendingSends?.retain(openIds).catch(() => {});
   const session = sessions.get(source);
   for (const [id, box] of session ?? []) {

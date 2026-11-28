@@ -74,3 +74,21 @@ html[data-capture-scope] :is(.cm-message-photo, .cm-photo-viewer, .cm-media-prev
 .cm-media-composer[data-draft] .cm-media-preview-actions > span { line-height: 1.65; }
 .cm-composer-surface .cm-media-composer[data-draft] .cm-media-error { position: static; min-width: 0; max-width: none; margin: 5px 0 0; box-shadow: none; font-size: .67rem; }
 @media (max-width: 360px) { .cm-voice-capture .cm-recording { gap: 5px; } .cm-recording-copy b { font-size: .65rem; } .cm-record-gestures { font-size: .56rem; gap: 6px; } }
+
+.cm-audio-caption .cm-reply-moment {
+  grid-area: label;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: .25rem;
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: .7rem;
+  font-weight: 600;
+}
+.cm-reply-moment::before { content: ''; position: absolute; inset: -.3rem -.15rem; }
+.cm-reply-moment:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 3px; }

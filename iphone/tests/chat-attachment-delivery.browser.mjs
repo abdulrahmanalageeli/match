@@ -5,7 +5,7 @@ import { createServer } from 'vite';
 
 const require = createRequire(import.meta.url);
 const {chromium} = require(process.env.NISFAYN_PLAYWRIGHT_MODULE || 'C:/Users/timgo/PycharmProjects/Tracker/.venv/lib/site-packages/playwright/driver/package');
-const server = await createServer({server:{host:'127.0.0.1',port:0}});
+const server = await createServer({optimizeDeps:{entries:['tests/fixtures/chat-privacy-qa.html']},server:{host:'127.0.0.1',port:0}});
 await server.listen();
 let browser;
 try {
@@ -23,7 +23,7 @@ try {
   });
   const url = 'http://127.0.0.1:'+server.httpServer.address().port+'/tests/fixtures/chat-privacy-qa.html?delivery&case='+Date.now();
   await Promise.all([[sender,'abdulrahman'],[peer,'reham']].map(async ([page,actor])=>{
-    await page.goto(url+'&actor='+actor);
+    await page.goto(url+'&actor='+actor,{timeout:90_000});
     await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
     await page.getByRole('textbox',{name:'رسالتك'}).waitFor();
   }));
@@ -50,6 +50,13 @@ try {
     assert.equal(await sender.locator('.cm-message-row').count(),expectedCount);
     assert(await peer.evaluate(id=>performance.getEntriesByName('qa-thread-rows').some(mark=>mark.detail.includes(id)),id));
   }
+  async function quote(page, id) {
+    await page.locator(`[data-server-id="${id}"] .cm-swipe-message`).press('Enter');
+    await page.getByRole('button',{name:'الرد على الرسالة',exact:true}).click();
+    await page.locator('.cm-reply-draft').waitFor();
+  }
+  await quote(sender,'hello');
+  assert(await sender.getByRole('button',{name:'إرفاق صورة'}).isEnabled());
   await photo(false);
   const first = await pending();
   await first.locator('img[src^="blob:"]').waitFor();
@@ -63,15 +70,21 @@ try {
   assert.equal((await attempts[1].promise).id,(await attempts[0].promise).id);
   await confirm(1,baseline+1);
   assert.equal(await sender.locator('.cm-message-row').last().locator('img').getAttribute('src'),originalPreview,'the photo stays visible through acknowledgement');
+  assert.match(await peer.locator('.cm-reply-quote').last().innerText(),/أحب أن يبقى حديثنا/);
+  await quote(sender,'once');
   await photo(true);
   const once = await pending();
   assert.equal(await once.locator('img').count(),0);
   await once.getByRole('button',{name:'صورة لمرة واحدة أرسلتها'}).waitFor();
   await confirm(2,baseline+2);
   await peer.locator('.cm-message-row').last().getByRole('button',{name:'فتح الصورة لمرة واحدة'}).waitFor();
+  const onceQuote=peer.locator('.cm-message-row').last().locator('.cm-reply-quote');
+  assert.match(await onceQuote.innerText(),/صورة لمرة واحدة/);
+  assert.equal(await onceQuote.locator('img').count(),0);
+  await quote(peer,'reply');
   await peer.getByRole('button',{name:'رسالة صوتية',exact:true}).click();
   await peer.getByRole('button',{name:'إنهاء التسجيل ومعاينته'}).waitFor();
-  await peer.waitForTimeout(1200);
+  await peer.waitForTimeout(2500);
   await peer.getByRole('button',{name:'إنهاء التسجيل ومعاينته'}).click();
   await peer.getByRole('button',{name:'إرسال المرفق',exact:true}).click();
   const voice = peer.locator('.cm-message-row').last();
@@ -93,8 +106,53 @@ try {
   assert.equal(await pagesRead(),start,'receipts update outgoing rows without paging the conversation');
   await peer.evaluate(()=>window.dispatchEvent(new CustomEvent('qa-chat-wake')));
   await peer.waitForFunction(initial=>performance.getEntriesByName('qa-thread-page').length>initial,start);
+  const receivedVoice=sender.locator('.cm-message-row').last();
+  assert.match(await receivedVoice.locator('.cm-reply-quote').innerText(),/الخصوصية والوضوح/);
+  const play=receivedVoice.getByRole('button',{name:'تشغيل التسجيل الصوتي'});
+  await play.click();
+  await receivedVoice.getByRole('button',{name:'إيقاف التسجيل مؤقتًا'}).click();
+  const seek=receivedVoice.getByRole('slider');
+  await seek.press('Home');
+  for(let i=0;i<12;i++) await seek.press('ArrowRight');
+  await receivedVoice.getByRole('button',{name:/رد على .* من التسجيل/}).click();
+  const text=sender.getByRole('textbox',{name:'رسالتك'});
+  await text.fill('عجبتني هالنقطة');
+  await sender.reload();
+  await sender.getByRole('button',{name:/فتح المحادثة مع/}).click();
+  await sender.waitForFunction(()=>document.querySelector('textarea')?.value==='عجبتني هالنقطة');
+  assert.match(await sender.locator('.cm-reply-draft').innerText(),/٠:٠١/);
+  assert.equal(await peer.getByRole('textbox',{name:'رسالتك'}).inputValue(),'');
+  await sender.getByRole('button',{name:'إرسال الرسالة'}).click();
+  const timed=peer.locator('.cm-message-row').filter({hasText:'عجبتني هالنقطة'});
+  await timed.waitFor();
+  assert.match(await timed.locator('.cm-reply-quote').innerText(),/٠:٠١/);
+  await timed.locator('.cm-reply-quote').click();
+  await peer.waitForFunction(()=>Array.from(document.querySelectorAll('audio')).some(el=>el.currentTime>=1 && !el.paused));
+  for (const body of ['وعليكم السلام','مساء النور']) {
+    await text.fill(body);
+    await sender.getByRole('button',{name:'إرسال الرسالة'}).click();
+    await peer.getByText(body,{exact:true}).waitFor();
+  }
+  const firstInBurst=peer.locator('.cm-message-row').filter({hasText:'وعليكم السلام'});
+  await firstInBurst.locator('.cm-bubble p').click();
+  assert.equal(await firstInBurst.getAttribute('data-show-time'),'true');
+  for (const [page,actor] of [[sender,'abdulrahman'],[peer,'reham']]) {
+    await page.goto(url+'&exclusiveRequest&actor='+actor);
+    await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
+    const rail=page.locator('.cm-chat-plan').getByRole('button',{name:/طلب التعارف الحصري/});
+    await rail.waitFor();
+    assert.match(await rail.innerText(),actor==='reham'?/بانتظار ردّ عبدالرحمن/:/بانتظار ردّك/);
+    await rail.click();
+    await page.getByRole('dialog',{name:'مسار التعارف'}).waitFor();
+    await page.locator('[data-journey-decision="exclusive"]').waitFor();
+    await page.keyboard.press('Escape');
+    await page.locator('.cm-chat-plan').getByRole('button',{name:'إنهاء التعارف',exact:true}).waitFor();
+    await page.getByRole('button',{name:'خيارات المحادثة'}).click();
+    await page.getByRole('button',{name:'ميثاق التعارف',exact:true}).click();
+    await page.locator('.cm-agreement-inline').waitFor();
+  }
   assert.deepEqual(faults,[]);
-  console.log('Two accounts passed photo failure and retry, view-once, reverse-direction voice, scoped reads and full recovery.');
+  console.log('Two accounts passed photo failure and retry, view-once, reverse-direction quoted voice, timed playback, private draft recovery and scoped reads.');
 } finally {
   await browser?.close();
   await server.close();

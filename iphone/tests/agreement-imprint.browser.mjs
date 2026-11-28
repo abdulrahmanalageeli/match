@@ -17,6 +17,10 @@ try {
  const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ async function openPactDetails() {
+  await page.getByRole('button',{name:'خيارات المحادثة'}).click();
+  await page.getByRole('button',{name:'ميثاق التعارف',exact:true}).click();
+ }
  async function open(actor,query='agreement') {
   await page.goto('http://127.0.0.1:5297/tests/fixtures/chat-privacy-qa.html?'+query+'&actor='+actor+'&case='+Date.now(),{waitUntil:'domcontentloaded',timeout:60000});
   await page.getByRole('button',{name:/فتح المحادثة مع/}).click();
@@ -57,9 +61,11 @@ try {
    await page.locator('.cm-agreement-slot .cm-agreement-inline').waitFor();
    await page.getByRole('button',{name:'إغلاق تفاصيل الاتفاق'}).click();
   } else {
-   await page.getByRole('heading',{name:'كل بداية، حديث'}).waitFor();
+   await page.locator('.cm-first-message').getByRole('button',{name:'اسأل عن هالنقطة'}).click();
+   assert.match(await page.getByRole('textbox',{name:'رسالتك'}).inputValue(),/ودي يبقى لنا وقت نطبخ فيه سوا/);
+   assert.equal(await page.locator('.cm-message-row').count(),0);
    assert.equal(await imprint.count(),0);
-   await page.getByRole('button',{name:/تفاصيل اتفاقكما حتى/}).click();
+   await openPactDetails();
    await page.locator('.cm-agreement-slot .cm-agreement-inline').waitFor();
    assert.equal(await page.getByRole('dialog').count(),0);
   }
@@ -79,7 +85,7 @@ try {
  await page.locator('[data-server-id="hello"]').waitFor();
  for(const actor of ['reham','abdulrahman']){
   await open(actor,'renew&exclusive&familyStage');
-  await page.getByRole('button',{name:'تفاصيل التواصل مع الأهل'}).click();
+  await openPactDetails();
   const details=page.locator('.cm-agreement-inline');
   await details.getByText('اتفقتما على التواصل مع الأهل',{exact:true}).waitFor();
   assert.equal(await details.getByRole('button',{name:'اقتراح التواصل العائلي'}).count(),0);
@@ -87,7 +93,7 @@ try {
   assert.equal(await page.locator('a[href^="tel:"]').count(),0);
  }
  await open('abdulrahman','renew&exclusive&familyStage&sharedFamilyNumber');
- await page.getByRole('button',{name:'تفاصيل التواصل مع الأهل'}).click();
+ await openPactDetails();
  const sharedDetails=page.locator('.cm-agreement-inline');
  assert.equal(await sharedDetails.getByRole('button',{name:'اقتراح التواصل العائلي'}).count(),0);
  assert.equal(await page.locator('a[href^="tel:"]').count(),0);
@@ -101,7 +107,7 @@ try {
  await page.getByRole('button',{name:'إلغاء طلب الميثاق السابق'}).waitFor();
  assert.equal(await page.getByRole('button',{name:'الموافقة على التواصل العائلي'}).count(),0);
  await open('reham','exclusive&sharedFamilyNumber');
- await page.getByRole('button',{name:'تفاصيل الميثاق والتعارف الحصري'}).click();
+ await openPactDetails();
  await page.getByRole('button',{name:'اقتراح التواصل العائلي'}).waitFor();
  assert.equal(await page.locator('a[href^="tel:"]').count(),0);
  await open('abdulrahman','stalledAgreement');

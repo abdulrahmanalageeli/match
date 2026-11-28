@@ -100,6 +100,7 @@ import { pushThreadMute } from '../notifications/push';
 import './chat-polish.css';
 import './message-actions.css';
 import './directory.css';
+import { publicStarterExcerpt, type PublicStarterKey } from '../profile/profilePrompts';
 import { MemberProfile as Profile } from '../profile/MemberProfile';
 import { PortraitPhoto } from '../photos/PortraitPhoto';
 import { DiscoveryPhoto } from '../privacy/DiscoveryPhoto';
@@ -120,7 +121,7 @@ import type {
 } from "./data";
 import { denied, discardClosedDrafts, type Outgoing } from "./chatOutbox";
 import { useThread } from "./useThread";
-import { ChatMediaComposer, MessageMedia } from "./ChatMedia";
+import { ChatMediaComposer, MessageMedia, voiceTimeLabel } from "./ChatMedia";
 import { CallPermissionButton } from "./CallPermission";
 import { ChatScreenshotNotice } from "../privacy/ChatScreenshotNotice";
 import { ConversationAgreement } from "./ConversationAgreement";
@@ -702,7 +703,7 @@ function Discovery({
   onBeena?: () => void;
   beenaAnswered?: number;
   onInbox: (entry: RequestEntry) => void;
-  onConversation: (id: string, panel?: 'agreement'|'journey') => void;
+  onConversation: (id: string, panel?: 'agreement'|'journey', starter?: PublicStarterKey) => void;
 }) {
   const {premium,upgrade,connectionLimit}=useMembershipAccess();
   const [remembered] = useState(() => readBrowseMemory(source));
@@ -1017,7 +1018,8 @@ function Discovery({
   }
   if (person)
     return (
-      <Profile source={source} person={premium?person:{...person,fit:undefined,reasons:[],compatibilityLocked:true}} back={closeProfile} backText="استكشف" identity={identity} onBlock={source.blockPerson ? ()=>{closeProfile();void rowAction(person,"block");} : undefined} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
+      <Profile source={source} person={premium?person:{...person,fit:undefined,reasons:[],compatibilityLocked:true}} back={closeProfile} backText="استكشف" identity={identity}
+        onAsk={person.connectionId && person.connectionStatus==='accepted' && (!person.isDemo || source.simulation || source.demoInteractions) ? key=>onConversation(person.connectionId!, undefined, key) : undefined} onBlock={source.blockPerson ? ()=>{closeProfile();void rowAction(person,"block");} : undefined} onReport={()=>{closeProfile();setRowError('');setReportTarget(person);}}
         interestAction={person.eligible!==false&&source.setInterest&&(!person.isDemo||source.simulation||source.demoInteractions)?{toggle:()=>void rowAction(person,'interest'),busy:busy||rowBusy!==null,notice:interestNotice,error:rowError}:undefined}
         featured={listPosition.current?.featured}
         primary={person.isDemo&&!source.simulation&&!source.demoInteractions?<p className="cm-help">طلبات التعارف غير متاحة لهذا الملف.</p>:person.eligible===false&&!person.connectionId?<p className="cm-help"><LockKeyhole size={14} />هذا الملف غير مؤهل لطلب تعارف وفق الشروط الحالية.</p>:<>
@@ -1281,13 +1283,30 @@ function useChatJourney(source: CommunitySource, id: string, enabled: boolean) {
   return [progress, setProgress] as const;
 }
 
-function JourneySummary({ progress, name, open }: { progress: StepProgress | null; name: string; open: () => void }) {
+function JourneySummary({ progress, name, detail, open }: { progress: StepProgress | null; name: string; detail?: string; open: () => void }) {
   const next = journeyNext(progress, name);
-  return <MotionPressButton className="cm-journey-summary nf-next-step" data-pending={next.yours || undefined} onClick={open} aria-haspopup="dialog" aria-label={`مسار التعارف: ${next.title}. ${next.waiting}. متفق عليه: ${next.agreed}`} title={next.title}>
-    <Compass size={18} aria-hidden="true"/><span>مسار التعارف</span>
-    {next.yours&&<span className="cm-journey-attention" role="status">بانتظارك</span>}
-    <ChevronLeft size={12} aria-hidden="true"/>
+  const rewind = progress?.rewindMine || progress?.rewindPeer;
+  const exclusiveRequest = !progress?.exclusive && (progress?.consentMine || progress?.consentPeer);
+  const pending = rewind || exclusiveRequest || progress?.mine || progress?.peer;
+  let subject = 'مسار التعارف';
+  if (rewind) subject = 'طلب الرجوع خطوة';
+  else if (exclusiveRequest) subject = 'طلب التعارف الحصري';
+  else if (pending) subject = 'طلب الانتقال للخطوة الجاية';
+  const status = pending ? next.yours ? 'بانتظار ردّك' : `بانتظار ردّ ${name}` : detail;
+  return <MotionPressButton className="cm-journey-summary nf-next-step" data-pending={next.yours || undefined} onClick={open} aria-haspopup="dialog" aria-label={`مسار التعارف: ${subject}${status ? '، '+status : ''}`}>
+    <Compass size={16} aria-hidden="true"/><span>{subject}</span>
+    {status && <small>{status}</small>}<ChevronLeft size={13} aria-hidden="true"/>
   </MotionPressButton>;
+}
+
+function groupedTexts(previous: Message | undefined, current: Message | undefined, unread: string | null | undefined, deleted: Set<string>) {
+  if (!previous || !current || current.id === unread || previous.senderIsMe !== current.senderIsMe) return false;
+  for (const row of [previous, current]) {
+    if (row.attachment || row.reply || row.deletedAt || deleted.has(row.id) || ('status' in row && row.status !== 'saved')) return false;
+  }
+  const before = new Date(previous.createdAt), after = new Date(current.createdAt);
+  const gap = after.getTime() - before.getTime();
+  return gap >= 0 && gap <= 3 * 60_000 && before.toDateString() === after.toDateString();
 }
 
 function ConversationGuide({ source, connection, close, onEnd, reviewExclusive, choose, hasDraft, openInsights, openFamily, onCompletion, onProgress }: {
@@ -1348,9 +1367,23 @@ function ConversationGuide({ source, connection, close, onEnd, reviewExclusive, 
     try{const next=await source.rewindStep(connection.id,progress.stage,agree);setProgress(next);onProgress(next);setSavedStep({title:next.stage<progress.stage?'اتفقتما على العودة خطوة':agree?'أُرسل اقتراح العودة':'بقيتما في المرحلة الحالية',detail:next.stage<progress.stage?'المحادثة والمدة المتفق عليها محفوظتان.':agree?'لا تتغيّر المرحلة أو الحصرية قبل موافقة الطرف الآخر.':'يمكنكما مراجعة المسار لاحقًا.',quiet:true});setRewindConfirm(false);setRetry(n=>n+1);}catch(e){setError(messageFor(e));}finally{setBusy(false);}
   }
   const stages = journeyStages;
+  const guideBody = useRef<HTMLDivElement>(null);
+  const positionedDecision = useRef(false);
+  useLayoutEffect(() => {
+    if (!progress || positionedDecision.current) return;
+    const target = progress.rewindPeer || progress.rewindMine ? 'rewind'
+      : progress.consentPeer || progress.consentMine || reviewExclusive ? 'exclusive'
+      : progress.peer || progress.mine ? 'step' : null;
+    const heading = target && guideBody.current?.querySelector<HTMLElement>(`[data-journey-decision="${target}"]`);
+    if (heading) {
+      positionedDecision.current = true;
+      heading.focus({preventScroll:true});
+      heading.scrollIntoView({block:'nearest'});
+    }
+  }, [progress, reviewExclusive]);
   const commitmentOpen = reviewCommitment || Boolean(progress?.consentMine || progress?.consentPeer);
   return <Sheet title="مسار التعارف" onClose={() => { if (!busy) close(); }}>
-    <div className="nf-journey-guide">
+    <div className="nf-journey-guide" ref={guideBody}>
     <MotionReveal className="nf-journey-current" distance={6} duration={280}>
       <span className="nf-journey-eyebrow">خطوة بخطوة، باتفاقكما</span>
       <h3>{progress ? stages[progress.stage] : 'مسار واضح لكما'}</h3>
@@ -1360,7 +1393,7 @@ function ConversationGuide({ source, connection, close, onEnd, reviewExclusive, 
     {savedStep&&<SuccessNotice {...savedStep} close={()=>setSavedStep(null)}/>}
     {progress && <section className="nf-journey-next" aria-label="الخطوة القادمة">
       {!progress.exclusive && <>
-        <h3>{progress.consentPeer && !progress.consentMine ? 'لديك طلب التزام حصري' : progress.consentMine ? 'اقتراحك بانتظار الموافقة' : 'عندما تختاران التركيز على بعضكما'}</h3>
+        <h3 tabIndex={-1} data-journey-decision="exclusive">{progress.consentPeer && !progress.consentMine ? 'لديك طلب التزام حصري' : progress.consentMine ? 'اقتراحك بانتظار الموافقة' : 'عندما تختاران التركيز على بعضكما'}</h3>
         <p className="nf-journey-next-note">{progress.consentMine ? 'تبقى المرحلة الحالية كما هي حتى يوافق الطرف الآخر.' : progress.consentPeer ? 'راجع ما سيتغيّر قبل اتخاذ قرارك.' : 'اختيار الحصرية خطوة مستقلة عن الحديث الجاد حول الزواج.'}</p>
         {!commitmentOpen ? <MotionPressButton className="btn-primary" disabled={busy} onClick={()=>setReviewCommitment(true)}>{memberAr.reviewExclusive}<ChevronLeft size={16}/></MotionPressButton> : <div className="nf-journey-consent">
         <p>{memberAr.exclusiveEffect}</p>
@@ -1377,7 +1410,7 @@ function ConversationGuide({ source, connection, close, onEnd, reviewExclusive, 
       {progress.stage===2 && source.journeyChoice && <button className="btn-secondary" disabled={busy} onClick={()=>void decide('step','clear',2)}>سحب الموافقة على المرحلة العائلية</button>}
       {progress.exclusive && progress.stage === 2 && <><h3>بداية الخطوة العائلية</h3><p className="nf-journey-next-note">اتفقا على التفاصيل بالوتيرة المناسبة لكما.</p>{onCompletion&&<MotionPressButton className="btn-primary" onClick={onCompletion}>نحو بداية جديدة<ChevronLeft size={16}/></MotionPressButton>}</>}
       {(source.journeyChoice || progress.exclusive) && progress.stage < 2 && <>
-        <h3>{progress.mine ? 'اقتراحك بانتظار الموافقة' : progress.peer ? 'لديك طلب للخطوة التالية' : 'خطوتكما القادمة'}</h3>
+        <h3 tabIndex={-1} data-journey-decision="step">{progress.mine ? 'اقتراحك بانتظار الموافقة' : progress.peer ? 'لديك طلب للخطوة التالية' : 'خطوتكما القادمة'}</h3>
         <p className="nf-journey-next-note">{progress.mine ? "تنتقلان للخطوة التالية بعد موافقة الطرف الآخر." : progress.peer ? "راجع الخطوة ووافق عندما تكون مستعدًا." : "يصل اقتراحك للطرف الآخر؛ لا تتغيّر المرحلة إلا باتفاقكما."}</p>
         <MotionPressButton className={progress.mine?'btn-secondary':'btn-primary'} disabled={busy} onClick={() => source.journeyChoice ? void decide('step', progress.mine?'clear':progress.peer?'accept':'propose',progress.stage+1) : void advance()}>{(progress.mine ? memberAr.withdrawStage : progress.peer ? memberAr.acceptStage : memberAr.proposeStage)[progress.stage + 1]}</MotionPressButton>
         {source.journeyChoice && progress.peer && !progress.mine && <button className="btn-text" disabled={busy} onClick={()=>void decide('step','clear',progress.stage+1)}>ليس الآن</button>}
@@ -1386,7 +1419,7 @@ function ConversationGuide({ source, connection, close, onEnd, reviewExclusive, 
     {progress?.stage===2&&!progress.exclusive&&onCompletion&&<MotionPressButton className="nf-journey-tool" disabled={busy} onClick={onCompletion}><Heart size={19}/><span><strong>نحو بداية جديدة</strong><small>خيارات الاستمرار خارج التطبيق وخصوصية الحساب</small></span><ChevronLeft size={15}/></MotionPressButton>}
     {openFamily&&<MotionPressButton className="nf-journey-tool" disabled={busy} onClick={openFamily}><UsersRound size={19}/><span><strong>جسر الأهل</strong><small>راجعا الموافقات أولًا؛ لا تُرسل دعوة تلقائيًا.</small></span><ChevronLeft size={15}/></MotionPressButton>}
     {progress && progress.stage > 0 && source.rewindStep && <details className="nf-journey-option" open={rewindConfirm || Boolean(progress.rewindPeer || progress.rewindMine)} data-pending={progress.rewindPeer || undefined}>
-      <summary><RotateCcw size={18}/><span><strong>مساحة لخطوة أهدأ</strong><small>{progress.rewindPeer ? "اقتراح عودة · بانتظار موافقتك" : progress.rewindMine ? "اقتراحك بانتظار الطرف الآخر" : "العودة مرحلة واحدة باتفاقكما"}</small></span><ChevronLeft size={15}/></summary><div className="nf-journey-option-content">
+      <summary data-journey-decision="rewind"><RotateCcw size={18}/><span><strong>مساحة لخطوة أهدأ</strong><small>{progress.rewindPeer ? "اقتراح عودة · بانتظار موافقتك" : progress.rewindMine ? "اقتراحك بانتظار الطرف الآخر" : "العودة مرحلة واحدة باتفاقكما"}</small></span><ChevronLeft size={15}/></summary><div className="nf-journey-option-content">
       {(rewindConfirm || progress.rewindPeer) && <p className="dr-rewind-warning">{memberAr.rewindEffect[progress.stage - 1]}</p>}
       {progress.rewindMine ? <button className="btn-secondary" disabled={busy} onClick={()=>void rewind(false)}>{memberAr.withdrawRewind}</button> : rewindConfirm || progress.rewindPeer ? <><button className="btn-secondary" disabled={busy} onClick={()=>void rewind(true)}>{(progress.rewindPeer ? memberAr.acceptRewind : memberAr.proposeRewind)[progress.stage-1]}</button><button className="btn-text" disabled={busy} onClick={()=>progress.rewindPeer ? void rewind(false) : setRewindConfirm(false)}>{progress.rewindPeer?memberAr.keepStage:"تراجع"}</button></> : <button className="btn-secondary" onClick={()=>setRewindConfirm(true)}>{memberAr.rewind}</button>}
     </div></details>}
@@ -1421,7 +1454,7 @@ function ChatComposer({ outbox, composer, canSend, conversationAllowed, typing, 
   }, [composer, draft]);
   return <div className="cm-chat-compose">
     {reply && <div className="cm-reply-draft" role="status"><Reply size={18} aria-hidden="true"/><div>
-      <strong>رد على {reply.senderIsMe ? 'رسالتك' : name}</strong><span dir="auto">{reply.body}</span>
+      <strong>رد على {reply.senderIsMe ? 'رسالتك' : name}</strong><span dir="auto">{reply.body}{reply.atSeconds != null && <> · <bdi dir="ltr">{voiceTimeLabel(reply.atSeconds)}</bdi></>}</span>
     </div><button type="button" className="icon-btn" aria-label="إلغاء الرد" onClick={() => outbox.replyTo()}><X size={18}/></button></div>}
     <div className="cm-composer-surface">
       {children}
@@ -1446,8 +1479,9 @@ function ChatComposer({ outbox, composer, canSend, conversationAllowed, typing, 
 }
 
 export function Chat({
-  source, connection, back, close, backLabel, pushOwner, viewerGender, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, initialJourney, openFeedback,
+  source, connection, back, close, backLabel, pushOwner, viewerGender, onReported, onCompletion, onEnded, initialMessage, initialRoom, initialAgreement, initialAnalysis, initialJourney, initialStarter, openFeedback,
 }: {
+  initialStarter?:PublicStarterKey;
   initialMessage?:string;initialRoom?:string;initialAgreement?:boolean|number;initialAnalysis?:boolean|number;initialJourney?:boolean|number;openFeedback?:boolean; source: CommunitySource; connection: Connection; back: () => void; close: () => void; backLabel: string;
   pushOwner?:string|null;
   onReported?: () => void;
@@ -1464,6 +1498,10 @@ export function Chat({
   useEffect(()=>{if(initialJourney)setGuide(true);},[initialJourney]);
   const [recording, setRecording] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [pactRequest, setPactRequest] = useState(0);
+  useEffect(() => { if (initialAgreement) setPactRequest(n => n + 1); }, [initialAgreement]);
+  const [stampId, setStampId] = useState<string | null>(null);
+  const [voiceSeek, setVoiceSeek] = useState<{ id: string; atSeconds: number } | null>(null);
   const [muted,setMuted]=useState<boolean|null>(null);
   const [muting,setMuting]=useState(false);
   const [muteError,setMuteError]=useState('');
@@ -1475,6 +1513,9 @@ export function Chat({
   useEffect(() => { if(initialAnalysis) setDeepOpen(true); },[initialAnalysis]);
   const [chatHelp,setChatHelp]=useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [requestedStarter, setRequestedStarter] = useState(initialStarter);
+  const [offeredStarter, setOfferedStarter] = useState<PublicStarterKey>();
+  const starterKey = (['lifeTogether', 'valuesStatement', 'lookingFor', 'bio'] as const).find(key => connection.person[key]?.trim());
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [familyOpen, setFamilyOpen] = useState(Boolean(initialRoom));
   useCapturePrivacy(profileOpen || (familyOpen && source.family) ? null : 'chat');
@@ -1633,6 +1674,32 @@ export function Chat({
     composedId.current = thread.outbox.enqueue(body);
     composer.current?.focus({ preventScroll: true });
   }
+  const addProfileQuote = useCallback((key: PublicStarterKey, confirm = false) => {
+    if (!canSend || recording) return;
+    const excerpt = publicStarterExcerpt(connection.person, key);
+    if (!excerpt) { setReplyNotice('تغيّر هذا الجزء من الملف. تقدر ترجع للملف وتختار غيره.'); return; }
+    const {draft, reply} = thread.outbox.read();
+    const quote = `«${excerpt}»\n`;
+    if (!draft.startsWith(quote)) {
+      if ((draft || reply) && !confirm) { setOfferedStarter(key); return; }
+      if (quote.length + draft.length > 1000) { setReplyNotice('ما فيه مساحة للاقتباس. اختصر المسودة وجرّب مرة ثانية.'); return; }
+      thread.outbox.write(quote + draft);
+    }
+    setOfferedStarter(undefined);
+    setReplyNotice('');
+    requestAnimationFrame(() => {
+      const field = composer.current;
+      field?.focus({preventScroll:true});
+      field?.setSelectionRange(field.value.length, field.value.length);
+    });
+  }, [canSend, recording, connection.person, thread.outbox]);
+  useEffect(() => {
+    if (requestedStarter && canSend && !recording && !profileOpen) {
+      setRequestedStarter(undefined);
+      addProfileQuote(requestedStarter);
+    }
+  }, [requestedStarter, canSend, recording, profileOpen, addProfileQuote]);
+
   function chooseConversationPrompt(text: string) {
     const current = thread.outbox.read();
     if (!canSend || recording || current.draft || current.reply || !text.trim() || text.length > 1000) return;
@@ -1641,9 +1708,10 @@ export function Chat({
     setGuide(false);
     requestAnimationFrame(() => composer.current?.focus({ preventScroll: true }));
   }
-  function chooseReply(msg: Message) {
+  function chooseReply(msg: Message, atSeconds?: number) {
     if (!canDraft || msg.deletedAt || deletedIds.has(msg.id) || ('status' in msg && msg.status !== 'saved')) return;
     thread.outbox.replyTo({ id: msg.id, senderIsMe: msg.senderIsMe,
+      ...(msg.attachment?.kind === 'audio' && atSeconds !== undefined ? {atSeconds} : {}),
       body: msg.attachment ? (msg.attachment.kind === 'photo' ? msg.attachment.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : 'رسالة صوتية') : msg.body.slice(0,240) });
     setReplyNotice('');
     composer.current?.focus({ preventScroll: true });
@@ -1706,7 +1774,7 @@ export function Chat({
     void source.noteProfileOpen?.(connection.person.id).catch(() => {});
   }
   function openFamily() { reading.remember(); typing.stop(); setFamilyOpen(true); }
-  if (profileOpen) return <MotionReveal distance={10} fromOpacity={1} axis="x" duration={280}><Profile source={source} person={connection.person} identity={profileIdentity} connectionId={connection.id} back={returnToChat} backText="العودة للمحادثة"/></MotionReveal>;
+  if (profileOpen) return <MotionReveal distance={10} fromOpacity={1} axis="x" duration={280}><Profile source={source} person={connection.person} identity={profileIdentity} connectionId={connection.id} onAsk={canSend && !recording ? key => { setRequestedStarter(key); returnToChat(); } : undefined} back={returnToChat} backText="العودة للمحادثة"/></MotionReveal>;
   if (familyOpen && source.family) return <FamilyBridgePanel initialRoom={initialRoom} initialMessage={initialMessage} source={source} connectionId={connection.id} name={connection.person.alias} onBack={() => { setFamilyOpen(false); requestAnimationFrame(() => screen.current?.querySelector<HTMLButtonElement>('.cm-guide-button')?.focus()); }}/>;
   const deepEventIndex = deepTimelineIndex(thread.rows, deepTimelineAt);
   const deepTimelineMarker = <span key="deep-analysis-timeline" ref={setDeepTimelineSlot} style={{ display: 'contents' }}/>;
@@ -1755,10 +1823,14 @@ export function Chat({
           {thread.hasOlder && <button className="cm-history" disabled={thread.loadingOlder} onClick={earlier}>
             {thread.loadingOlder ? "جارٍ تحميل الرسائل…" : "تحميل رسائل أقدم"}</button>}
           {conversationAllowed && thread.ready && !thread.rows.length && <div className="cm-first-message">
-            <span className="cm-first-icon"><MessageCircle size={25} aria-hidden="true" /></span>
+            {starterKey ? <div className="cm-profile-starter">
+              <small>من ملف {connection.person.alias}</small>
+              <blockquote dir="auto">«{publicStarterExcerpt(connection.person, starterKey)}»</blockquote>
+              <button type="button" className="cm-first-starter" disabled={!canSend} onClick={() => addProfileQuote(starterKey)}><MessageCircle size={15}/> اسأل عن هالنقطة <ChevronLeft size={13}/></button>
+            </div> : <><span className="cm-first-icon"><MessageCircle size={25} aria-hidden="true" /></span>
             <h2>كل بداية، حديث</h2>
             <p>مساحة لك ولـ{connection.person.alias}. ابدأ بتحية، أو بسؤال يفتح باب المعرفة.</p>
-            <button type="button" className="cm-first-starter" disabled={!canSend} onClick={() => setInsightsOpen(true)}><Sparkles size={14}/> فكرة لبداية الحديث <ChevronLeft size={13}/></button>
+            <button type="button" className="cm-first-starter" disabled={!canSend} onClick={() => setInsightsOpen(true)}><Sparkles size={14}/> فكرة لبداية الحديث <ChevronLeft size={13}/></button></>}
           </div>}
           {thread.rows.map((msg, i) => {
             const day = messageDay(msg.createdAt);
@@ -1766,18 +1838,20 @@ export function Chat({
             const { status, deleted, canReply, canDelete, canReact, canReport } = messagePermissions(msg);
             const key = (msg.senderIsMe && msg.clientId) || msg.id;
             const read = msg.readByPeer || Boolean(msg.readAt);
-            const messageNode = <div className="cm-message-row" data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
+            const joined = i !== deepEventIndex && groupedTexts(thread.rows[i-1], msg, reading.firstUnreadId, deletedIds);
+            const continues = i+1 !== deepEventIndex && groupedTexts(msg, thread.rows[i+1], reading.firstUnreadId, deletedIds);
+            const messageNode = <div className="cm-message-row" data-joined={joined || undefined} data-continues={continues || undefined} data-show-time={stampId === msg.id || undefined} data-row-id={key} data-server-id={msg.id} data-reply-highlight={highlightId === msg.id || undefined} data-actions-open={messageActionId === msg.id || undefined} tabIndex={-1} key={key}>
               {newDay && <div className="cm-chat-day"><span>{day}</span></div>}
               {msg.id === reading.firstUnreadId && <div className="cm-unread-divider" role="separator" aria-label="رسائل لم تقرأها"><span>رسائل لم تقرأها</span></div>}
               <SwipeReply disabled={!canReply} onReply={() => chooseReply(msg)} actionsDisabled={!canReport && !canReply && !canDelete && !canReact}
-                actionLabel={msg.senderIsMe ? 'رسالة منك' : 'رسالة من ' + connection.person.alias} actionDescriptionId={messageActionHelp}
-                onHold={() => openMessageActions(msg)}>
+                actionLabel={(msg.senderIsMe ? 'رسالة منك' : 'رسالة من ' + connection.person.alias) + (day ? '، ' + time.format(new Date(msg.createdAt)) : '')} actionDescriptionId={messageActionHelp}
+                onHold={() => openMessageActions(msg)} onTap={continues ? () => setStampId(id => id === msg.id ? null : msg.id) : undefined}>
               <div className={"cm-bubble" + (msg.senderIsMe ? " self" : "") + (status?.status === "failed" ? " failed" : "")}
                 data-composed={msg.senderIsMe && msg.clientId === composedId.current && composedId.current ? "" : undefined}>
-                {!deleted && msg.reply && <button type="button" className="cm-reply-quote" aria-label="الانتقال إلى الرسالة الأصلية" onClick={() => { setReplyNotice(''); atBottom.current = false; setJumpToId(msg.reply!.id); }}>
-                  <strong>{msg.reply.senderIsMe ? 'أنت' : connection.person.alias}</strong><span dir="auto">{msg.reply.deletedAt || deletedIds.has(msg.reply.id) ? "تم حذف هذه الرسالة" : msg.reply.body}</span>
+                {!deleted && msg.reply && <button type="button" className="cm-reply-quote" aria-label="الانتقال إلى الرسالة الأصلية" onClick={() => { setReplyNotice(''); atBottom.current = false; setJumpToId(msg.reply!.id); setVoiceSeek(msg.reply!.atSeconds != null && !msg.reply!.deletedAt && !deletedIds.has(msg.reply!.id) ? {id:msg.reply!.id,atSeconds:msg.reply!.atSeconds} : null); }}>
+                  <strong>{msg.reply.senderIsMe ? 'أنت' : connection.person.alias}</strong><span dir="auto">{msg.reply.deletedAt || deletedIds.has(msg.reply.id) ? "تم حذف هذه الرسالة" : <>{msg.reply.body}{msg.reply.atSeconds != null && <> · <bdi dir="ltr">{voiceTimeLabel(msg.reply.atSeconds)}</bdi></>}</>}</span>
                 </button>}
-                {deleted ? <p className="cm-deleted-message"><Ban size={16}/>تم حذف هذه الرسالة</p> : msg.attachment ? <MessageMedia source={source} requestId={connection.id} attachment={msg.attachment} senderIsMe={msg.senderIsMe} localFile={status?.localFile}/> : <p dir="auto">{msg.body}</p>}
+                {deleted ? <p className="cm-deleted-message"><Ban size={16}/>تم حذف هذه الرسالة</p> : msg.attachment ? <MessageMedia source={source} requestId={connection.id} attachment={msg.attachment} senderIsMe={msg.senderIsMe} localFile={status?.localFile} onReplyAt={canReply ? seconds => chooseReply(msg, seconds) : undefined} seekTo={voiceSeek?.id === msg.id ? voiceSeek : undefined}/> : <p dir="auto">{msg.body}</p>}
                 <div className="cm-message-meta">
                   <time dateTime={msg.createdAt}>{day ? time.format(new Date(msg.createdAt)) : ""}</time>
                   {!deleted && msg.senderIsMe && (status?.status === "sending" ?
@@ -1811,17 +1885,21 @@ export function Chat({
         <ConversationPilotFeedback requestId={connection.id} respond={source.conversationPilot}
           expanded={openFeedback} showUnavailable={openFeedback} resumeChat={()=>composer.current?.focus()}/>
       </div>}
+      {offeredStarter && canSend && <div className="cm-starter-offer" role="group" aria-label="اقتباس من الملف">
+        <button type="button" onClick={() => addProfileQuote(offeredStarter, true)}><MessageCircle size={15}/>أضف الاقتباس لمسودتي</button>
+        <button type="button" aria-label="تجاهل الاقتباس" onClick={() => setOfferedStarter(undefined)}><X size={15}/></button>
+      </div>}
       {canDraft && <ChatComposer outbox={thread.outbox} composer={composer} canSend={canSend} conversationAllowed={conversationAllowed}
         typing={typing} onSubmit={submit} name={connection.person.alias}>
-        <ChatMediaComposer source={source} disabled={!canSend || Boolean(replyDraft)} callActive={Boolean(voice?.occupied)} onRecording={setRecording} onSend={draft => {
+        <ChatMediaComposer source={source} disabled={!canSend} callActive={Boolean(voice?.occupied)} onRecording={setRecording} onSend={draft => {
           atBottom.current = true;
           composedId.current = draft.clientId;
           thread.outbox.enqueueMedia(draft.blob, draft.kind, draft.clientId, draft.duration, draft.viewOnce);
         }}/>
       </ChatComposer>}
       <div className="cm-chat-plan" data-ready>
-        {conversationAllowed && source.progress && <JourneySummary progress={journey} name={connection.person.alias} open={() => setGuide(true)}/>}
-        {agreementSlot && !thread.accessDenied && <ConversationAgreement peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} journeyStage={source.progress ? journey?.stage ?? null : undefined} openDetails={initialAgreement} onEnd={()=>setEndMatch('pact')} onJourney={()=>setGuide('exclusive')} onFamilyContact={source.shareFamilyContact && source.familyContactAvailable?.(connection.id)!==false?()=>setEndMatch('share'):undefined} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
+        {conversationAllowed && source.progress && !source.agreement && <JourneySummary progress={journey} name={connection.person.alias} open={() => setGuide(true)}/>}
+        {agreementSlot && !thread.accessDenied && <ConversationAgreement peerAlias={connection.person.alias} noticeSlot={agreementSlot} hasHistory={thread.rows.length > 0} journeyStage={source.progress ? journey?.stage ?? null : undefined} openDetails={pactRequest} journeyLine={source.progress ? detail => <JourneySummary progress={journey} name={connection.person.alias} detail={detail} open={() => setGuide(!journey?.exclusive && (journey?.consentMine || journey?.consentPeer) ? 'exclusive' : true)}/> : undefined} onEnd={()=>setEndMatch('pact')} onJourney={()=>setGuide('exclusive')} onFamilyContact={source.shareFamilyContact && source.familyContactAvailable?.(connection.id)!==false?()=>setEndMatch('share'):undefined} source={source} requestId={connection.id} onAllowed={setConversationAllowed}/>}
         <button className="cm-end-visible" type="button" aria-label="إنهاء التعارف" onClick={()=>setEndMatch('general')}><span>إنهاء</span></button>
       </div>
       <span id={messageActionHelp} className="cm-message-action-help">اضغط مطولًا على الرسالة للتفاعل أو الرد أو الحذف، أو انقر بزر الفأرة الأيمن. من لوحة المفاتيح اضغط Enter أو Shift مع F10. يمكنك أيضًا سحب الرسالة للرد.</span>
@@ -1851,6 +1929,7 @@ export function Chat({
           <button disabled={!conversationAllowed} onClick={() => { setToolsOpen(false); setInsightsOpen(true); }}><Sparkles size={20}/><span><strong>حديث أقرب</strong><small>ما يجمعكما وما يستحق الحديث، في سؤال</small></span><ChevronLeft size={16}/></button>
           <button onClick={()=>{setToolsOpen(false);setChatHelp(true);}}><MessageCircle size={20}/><span><strong>دليل المحادثة</strong><small>علامات الرسائل، الصور، والصوت والمكالمات</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setGuide(true); }}><Sparkles size={20}/><span><strong>مسار التعارف</strong><small>مراجعة المراحل والالتزام بينكما</small></span><ChevronLeft size={16}/></button>
+          {source.agreement && <button onClick={() => { setToolsOpen(false); setPactRequest(n => n + 1); }}><Clock3 size={20}/><span><strong>ميثاق التعارف</strong></span><ChevronLeft size={16}/></button>}
           {source.family&&<button onClick={() => { setToolsOpen(false); openFamily(); }}><UsersRound size={20}/><span><strong>جسر الأهل</strong><small>دعوة الأهل إلى محادثة منفصلة بموافقتكما</small></span><ChevronLeft size={16}/></button>}
           <button onClick={() => { setToolsOpen(false); setSafety('report'); }}><Flag size={20}/><span><strong>{memberAr.reportBlock}</strong><small>إرسال بلاغ للمراجعة</small></span><ChevronLeft size={16}/></button>
           <button onClick={() => { setToolsOpen(false); setSafety('block'); }}><Ban size={20}/><span><strong>{memberAr.block}</strong><small>إيقاف التواصل مع هذا العضو</small></span><ChevronLeft size={16}/></button>
@@ -1885,7 +1964,7 @@ function Requests({
   onMutual, compatibilityUpdates, onCompatibilityRead, curatedUpdate, onCuratedUpdate,
   openConversation,
   openMessage,
-  openRoom,openAgreement,openAnalysis,openJourney,openInterest,openUpdate,
+  openRoom,openAgreement,openAnalysis,openJourney,openInterest,openUpdate,openStarter,
   openRequest, foregroundActivity,
   onConversationOpened,
   conversations = false,
@@ -1914,6 +1993,7 @@ function Requests({
   onConversationOpened: () => void;
   conversations?: boolean;
   matches?: boolean;
+  openStarter?: PublicStarterKey;
   initialRequest?: RequestEntry;
   onCompletion?: () => void;
   discoveryUnavailable?: boolean;
@@ -1922,7 +2002,7 @@ function Requests({
 }) {
   const {premium,upgrade}=useMembershipAccess();
   // Keep the entry while the inbox fetch resolves; its parent consumes the handoff on mount.
-  const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:number;analysis?:number;journey?:number}|null>(null);
+  const [messageTarget,setMessageTarget]=useState<{connection:string;message?:string;room?:string;agreement?:number;analysis?:number;journey?:number;starter?:PublicStarterKey}|null>(null);
   const [entry] = useState(initialRequest);
   const initialRequestId = entry?.id;
   const [list, setList] = useState<Connection[]>([]);
@@ -2082,7 +2162,7 @@ function Requests({
       if (target) {
         if (foregroundActivity==='request') markViewedRequest(source,target);
         setVisitPerson(null);
-        setMessageTarget({connection:target.id,message:openMessage,room:openRoom,agreement:openAgreement?intent:undefined,analysis:openAnalysis?intent:undefined,journey:openJourney?intent:undefined});
+        setMessageTarget({connection:target.id,message:openMessage,room:openRoom,starter:openStarter,agreement:openAgreement?intent:undefined,analysis:openAnalysis?intent:undefined,journey:openJourney?intent:undefined});
         setSelected(target.id);
         setChat(Boolean(openConversation));
         setActionError("");
@@ -2094,7 +2174,7 @@ function Requests({
     }
     void resolveIntent();
     return () => { active = false; window.clearTimeout(retryTimer); };
-  }, [openConversation, openRequest, foregroundActivity, openMessage, openRoom, openAgreement, openAnalysis, openJourney, source, refresh, onConversationOpened]);
+  }, [openConversation, openRequest, foregroundActivity, openMessage, openRoom, openAgreement, openAnalysis, openJourney, openStarter, source, refresh, onConversationOpened]);
   useLayoutEffect(() => {
     if (inChat) document.querySelector<HTMLElement>(".cm-chat-head h1")?.focus({ preventScroll: true });
   }, [inChat]);
@@ -2106,10 +2186,11 @@ function Requests({
     setActionError("");
     void refresh();
   };
-  function enterChat(id: string, origin: Element | null, justAccepted = false, openFeedback = false) {
+  function enterChat(id: string, origin: Element | null, justAccepted = false, openFeedback = false, starter?:PublicStarterKey) {
     const intent = ++navigation.current;
     chatHandoff(origin, () => {
       if (intent !== navigation.current) return;
+      setMessageTarget(starter ? {connection:id, starter} : null);
       setFeedbackTarget(openFeedback ? id : null);
       if (justAccepted) setList(rows => rows.map(row => row.id === id ? { ...row, status: "accepted" } : row));
       setSelected(id);
@@ -2122,12 +2203,12 @@ function Requests({
       focus: document.querySelector<HTMLElement>(".cm-chat-head h1"),
     }));
   }
-  function fromProfile(id: string, justAccepted: boolean) {
+  function fromProfile(id: string, justAccepted: boolean, starter?:PublicStarterKey) {
     const avatar = document.querySelector(".mp-profile .mp-portrait");
     const rect = avatar?.getBoundingClientRect();
     const mark = rect && rect.top >= 0 && rect.bottom <= innerHeight ? avatar :
       document.querySelector(".cm-detail-actions [data-chat-entry] svg");
-    enterChat(id, mark, justAccepted);
+    enterChat(id, mark, justAccepted, false, starter);
   }
   function leaveChat() {
     if (!item) { closeDetail(); return; }
@@ -2196,6 +2277,7 @@ function Requests({
         pushOwner={pushOwner}
         viewerGender={viewerGender}
         initialRoom={messageTarget?.connection===item.id?messageTarget.room:undefined}
+        initialStarter={messageTarget?.connection===item.id?messageTarget.starter:undefined}
         initialAnalysis={messageTarget?.connection===item.id&&messageTarget.analysis}
         initialJourney={messageTarget?.connection===item.id&&messageTarget.journey}
         initialAgreement={messageTarget?.connection===item.id&&messageTarget.agreement}
@@ -2213,7 +2295,7 @@ function Requests({
     );
   if (item)
     return (
-      <Profile source={item.person.isDemo?source.demoInteractions??source:source} person={item.person} connectionId={item.status==='accepted'?item.id:undefined} back={closeDetail} backText={matches?'التوافقات':'الإشعارات'} featured={entry?.id === item.id && entry.featured} primary={<>
+      <Profile source={item.person.isDemo?source.demoInteractions??source:source} person={item.person} connectionId={item.status==='accepted'?item.id:undefined} onAsk={item.status==='accepted'?key=>fromProfile(item.id,false,key):undefined} back={closeDetail} backText={matches?'التوافقات':'الإشعارات'} featured={entry?.id === item.id && entry.featured} primary={<>
         {actionError && <Banner alert text={actionError} />}
         {item.status === 'pending' && <RequestWaiting connection={item}/>}
         {item.status === "accepted" ? (
@@ -2324,7 +2406,7 @@ function Requests({
         else if (intent === navigation.current) setActionError(messageFor(error));
       } finally { acting.current = false; setBusy(false); }
     };
-    return <Profile source={source} person={existing?.person ?? visitPerson} connectionId={existing?.status==='accepted'?existing.id:undefined} back={() => { navigation.current++; setVisitPerson(null); setActionError(''); }} backText="العودة للإشعارات" primary={<>
+    return <Profile source={source} person={existing?.person ?? visitPerson} connectionId={existing?.status==='accepted'?existing.id:undefined} onAsk={existing?.status==='accepted'?key=>fromProfile(existing.id,false,key):undefined} back={() => { navigation.current++; setVisitPerson(null); setActionError(''); }} backText="العودة للإشعارات" primary={<>
       {actionError && <Banner alert text={actionError}/>}
       <button className="btn-primary" disabled={busy || unavailable} onClick={() => void openOrRequest()}>
         {!existing && <AddPersonMark/>}
@@ -2483,7 +2565,7 @@ function Requests({
 export function Community(props: CommunityProps) {
   const [chat, setChat] = useState(false);
   const [requestToOpen, setRequestToOpen] = useState<RequestEntry>();
-  const [conversationToOpen, setConversationToOpen] = useState<string>();
+  const [conversationToOpen, setConversationToOpen] = useState<{id:string; starter?:PublicStarterKey}>();
   const { tab, source, onTab, onAccount, onHome, paused, onResume } = props;
   const discoveryUnavailable = paused || Boolean(props.profileReviewPending);
   const onConversationOpened=useCallback(()=>{
@@ -2510,14 +2592,14 @@ export function Community(props: CommunityProps) {
           />
         </section>
       ) : tab === "discover" ? (
-        <Discovery source={source} onAccount={onAccount} profileSaved={props.profileSaved} onBeena={props.onBeena} beenaAnswered={props.beenaAnswered} onInbox={entry => { setRequestToOpen(entry); onTab("inbox"); }} onConversation={(id,panel)=>{if(panel && props.openUpdate){void props.openUpdate({requestId:id,kind:'update',event:panel==='agreement'?'agreement:proposed':'journey:invited'});return;}setConversationToOpen(id);onTab('chats');}} />
+        <Discovery source={source} onAccount={onAccount} profileSaved={props.profileSaved} onBeena={props.onBeena} beenaAnswered={props.beenaAnswered} onInbox={entry => { setRequestToOpen(entry); onTab("inbox"); }} onConversation={(id,panel,starter)=>{if(panel && props.openUpdate){void props.openUpdate({requestId:id,kind:'update',event:panel==='agreement'?'agreement:proposed':'journey:invited'});return;}setConversationToOpen({id,starter});onTab('chats');}} />
       ) : (
         <Requests key={tab} pushOwner={props.pushOwner} viewerGender={props.viewerGender} source={source} onChatChange={setChat} conversations={tab === "chats"} matches={tab === 'curated'}
           onBrowse={() => onTab('discover')}
           onMatches={() => onTab('curated')}
           discoveryUnavailable={discoveryUnavailable} onCompletion={props.onCompletion}
           onMutual={props.onMutual} compatibilityUpdates={props.compatibilityUpdates} onCompatibilityRead={props.onCompatibilityRead}
-          curatedUpdate={props.curatedUpdate} onCuratedUpdate={props.onCuratedUpdate} openConversation={props.openConversation??conversationToOpen}
+          curatedUpdate={props.curatedUpdate} onCuratedUpdate={props.onCuratedUpdate} openConversation={props.openConversation??conversationToOpen?.id} openStarter={props.openConversation ? undefined : conversationToOpen?.starter}
           openRoom={props.openRoom} openAgreement={props.openAgreement} openAnalysis={props.openAnalysis} openJourney={props.openJourney} openInterest={props.openInterest}
           openMessage={props.openMessage}
           openRequest={props.openRequest} foregroundActivity={props.foregroundActivity} openUpdate={props.openUpdate}

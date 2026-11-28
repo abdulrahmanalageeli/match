@@ -36,6 +36,7 @@ import {
 } from "./Screens";
 import { request, ServiceError, serviceReady } from "./api";
 import { memberPendingSends } from "./community/nativePendingSends";
+import { clearMemberChatDrafts, memberChatDrafts } from "./community/memberChatDrafts";
 import { clearSession, readSession, saveSession } from "./session";
 import {
   cloud,
@@ -311,12 +312,12 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
   tierRef.current = tier;
   const source = useMemo(
     () =>
-      pair ? pair.source : demo
+      pair && tester ? { ...pair.source, drafts: memberChatDrafts('tester-' + tester.actor) } : demo
         ? demoCommunity(() => sampleProfileRef.current, true, {interactiveJourney:true})
         : token && cloud
           ? live?.demoDiscoveryEnabled && live.demoInteractionsEnabled
-            ? withTestingDiscovery(cloudCommunity(token, memberPendingSends(token)), () => realProfileRef.current ?? demoProfile, live.demoInteractionsEnabled ? live.user.id : undefined, () => tierRef.current, id=>generateDemoReading(id,live.user.id))
-            : cloudCommunity(token, memberPendingSends(token))
+            ? withTestingDiscovery(cloudCommunity(token, memberPendingSends(token), memberChatDrafts(token)), () => realProfileRef.current ?? demoProfile, live.demoInteractionsEnabled ? live.user.id : undefined, () => tierRef.current, id=>generateDemoReading(id,live.user.id))
+            : cloudCommunity(token, memberPendingSends(token), memberChatDrafts(token))
           : null,
     [demo, token, sampleSession, pair, live?.demoDiscoveryEnabled, live?.demoInteractionsEnabled, live?.user.id],
   );
@@ -456,6 +457,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
 
   function remember(t: string | null, draftCleared = false) {
     if (tokenRef.current !== t) {
+      if (cloudSelected && tokenRef.current) void clearMemberChatDrafts(tokenRef.current).catch(() => {});
       setDismissedReceipts([]);
       sentReceiptAcks.current = new Set();
       void syncNativePushOwner(t).catch(()=>{});
@@ -640,7 +642,7 @@ function MemberApp({tester,onTesterExit,startAtLogin=false,openLogin=false,signu
     go("discover");
   }
   function exitDemo() {
-    if(tester){void detachNotifications('tester:'+tester.session).catch(()=>{}).finally(()=>onTesterExit?.());return;}
+    if(tester){void Promise.allSettled([clearMemberChatDrafts('tester-' + tester.actor), detachNotifications('tester:'+tester.session)]).then(()=>onTesterExit?.());return;}
     intakeDraft.current = null;
     sampleProfileRef.current = demoProfile;
     setSampleProfile(demoProfile);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { Image as PhotoIcon, AudioLines, Pause, Play, RotateCcw, Send, Square, Trash2, LoaderCircle, CircleDashed, Eye, CheckCheck, LockKeyhole, X, ArrowUp, ArrowRight } from "../BrandIcons";
+import { Image as PhotoIcon, Reply, AudioLines, Pause, Play, RotateCcw, Send, Square, Trash2, LoaderCircle, CircleDashed, Eye, CheckCheck, LockKeyhole, X, ArrowUp, ArrowRight } from "../BrandIcons";
 import type { ChatAttachment, CommunitySource } from './data';
 import { useDevicePreferences, useSystemReducedMotion } from '../settings/preferences';
 import { feedback } from '../feedback/haptics';
@@ -8,6 +8,9 @@ import './chatMedia.css';
 import { nativePrivatePhoto, preparePrivatePhoto, showPrivatePhoto, closePrivatePhoto } from './privatePhoto';
 
 const seconds = (n: number) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
+export const voiceTimeLabel = (n: number) => seconds(n).replace(/\d/g, digit => '٠١٢٣٤٥٦٧٨٩'[Number(digit)]);
+type VoiceActions = { onReplyAt?: (seconds: number) => void; seekTo?: {atSeconds: number} };
+const playedQuotes = new WeakSet<NonNullable<VoiceActions['seekTo']>>();
 const safeError = (e: unknown) => e instanceof Error && /[\u0600-\u06ff]/.test(e.message) ? e.message : 'تعذّر إرسال المرفق. حاول مجددًا.';
 type Draft = { blob: Blob; kind: ChatAttachment['kind']; url: string; clientId: string; duration?: number; viewOnce?: boolean };
 let playingVoice: HTMLAudioElement | null = null;
@@ -69,7 +72,7 @@ function AudioTimeline({ url, fraction }: { url: string; fraction: number }) {
   </span>;
 }
 
-function VoicePlayer({ url, duration, failed, memory }: { url: string; duration?: number; failed?: () => void; memory?: {source: CommunitySource; key: string} }) {
+function VoicePlayer({ url, duration, failed, memory, onReplyAt, seekTo }: VoiceActions & { url: string; duration?: number; failed?: () => void; memory?: {source: CommunitySource; key: string} }) {
   const remember = (value: number) => { if (!memory) return; let positions = voicePositions.get(memory.source); if (!positions) { positions = new Map(); voicePositions.set(memory.source,positions); } positions.set(memory.key,value); if(positions.size>200) positions.delete(positions.keys().next().value!); };
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false), [position, setPosition] = useState(0), [length, setLength] = useState(duration || 0), [error, setError] = useState('');
@@ -79,6 +82,23 @@ function VoicePlayer({ url, duration, failed, memory }: { url: string; duration?
     const node = audio.current;
     return () => { if(node) remember(node.ended ? 0 : node.currentTime); node?.pause(); if (playingVoice === node) playingVoice = null; };
   }, [url]);
+  useEffect(() => {
+    const node = audio.current;
+    if (!node || !seekTo || playedQuotes.has(seekTo)) return;
+    const playQuote = () => {
+      if (playedQuotes.has(seekTo)) return;
+      playedQuotes.add(seekTo);
+      const end = Number.isFinite(node.duration) ? node.duration : duration ?? 60;
+      node.currentTime = Math.max(0, Math.min(seekTo.atSeconds, end - .05));
+      setPosition(node.currentTime);
+      if (playingVoice && playingVoice !== node) playingVoice.pause();
+      playingVoice = node;
+      void node.play().catch(() => { setPlaying(false); setBuffering(false); });
+    };
+    if (node.readyState >= 1) playQuote();
+    else node.addEventListener('loadedmetadata', playQuote, {once:true});
+    return () => node.removeEventListener('loadedmetadata', playQuote);
+  }, [seekTo, url, duration]);
   async function toggle() {
     if (!audio.current) return;
     setError('');
@@ -88,14 +108,17 @@ function VoicePlayer({ url, duration, failed, memory }: { url: string; duration?
       playingVoice = audio.current; setBuffering(true); await audio.current.play();
     } catch { setBuffering(false); setError('تعذّر التشغيل. حاول مجددًا.'); }
   }
+  const quoteSecond = Math.max(0, Math.min(59, Math.ceil(duration ?? length) - 1, Math.floor(position)));
   return <div className="cm-voice-note">
     <audio ref={audio} src={url} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => { setPlaying(false); setBuffering(false); }} onEnded={() => { remember(0); setPosition(0); setPlaying(false); setBuffering(false); }}
       onWaiting={() => setBuffering(true)} onPlaying={() => setBuffering(false)} onCanPlay={() => setBuffering(false)}
-      onLoadedMetadata={() => { const value = audio.current?.duration; if (value && Number.isFinite(value)) setLength(value); if (audio.current) { audio.current.playbackRate = rate; const saved = memory ? voicePositions.get(memory.source)?.get(memory.key) : 0; if(saved && saved < (value || duration || 0) - .3) {audio.current.currentTime=saved;setPosition(saved);} } }}
+      onLoadedMetadata={() => { const value = audio.current?.duration; if (value && Number.isFinite(value)) setLength(value); if (audio.current) { audio.current.playbackRate = rate; const saved = memory ? voicePositions.get(memory.source)?.get(memory.key) : 0; if(!seekTo && saved && saved < (value || duration || 0) - .3) {audio.current.currentTime=saved;setPosition(saved);} } }}
       onTimeUpdate={() => { const value=audio.current?.currentTime || 0; setPosition(value); remember(audio.current?.ended ? 0 : value); }} onError={() => { setBuffering(false); setError('تعذّر تحميل التسجيل.'); failed?.(); }}/>
     <button type="button" className="cm-audio-play" aria-label={playing ? 'إيقاف التسجيل مؤقتًا' : 'تشغيل التسجيل الصوتي'} aria-busy={buffering} onClick={() => void toggle()}>{buffering ? <LoaderCircle size={19} className="cm-spin"/> : playing ? <Pause size={19}/> : <Play size={19}/>}</button>
     <div className="cm-audio-track">
-      <div className="cm-audio-caption"><b>{buffering ? 'جارٍ تجهيز الصوت…' : 'رسالة صوتية'}</b><time dir="ltr">{seconds(playing || position ? position : length)}</time></div>
+      <div className="cm-audio-caption">{onReplyAt && !playing && position > 0 && position < length
+        ? <button className="cm-reply-moment" type="button" aria-label={`رد على ${voiceTimeLabel(quoteSecond)} من التسجيل`} onClick={() => onReplyAt(quoteSecond)}><Reply size={11} aria-hidden="true"/> رد على هالنقطة</button>
+        : <b>{buffering ? 'جارٍ تجهيز الصوت…' : 'رسالة صوتية'}</b>}<time dir="ltr">{seconds(playing || position ? position : length)}</time></div>
       <div className="cm-audio-seek"><AudioTimeline url={url} fraction={length ? position / length : 0}/>
         <input dir="ltr" aria-label="موضع تشغيل التسجيل" aria-valuetext={`${seconds(position)} من ${seconds(length)}`} type="range" min="0" max={length || 1} step="0.1" disabled={!length} value={Math.min(position,length || 1)} onChange={e => { const value = Number(e.target.value); if (audio.current) audio.current.currentTime = value; setPosition(value); }}/>
       </div>
@@ -164,7 +187,7 @@ function PhotoViewer({ url, close }: { url: string; close: () => void }) {
   </dialog>;
 }
 
-export function MessageMedia({ source, requestId, attachment, senderIsMe = false, localFile }: { source: CommunitySource; requestId: string; attachment: ChatAttachment; senderIsMe?: boolean; localFile?: Blob }) {
+export function MessageMedia({ source, requestId, attachment, senderIsMe = false, localFile, onReplyAt, seekTo }: VoiceActions & { source: CommunitySource; requestId: string; attachment: ChatAttachment; senderIsMe?: boolean; localFile?: Blob }) {
   const [url, setUrl] = useState(''), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [viewer, setViewer] = useState(''), [opening, setOpening] = useState(false), [spent, setSpent] = useState(false);
   const alive = useRef(true), generation = useRef(0), displayed = useRef('');
@@ -262,7 +285,7 @@ export function MessageMedia({ source, requestId, attachment, senderIsMe = false
   if (error) return <button type="button" className="cm-media-retry" onClick={() => setRetry(n => n + 1)}><RotateCcw size={16}/> إعادة تحميل المرفق</button>;
   if (!url) return <div className="cm-media-loading" role="status"><LoaderCircle size={19}/> تحميل المرفق…</div>;
   return attachment.kind === 'photo' ? <><button type="button" className="cm-message-photo" onClick={() => void openPhoto()} onContextMenu={nativePrivatePhoto() ? event => event.preventDefault() : undefined} aria-label="فتح الصورة بحجمها الكامل"><img src={url} alt="صورة أُرسلت في المحادثة" draggable={nativePrivatePhoto() ? false : undefined} onError={() => setError('تعذّر تحميل الصورة.')}/></button>{viewer && <PhotoViewer url={viewer} close={closeViewer}/>}</>
-    : <VoicePlayer memory={{source,key:requestId+":"+attachment.id}} url={url} duration={attachment.duration} failed={() => setError('تعذّر تحميل التسجيل.')}/>;
+    : <VoicePlayer onReplyAt={onReplyAt} seekTo={seekTo} memory={{source,key:requestId+":"+attachment.id}} url={url} duration={attachment.duration} failed={() => setError('تعذّر تحميل التسجيل.')}/>;
 }
 
 export function ChatMediaComposer({ source, disabled, callActive, onRecording, onSend }: {

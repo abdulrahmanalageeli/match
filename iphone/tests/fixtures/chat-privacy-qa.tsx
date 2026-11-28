@@ -7,8 +7,9 @@ import type { ActivityNotification } from '../../src/community/data';
 import { Chat } from '../../src/community/Community';
 import { routeUpdate, type ChatSignal } from '../../src/community/updates';
 import { CapturePrivacyHost } from '../../src/privacy/CapturePrivacy';
-import { demoCommunity, searchMessageRows, type CommunitySource, type Message, type Connection, type SeriousnessAgreement } from '../../src/community/data';
+import { resolveReply, demoCommunity, searchMessageRows, type CommunitySource, type Message, type Connection, type SeriousnessAgreement } from '../../src/community/data';
 import { testProfile } from '../../src/testing/pair';
+import { memberChatDrafts } from '../../src/community/memberChatDrafts';
 import '../../src/design.css';import '../../src/flows.css';import '../../src/screens.css';import '../../src/motion.css';
 import '../../src/mobile/keyboard.css';import '../../src/community/arrivalDiscovery.css';import '../../src/community/arrivalChat.css';import '../../src/arrivalSurfaces.css';import '../../src/typography.css';
 import '../../src/accessibility.css';
@@ -36,7 +37,7 @@ function wake(before: Row[], after: Row[]) {
 }
 const write = (rows:Row[]) => {const before=read();localStorage.setItem(key,JSON.stringify(rows));wake(before,rows);};
 window.addEventListener('storage',event=>{if(event.key===key)wake(JSON.parse(event.oldValue||'[]'),JSON.parse(event.newValue||'[]'));});
-const asMessage = (row:Row):Message => {const {sender,media:_,...message}=row;return {...message,senderIsMe:sender===actor};};
+const asMessage = (row:Row):Message => {const {sender,media:_,...message}=row;return {...message,senderIsMe:sender===actor, ...(message.reply && {reply:{...message.reply,senderIsMe:sender===actor ? message.reply.senderIsMe : !message.reply.senderIsMe}})};};
 const imageUrl = async (path:string) => URL.createObjectURL(await (await fetch(path)).blob());
 const base = demoCommunity(()=>testProfile(actor),false);
 let agreement: SeriousnessAgreement = {
@@ -52,6 +53,7 @@ let agreement: SeriousnessAgreement = {
 };
 let failNextSend = params.has('interrupt');
 const source:CommunitySource = {...base,
+ drafts: memberChatDrafts(key + '-' + actor),
  conversationPilot: async () => params.has('feedback')
    ? {initialOpen:true, followupOpen:false, followupTalked:null, answer:null, mutualContinue:false}
    : null,
@@ -69,7 +71,9 @@ const source:CommunitySource = {...base,
  requestCallPermission:async()=>{await new Promise(resolve=>setTimeout(resolve,600));permission={status:'pending',direction:'outgoing'};return permission;},
  setTyping:async()=>{},typingState:async()=>false,
  reactToMessage:async(_room,id,emoji)=>{const rows=read(),row=rows.find(item=>item.id===id);if(!row||row.deletedAt)throw Error('غير متاحة');row.reactions=emoji?[{emoji,count:1,mine:true}]:[];write(rows);return row.reactions;},
- progress:async()=>({stage:params.has('familyStage')?2:0,mine:false,peer:false,exclusive:params.has('exclusive')}),agreement:async()=>params.has('stalledAgreement')?new Promise<SeriousnessAgreement>(()=>{}):({...agreement}),
+ progress:async()=>({stage:params.has('familyStage')?2:0,mine:false,peer:false,exclusive:params.has('exclusive'),
+   ...(params.has('exclusiveRequest') && {consentMine: actor==='reham', consentPeer: actor!=='reham'}),
+ }),agreement:async()=>params.has('stalledAgreement')?new Promise<SeriousnessAgreement>(()=>{}):({...agreement}),
  ...(params.has('sharedFamilyNumber') && {familyContact:async()=>'+966500000001'}),
  agree:async(_id,action,payload)=>{
   if(action==='propose')agreement={...agreement,status:'proposed',days:payload.days,womanSignedAt:new Date().toISOString()};
@@ -79,21 +83,22 @@ const source:CommunitySource = {...base,
  thread:async()=>{if(deliveryTest)performance.mark('qa-thread-page');return params.has('agreement')?[]:read().map(asMessage);},
  messageChanges:async(_room,ids)=>{if(deliveryTest)performance.mark('qa-thread-rows',{detail:ids});return read().filter(row=>ids.includes(row.id)).map(asMessage);},
  markRead:async()=>{},unreadCount:async()=>0,
- send:async(_room,body,clientId,replyToId)=>{if(failNextSend){failNextSend=false;throw Error('تعذّر إرسال الرسالة.');}await new Promise(resolve=>setTimeout(resolve,800));const id=crypto.randomUUID(),rows=read(),original=rows.find(row=>row.id===replyToId);rows.push({id,clientId,sender:actor,body,createdAt:new Date().toISOString(),...(original?{reply:{id:original.id,body:original.deletedAt?'تم حذف هذه الرسالة':original.body,senderIsMe:original.sender===actor}}:{})});write(rows);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.deliveredAt=new Date().toISOString();write(rows);}},1400);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.readAt=new Date().toISOString();write(rows);}},2800);return id;},
+ send:async(_room,body,clientId,replyToId,atSeconds)=>{if(failNextSend){failNextSend=false;throw Error('تعذّر إرسال الرسالة.');}await new Promise(resolve=>setTimeout(resolve,800));const id=crypto.randomUUID(),rows=read(),reply=resolveReply(rows.map(asMessage),replyToId,atSeconds);rows.push({id,clientId,sender:actor,body,createdAt:new Date().toISOString(),...(reply && {reply})});write(rows);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.deliveredAt=new Date().toISOString();write(rows);}},1400);setTimeout(()=>{const rows=read(),row=rows.find(item=>item.id===id);if(row){row.readAt=new Date().toISOString();write(rows);}},2800);return id;},
  async mediaUrl(_room,id){const row=read().find(item=>item.attachment?.id===id);if(!row?.media||row.deletedAt||row.attachment?.viewOnce)throw Error('الصورة غير متاحة.');return imageUrl(row.media);},
  async openMedia(_room,id){const rows=read(),row=rows.find(item=>item.attachment?.id===id);if(!row?.media||row.deletedAt||row.sender===actor||row.attachment?.openedAt)throw Error('تم فتح هذه الصورة بالفعل.');if(row.attachment?.viewOnce){row.attachment.openedAt=new Date().toISOString();write(rows);}return imageUrl(row.media);},
  async deleteMessage(_room,id){const rows=read(),row=rows.find(item=>item.id===id);if(!row||row.sender!==actor)throw Error('يمكنك حذف رسائلك فقط.');row.deletedAt=new Date().toISOString();row.body='تم حذف هذه الرسالة';row.attachment=null;delete row.media;row.reply=null;for(const other of rows)if(other.reply?.id===id)other.reply={...other.reply,body:'تم حذف هذه الرسالة',deletedAt:row.deletedAt};write(rows);},
- async sendMedia(_room,file,kind,clientId,duration,viewOnce){
+ async sendMedia(_room,file,kind,clientId,duration,viewOnce,replyToId,atSeconds){
    const media=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file);});
    const rows=read(), id=clientId;
    if (!rows.some(row=>row.id===id)) {
-     rows.push({id,sender:actor,clientId,body:kind==='photo'?'صورة':'رسالة صوتية',createdAt:new Date().toISOString(),attachment:{id,kind,mime:file.type,size:file.size,duration,viewOnce},media});
+     const reply=resolveReply(rows.map(asMessage),replyToId,atSeconds);
+     rows.push({id,sender:actor,clientId,...(reply && {reply}),body:kind==='photo'?(viewOnce?'صورة لمرة واحدة':'صورة'):'رسالة صوتية',createdAt:new Date().toISOString(),attachment:{id,kind,mime:file.type,size:file.size,duration,viewOnce},media});
      write(rows);
    }
    return id;
  },
 };
-const connection:Connection={id:'local-privacy-qa',status:'accepted',direction:'incoming',person:{id:peer,alias:peer==='reham'?'رهام':'عبدالرحمن',age:29,city:'الرياض',occupation:'ملف اختبار',bio:'شخصية اختبار محلية.',interests:[],reasons:[]}};
+const connection:Connection={id:'local-privacy-qa',status:'accepted',direction:'incoming',person:{id:peer,alias:peer==='reham'?'رهام':'عبدالرحمن',age:29,city:'الرياض',occupation:'ملف اختبار',bio:peer==='reham'?'كل جمعة أسوّي فطور لأهلي.':'أحب المشي بعد المغرب.',lifeTogether:peer==='reham'?'ودي يبقى لنا وقت نطبخ فيه سوا.':'أحب نطلع نتمشى آخر اليوم ونسولف.',interests:[],reasons:[]}};
 const captures = params.has('captures');
 if (deliveryTest) {
   const upload = source.sendMedia!;

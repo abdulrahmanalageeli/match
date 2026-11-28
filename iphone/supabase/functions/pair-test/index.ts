@@ -4,7 +4,7 @@ import { testMediaLimit, validateTestMedia } from '../_shared/test-media.ts';
 import { parsePortraitUpload, portraitRequestLimit, portraitPolicies } from '../_shared/portrait-media.ts';
 import { downloadChatMedia, viewOnceUpload, chatObjectPath } from '../_shared/chat-media.ts';
 import { projectPairState } from '../_shared/pair-privacy.ts';
-const headers={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'content-type,apikey,x-test-session,x-client-id,x-duration-ms,x-portrait-blur,x-portrait-reveal,x-profile-revision,x-view-once','Access-Control-Allow-Methods':'POST,OPTIONS'};
+const headers={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'content-type,apikey,x-test-session,x-client-id,x-duration-ms,x-portrait-blur,x-portrait-reveal,x-profile-revision,x-view-once, x-reply-to, x-reply-at','Access-Control-Allow-Methods':'POST,OPTIONS'};
 const allowed=new Set(['chat_screenshot','portrait_info','portrait_remove','heartbeat','interest','uninterest','dismiss_person','report_person','rematch_request','rematch_accept','rematch_decline','match_seen','rewind','gallery_list','gallery_remove','notifications','notifications_read','profile_visit','state','send','read','delivered','profile','close','reset','step','logout','call_start','call_accept','call_decline','call_end','token','permission_invite','permission_accept','permission_decline','agreement_extend','agreement_extension_accept','agreement_propose','agreement_accept','agreement_family']);
 const bucket='nisfayn-test-chat';
 allowed.add('portrait_policy');
@@ -28,7 +28,8 @@ Deno.serve(async req=>{
   if(new URL(url).hostname!=='wupkifqbwhhebwrgvwai.supabase.co')throw Error('Wrong project');
   const client=createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
   const rpc=async(action:string,session='',payload={})=>{
-   const {data,error}=await client.rpc(action==='media_inspect'||action==='media_viewed' ? 'nisfayn_test_media_receipt' : action==='push_updates' ? 'nisfayn_test_push_updates' : action.startsWith('push_') ? 'nisfayn_test_push' : action==='close_introduction'||action==='closure_history' ? 'nisfayn_test_introduction' : 'nisfayn_test_rpc',{action,session_token:session,payload});
+   const quoted=action==='media_reserve'||action==='media_publish'||(action==='send' && ('replyToId' in payload || 'atSeconds' in payload));
+   const {data,error}=await client.rpc(quoted ? 'nisfayn_test_chat_reply' : action==='media_inspect'||action==='media_viewed' ? 'nisfayn_test_media_receipt' : action==='push_updates' ? 'nisfayn_test_push_updates' : action.startsWith('push_') ? 'nisfayn_test_push' : action==='close_introduction'||action==='closure_history' ? 'nisfayn_test_introduction' : 'nisfayn_test_rpc',{action,session_token:session,payload});
    if(error)throw Object.assign(Error(error.code==='42501'?'انتهت الجلسة أو أُغلق التعارف.':error.message),{status:error.code==='42501'?403:400});
    if(data?.profiles&&['reham','abdulrahman'].includes(data.actor)){
     const {data:claims,error:claimError}=await client.rpc('marriage_test_manual_verification_badges',{test_token:session});
@@ -96,7 +97,11 @@ Deno.serve(async req=>{
    // Sweep only abandoned uploads. Published photos/audio are never removed here.
    const stale=await rpc('media_stale',session) as {id:string;path:string}[];
    for(const item of stale){const {error}=await client.storage.from(bucket).remove([item.path]);if(!error)await rpc('media_purge',session,{id:item.id});}
-   const reservation=await rpc('media_reserve',session,{id,...meta,viewOnce});
+   const replyToId=req.headers.get('x-reply-to'), rawOffset=req.headers.get('x-reply-at');
+   if ((replyToId!==null && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(replyToId)) ||
+       (rawOffset!==null && (!replyToId || !/^(?:0|[1-5]?[0-9])$/.test(rawOffset)))) throw new Error('مرجع الرد غير صالح.');
+   const reply={...(replyToId && {replyToId}), ...(rawOffset!==null && {atSeconds:Number(rawOffset)})};
+   const reservation=await rpc('media_reserve',session,{id,...meta,viewOnce,...reply});
    if(reservation.already)return Response.json(await rpc('state',session),{headers});
    let stored=Boolean(reservation.resume);
    try{

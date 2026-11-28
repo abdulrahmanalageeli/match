@@ -15,3 +15,12 @@ export function answeredProfilePrompts(answers: ProfilePromptAnswers) {
     return answer ? [{ ...prompt, answer }] : [];
   });
 }
+
+export type PublicStarterKey = ProfilePromptKey | 'bio';
+
+export function publicStarterExcerpt(answers: ProfilePromptAnswers & {bio?: string}, key: PublicStarterKey) {
+  const text = answers[key]?.trim().replace(/\s+/g, ' ') ?? '';
+  if (text.length <= 180) return text;
+  const excerpt = Array.from(text).slice(0, 179).join('');
+  return excerpt.replace(/\s+\S*$/, '').trimEnd() + '…';
+}

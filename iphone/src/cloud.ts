@@ -122,6 +122,7 @@ export async function callRpc<T>(
 export async function cloudLogout() {
   if (!cloud) return;
   const owner = await cloudSessionId().catch(() => null);
+  if (owner) await import('./community/memberChatDrafts').then(m => m.clearMemberChatDrafts(owner)).catch(() => {});
   if (owner) await import('./community/nativePendingSends').then(m => m.clearMemberPendingSends(owner)).catch(() => {});
   await import('./notifications/push').then(module => module.detachNotifications(owner)).catch(() => {});
   const { error } = await cloud.auth.signOut({ scope: "local" });

@@ -88,3 +88,12 @@
 .pe-prompt-invite strong { font-size: .83rem; }.pe-prompt-invite small { font-size: .69rem; line-height: 1.8; color: #93717b; }
 .nf-prompt-editor :is(button,textarea):focus-visible,.pe-prompt-invite:focus-visible { outline: 2px solid #a46983; outline-offset: 3px; }
 @media(max-width:350px) { .nf-prompt-editor { padding: 16px 12px; }.nf-prompt-choices button { font-size: .68rem; padding-inline: 8px; }}
+.phone-app .mp-prompt-title { display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.phone-app .mp-ask-starter { display:inline-flex; align-items:center; gap:5px; padding:5px 2px; margin-block:-4px; border:0; background:none; color:var(--tinted-ink,#795462); font:inherit; font-size:.69rem; cursor:pointer; }
+.phone-app .mp-ask-starter[data-compact] { min-width:36px; min-height:32px; justify-content:center; align-self:center; margin-block:-6px; }
+.phone-app .mp-ask-starter:focus-visible { outline:2px solid currentColor; outline-offset:2px; border-radius:5px; }
+.phone-app .cm-profile-starter { width:100%; }
+.phone-app .cm-profile-starter blockquote { margin:8px auto 10px; max-width:min(24ch, 90%); color:var(--ink); font:400 1.19rem/1.65 var(--font-chat); overflow-wrap:anywhere; text-wrap:balance; }
+.phone-app .cm-profile-starter small { color:var(--muted); font-size:.77rem; }
+.phone-app .cm-starter-offer { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-inline:14px; }
+.phone-app .cm-starter-offer button { min-height:36px; display:inline-flex; gap:6px; align-items:center; border:0; background:none; color:var(--tinted-ink,#795462); font:inherit; font-size:.76rem; }

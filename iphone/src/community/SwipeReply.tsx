@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type ReactNode, type PointerEvent } from '
 import { Reply } from "../BrandIcons";
 import './replies.css';
 
-export function SwipeReply({ disabled, onReply, onHold, actionsDisabled = false, actionLabel = 'خيارات الرسالة', actionDescriptionId, children }: {
-  disabled: boolean; onReply: () => void; onHold?: () => void; actionsDisabled?: boolean;
+export function SwipeReply({ disabled, onReply, onHold, onTap, actionsDisabled = false, actionLabel = 'خيارات الرسالة', actionDescriptionId, children }: {
+  disabled: boolean; onReply: () => void; onHold?: () => void; onTap?: () => void; actionsDisabled?: boolean;
   actionLabel?: string; actionDescriptionId?: string; children: ReactNode;
 }) {
   const gesture = useRef<{ id: number; x: number; y: number; distance: number; swipe: boolean; held: boolean; axis: 'pending' | 'horizontal' | 'vertical' } | null>(null);
@@ -97,6 +97,7 @@ export function SwipeReply({ disabled, onReply, onHold, actionsDisabled = false,
         !(event.key === 'Enter' || event.key === ' ' || event.key === 'ContextMenu' || event.key === 'F10' && event.shiftKey)) return;
       event.preventDefault(); cancelGesture(); hold.current?.();
     }}
+    onClick={event => { if (onTap && (event.target as Element).closest('.cm-bubble') && !interactive(event.target as Element)) onTap(); }}
     onClickCapture={event => { if (suppressClick.current) { suppressClick.current = false; event.preventDefault(); event.stopPropagation(); } }}>
     <span className="cm-swipe-hint" aria-hidden="true" style={{ opacity: Math.min(1, Math.abs(distance) / 56) }}><Reply size={19}/></span>
     <div className="cm-swipe-content" data-dragging={distance !== 0 || undefined} style={{ transform: distance ? `translateX(${distance}px)` : undefined }}>{children}</div>

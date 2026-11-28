@@ -86,7 +86,7 @@ export type RequestHistoryEntry = {
   resolution?: "declined" | "withdrawn" | "ended" | "expired" | "closed"; canRequestAgain?: boolean;
   createdAt: string; closedAt?: string | null; outcome: "closed" | "expired";
 };
-export type MessageReply = { id: string; body: string; senderIsMe: boolean; deletedAt?: string | null };
+export type MessageReply = { atSeconds?: number; id: string; body: string; senderIsMe: boolean; deletedAt?: string | null };
 export const messageReactionEmojis = ['❤️', '😂', '😮', '😢', '🙏', '👍'] as const;
 export type ReactionEmoji = typeof messageReactionEmojis[number];
 export type MessageReaction = { emoji: ReactionEmoji; count: number; mine: boolean };
@@ -122,9 +122,19 @@ export function searchMessageRows(rows: readonly Message[], query: string, befor
     && (needle ? message.body.toLocaleLowerCase('ar').includes(needle) : Boolean(message.attachment))).slice(-50);
 }
 export const deletedMessageText = 'تم حذف هذه الرسالة';
+export function resolveReply(rows: Message[], id?: string, atSeconds?: number): MessageReply | undefined {
+  if (!id) return;
+  const original = rows.find(row => row.id === id);
+  if (!original || original.deletedAt) throw Error('الرسالة الأصلية غير متاحة.');
+  const media = original.attachment;
+  if (atSeconds !== undefined && (media?.kind !== 'audio' || !Number.isInteger(atSeconds) || atSeconds < 0 || atSeconds >= (media.duration ?? 0))) throw Error('موضع التسجيل غير متاح.');
+  const body = media ? media.kind === 'audio' ? 'رسالة صوتية' : media.viewOnce ? 'صورة لمرة واحدة' : 'صورة' : original.body.slice(0,240);
+  return {id, body, senderIsMe:original.senderIsMe, ...(atSeconds !== undefined && {atSeconds})};
+}
+
 export function sanitizeMessage(message: Message): Message {
   if (message.deletedAt) return { ...message, body: deletedMessageText, attachment: null, reply: null, reactions: [] };
-  return message.reply?.deletedAt ? { ...message, reply: { ...message.reply, body: deletedMessageText } } : message;
+  return message.reply?.deletedAt ? { ...message, reply: { id:message.reply.id, senderIsMe:message.reply.senderIsMe, deletedAt:message.reply.deletedAt, body:deletedMessageText } } : message;
 }
 export type CallPermissionState = { status: "none" | "pending" | "accepted" | "declined"; direction?: "incoming" | "outgoing" };
 export type SeriousnessAgreement = {status:'none'|'proposed'|'accepted'|'expired'|'family';hasFamilyContact?:boolean;exclusive?:boolean;extension?:{id:string;actor:string;days:number};actor:'reham'|'abdulrahman';mineName?:string;peerName?:string;days?:number;proposalId?:string;deadline?:string;womanSignedAt?:string;manSignedAt?:string;familyProposalId?:string;familyAgreed?:Partial<Record<'reham'|'abdulrahman',boolean>>};
@@ -172,6 +182,7 @@ export type JourneyTopic = 'exclusive' | 'step';
 export type JourneyDecision = 'propose' | 'accept' | 'clear';
 export type StepProgress = { exclusiveId?:string; stepId?:string; rewindMine?: boolean; rewindPeer?: boolean; updatedAt?: string; stage: number; mine: boolean; peer: boolean; exclusive?: boolean; consentMine?: boolean; consentPeer?: boolean };
 export interface CommunitySource extends ManualVerificationSource {
+  drafts?: import('./chatDrafts').ChatDrafts;
   pendingSends?: PendingChatSends;
   committedSends?(requestId: string, clientIds: string[]): Promise<string[]>;
   relocationCities?(destinations?:string[]):Promise<string[]>;
@@ -229,10 +240,10 @@ export interface CommunitySource extends ManualVerificationSource {
   readState?(requestId: string): Promise<ThreadReadState>;
   setTyping?(requestId: string, active: boolean): Promise<void>;
   typingState?(requestId: string): Promise<boolean>;
-  send(requestId: string, body: string, clientId: string, replyToId?: string): Promise<string>;
+  send(requestId: string, body: string, clientId: string, replyToId?: string, atSeconds?: number): Promise<string>;
   deleteMessage?(requestId: string, messageId: string): Promise<void>;
   reactToMessage?(requestId: string, messageId: string, reaction: ReactionEmoji | null): Promise<MessageReaction[]>;
-  sendMedia?(requestId: string, file: Blob, kind: ChatAttachment["kind"], clientId: string, duration?: number, viewOnce?: boolean): Promise<string>;
+  sendMedia?(requestId: string, file: Blob, kind: ChatAttachment["kind"], clientId: string, duration?: number, viewOnce?: boolean, replyToId?: string, atSeconds?: number): Promise<string>;
   mediaUrl?(requestId: string, attachmentId: string): Promise<string>;
   confirmMediaViewed?(requestId: string, attachmentId: string): Promise<void>;
   openMedia?(requestId: string, attachmentId: string): Promise<string>;
@@ -280,7 +291,7 @@ export type ConnectionReview = {
   topic?: string;
 };
 
-export function cloudCommunity(userId: string, pendingSends?: PendingChatSends): CommunitySource {
+export function cloudCommunity(userId: string, pendingSends?: PendingChatSends, drafts?: CommunitySource['drafts']): CommunitySource {
   let inboxForTurn: Promise<Connection[]> | undefined;
   const media = () => import('./memberChatMedia').then(module => module.memberChatMediaSource(userId));
   async function timedRpc<T>(name: string, params: Record<string, unknown>): Promise<T> {
@@ -299,7 +310,7 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
   }
   return {
     watch: privateUpdates(userId),
-    pendingSends,
+    pendingSends, drafts,
     committedSends: (request_id, client_ids) => timedRpc('marriage_committed_chat_sends', {request_id, client_ids}),
     async confirmMediaViewed(request_id, media_id) {
       await timedRpc('marriage_chat_media', { action: 'viewed', request_id, media_id });
@@ -470,10 +481,10 @@ export function cloudCommunity(userId: string, pendingSends?: PendingChatSends):
     typingState: requestId => timedRpc('marriage_typing_state', { request_id: requestId }),
     async deleteMessage(requestId, messageId) { await timedRpc('marriage_delete_message', { request_id: requestId, message_id: messageId }); },
     reactToMessage: (requestId, messageId, reaction) => timedRpc('marriage_react_to_message', { request_id: requestId, message_id: messageId, reaction }),
-    send: (requestId, body, clientId, replyToId) =>
+    send: (requestId, body, clientId, replyToId, atSeconds) =>
       timedRpc(
-        replyToId ? "marriage_reply" : "marriage_message",
-        { request_id: requestId, message_body: body, client_id: clientId, ...(replyToId ? { reply_to_id: replyToId } : {}) },
+        replyToId ? atSeconds === undefined ? "marriage_reply" : "marriage_reply_at" : "marriage_message",
+        { request_id: requestId, message_body: body, client_id: clientId, ...(replyToId ? { reply_to_id: replyToId, ...(atSeconds !== undefined && {at_seconds:atSeconds}) } : {}) },
       ),
   };
 }
@@ -1257,14 +1268,15 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       message.body = deletedMessageText; message.attachment = null; message.reply = null; message.reactions = [];
       notify();
     },
-    async sendMedia(id, file, kind, clientId, duration, viewOnce = false) {
+    async sendMedia(id, file, kind, clientId, duration, viewOnce = false, replyToId, atSeconds) {
       requireChat(id);
       if (!file.size || file.size > 8 * 1024 * 1024 || (kind === 'photo' ? file.type !== 'image/jpeg' : !file.type.startsWith('audio/'))) throw Error('اختر ملفًا صالحًا بحجم لا يتجاوز ٨ ميغابايت.');
       if (viewOnce && kind !== 'photo') throw Error('العرض لمرة واحدة متاح للصور فقط.');
       const list = messages.get(id) ?? [];
       if (list.some(row => row.clientId === clientId)) return clientId;
+      const reply = resolveReply(list, replyToId, atSeconds);
       mediaFiles.set(clientId, file);
-      list.push({ id: clientId, clientId, senderIsMe: true, body: kind === 'photo' ? (viewOnce ? 'صورة لمرة واحدة' : 'صورة') : 'رسالة صوتية', createdAt: new Date().toISOString(), attachment: { id: clientId, kind, mime: file.type, size: file.size, duration, viewOnce, openedAt: null } });
+      list.push({ id: clientId, clientId, senderIsMe: true, ...(reply && {reply}), body: kind === 'photo' ? (viewOnce ? 'صورة لمرة واحدة' : 'صورة') : 'رسالة صوتية', createdAt: new Date().toISOString(), attachment: { id: clientId, kind, mime: file.type, size: file.size, duration, viewOnce, openedAt: null } });
       messages.set(id, list); notify(); simulation.wake(); return clientId;
     },
     async mediaUrl(id, attachmentId) {
@@ -1287,7 +1299,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       mediaFiles.delete(attachmentId); notify();
       return URL.createObjectURL(file);
     },
-    async send(id, body, clientId, replyToId) {
+    async send(id, body, clientId, replyToId, atSeconds) {
       requireChat(id);
       if (
         open(id).status !== "accepted" ||
@@ -1296,8 +1308,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
       )
         throw new Error("تحقق من الرسالة وحالة الطلب.");
       const list = messages.get(id) ?? [];
-      const original = replyToId ? list.find(m => m.id === replyToId) : undefined;
-      if (replyToId && (!original || original.deletedAt)) throw new Error("الرسالة الأصلية غير متاحة.");
+      const reply = resolveReply(list, replyToId, atSeconds);
       if (!list.some((m) => m.id === clientId))
         list.push({
           id: clientId,
@@ -1305,7 +1316,7 @@ export function demoCommunity(viewer: () => Profile, seedConnections = true, sim
           senderIsMe: true,
           body: body.trim(),
           createdAt: new Date().toISOString(),
-          ...(original ? { reply: { id: original.id, body: original.body.slice(0,240), senderIsMe: original.senderIsMe } } : {}),
+          ...(reply && {reply}),
         });
       messages.set(id, list);
       notify(); simulation.wake();

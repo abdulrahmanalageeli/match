@@ -1,7 +1,7 @@
 // Only uncertain outgoing text is journaled. Photos, peer messages and quoted text stay out of Keychain.
 export type PendingSend = {
   requestId: string; clientId: string; body: string; createdAt: string;
-  reply?: { id: string; senderIsMe: boolean };
+  reply?: { id: string; senderIsMe: boolean; atSeconds?: number };
 };
 type Store = {
   read(key: string): Promise<string | null>;

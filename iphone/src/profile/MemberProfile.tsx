@@ -25,7 +25,8 @@ import { MotionPressButton } from '../motion/Reanimated';
 import { SharedReadinessPassportPanel } from '../readiness/ReadinessPassport';
 import { canonicalCity } from './profileOptions';
 import { marriagePlanQuestions, marriagePlanLabel } from '../compatibility/marriagePlans';
-import { PersonalPrompts } from './PersonalPrompts';
+import type { PublicStarterKey } from './profilePrompts';
+import { PersonalPrompts, ProfileStarterAction } from './PersonalPrompts';
 
 const ar = new Intl.NumberFormat('ar-SA');
 const profileTabs = ['about','details','fit'] as const;
@@ -65,9 +66,10 @@ function Facts({ title, icon, visual='facts', items }: {title: string; icon: Rea
   </section> : null;
 }
 const validCount = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
-export function MemberProfile({person,source,back,backText,primary,children,identity,featured,preview=false,connectionId,onReport,onBlock,interestAction}: {
+export function MemberProfile({person,source,back,backText,primary,children,identity,featured,preview=false,connectionId,onReport,onBlock,interestAction,onAsk}: {
   person: PublicPerson; source?: CommunitySource | null; back:()=>void; backText:string;
   primary?:ReactNode; children?:ReactNode; identity?:RefObject<HTMLElement|null>; featured?:boolean; preview?:boolean; connectionId?:string; onReport?:()=>void; onBlock?:()=>void;
+  onAsk?: (key: PublicStarterKey) => void;
   interestAction?: { toggle:()=>void; busy:boolean; notice:string; error:string };
 }) {
   const {premium,upgrade,gift}=useMembershipAccess();
@@ -133,6 +135,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
   const b=person.marriageBasics;
   const privateDemo = person.isDemo && (source?.simulation || source?.demoInteractions || source?.familyTestMode);
   const acceptedConnection = connectionId ?? (person.connectionStatus==='accepted' ? person.connectionId : undefined);
+  const ask = acceptedConnection && !preview ? onAsk : undefined;
   const readingSource = person.isDemo ? source?.demoInteractions ?? source : source;
   const demoReading = !preview && acceptedConnection && person.isDemo ? readingSource?.profileReading : undefined;
   const liveReading = !preview && acceptedConnection && !person.isDemo ? readingSource?.deepAnalysis : undefined;
@@ -210,7 +213,9 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
     <div id={contentId} className="mp-content" key={visibleSection} data-pinned={alignPinned||undefined} data-backward={backward||undefined} onClick={unfoldReading}>
       {visibleSection==='about'&&<>
         <section className="mp-story">
-          <h2><Feather size={16} aria-hidden="true"/>عنّي</h2>
+          <div className="mp-prompt-title"><h2><Feather size={16} aria-hidden="true"/>عنّي</h2>
+            {ask && person.bio?.trim() && <ProfileStarterAction title="عنّي" onClick={() => ask('bio')}/>}
+          </div>
           <div className="mp-story-body">
             {person.bio ? <p dir="auto">{person.bio}</p> : <p className="mp-empty">ما فيه نبذة في هذا الملف إلى الآن.</p>}
             {person.interests.length > 0 && <ul className="mp-hero-interests" aria-label="الاهتمامات">
@@ -218,7 +223,7 @@ export function MemberProfile({person,source,back,backText,primary,children,iden
             </ul>}
           </div>
         </section>
-        <PersonalPrompts key={person.id} answers={person}/>
+        <PersonalPrompts key={person.id} answers={person} onAsk={ask} askLabelShown={Boolean(person.bio?.trim())}/>
         {source&&<ProfileGallery source={source} subject={preview?undefined:person.id} name={person.alias}/>}
         {person.beenaStory&&<BeenaSummary story={person.beenaStory} name={person.alias}/>}
       </>}

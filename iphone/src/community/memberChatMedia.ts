@@ -31,11 +31,11 @@ export function memberChatMediaSource(owner: string): Pick<CommunitySource, 'sen
     }
   }
   return {
-    async sendMedia(requestId, file, kind, clientId, duration, viewOnce = false) {
+    async sendMedia(requestId, file, kind, clientId, duration, viewOnce = false, replyToId, atSeconds) {
       if (!file.size || file.size > 8 * 1024 * 1024 || !(kind === 'photo' ? file.type.startsWith('image/') : file.type.startsWith('audio/'))) throw Error('اختر ملفًا مدعومًا لا يتجاوز ٨ ميجابايت.');
       const response = await request('upload', file, {
         'Content-Type': file.type, 'x-request-id': requestId, 'x-client-id': clientId,
-        'x-view-once': String(viewOnce), ...(duration === undefined ? {} : {'x-duration-ms': String(Math.round(duration * 1000))}),
+        'x-view-once': String(viewOnce), ...(replyToId && {'x-reply-to':replyToId}), ...(atSeconds !== undefined && {'x-reply-at':String(atSeconds)}), ...(duration === undefined ? {} : {'x-duration-ms': String(Math.round(duration * 1000))}),
       });
       const result = await response.json();
       if (result.id !== clientId) throw Error('تعذّر تأكيد إرسال الملف. حاول مجددًا.');

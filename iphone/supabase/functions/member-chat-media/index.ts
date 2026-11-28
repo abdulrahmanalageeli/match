@@ -3,7 +3,7 @@ import { testMediaLimit, validateTestMedia, validateOncePhoto } from '../_shared
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const bucket='nisfayn-member-chat';
-const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'authorization, apikey, x-client-info, content-type, x-request-id, x-client-id, x-duration-ms, x-view-once','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
+const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'authorization, apikey, x-client-info, content-type, x-request-id, x-client-id, x-duration-ms, x-view-once, x-reply-to, x-reply-at','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 class MediaError extends Error {constructor(readonly status:number,message:string){super(message);}}
 async function readBody(req:Request,limit:number){
  const reader=req.body?.getReader();if(!reader)throw new MediaError(400,'الملف غير صالح.');
@@ -40,7 +40,11 @@ Deno.serve(async req=>{
    const kind=meta.mime.startsWith('image/')?'photo':'audio';
    const once=req.headers.get('x-view-once')||'false';
    if(!['true','false'].includes(once)||kind==='audio'&&once==='true')throw new MediaError(400,'خيار العرض غير صالح.');
-   const reservation=await rpc('prepare',requestId,id,{...meta,kind,viewOnce:once==='true'});
+   const replyToId=req.headers.get('x-reply-to'), rawOffset=req.headers.get('x-reply-at');
+   if ((replyToId!==null && !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(replyToId)) ||
+       (rawOffset!==null && (!replyToId || !/^(?:0|[1-5]?[0-9])$/.test(rawOffset)))) throw new MediaError(400,'مرجع الرد غير صالح.');
+   const reply={...(replyToId && {replyToId}), ...(rawOffset!==null && {atSeconds:Number(rawOffset)})};
+   const reservation=await rpc('prepare',requestId,id,{...meta,kind,viewOnce:once==='true',...reply});
    if(reservation.already)return Response.json({id},{headers});
    try{
     const {error}=await storage.upload(reservation.path,bytes,{contentType:meta.mime,upsert:false,cacheControl:'0'});

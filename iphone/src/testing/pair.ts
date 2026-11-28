@@ -13,7 +13,7 @@ import { manualVerificationSource } from '../verification/client';
 import type { ManualVerificationClaim } from '../verification/model';
 export type Actor='abdulrahman'|'reham';
 export type TestSession={actor:Actor;session:string;profile:Profile;profileRevision:string};
-type Row=Omit<Message,'reply'>&{sender:Actor;reply?:{id:string;body:string;sender:Actor;deletedAt?:string|null}|null};
+type Row=Omit<Message,'reply'>&{sender:Actor;reply?:{id:string;body:string;sender:Actor;deletedAt?:string|null;atSeconds?:number}|null};
 type PublicTestProfile=Partial<Profile>&{beenaStory?:SharedBeenaStory};
 const dimensions = dimensionsForVersion('marriage-v3');
 const unavailablePairFit:MatchFit={version:'marriage-v3',band:'insufficient',provisional:true,covered:0,total:dimensions.length,
@@ -125,7 +125,7 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   notify();return s;
  }
  function acknowledge(s:State){const latest=s.messages.filter(m=>m.sender!==account.actor).at(-1);if(!latest||acknowledging||latest.id===deliveredId)return;acknowledging=true;void testRequest('delivered',account.session,{id:latest.id}).then(()=>{deliveredId=latest.id;}).catch(()=>{}).finally(()=>{acknowledging=false;});}
- const messages=(s:State)=>s.messages.map(m=>sanitizeMessage({...m,reply:m.reply?{id:m.reply.id,body:m.reply.body,senderIsMe:m.reply.sender===account.actor,deletedAt:m.reply.deletedAt}:null,senderIsMe:m.sender===account.actor,
+ const messages=(s:State)=>s.messages.map(m=>sanitizeMessage({...m,reply:m.reply?{id:m.reply.id,body:m.reply.body,senderIsMe:m.reply.sender===account.actor,deletedAt:m.reply.deletedAt,atSeconds:m.reply.atSeconds}:null,senderIsMe:m.sender===account.actor,
   deliveredAt:m.sender===account.actor?(m.deliveredAt??(s.delivered?.[peer]&&s.delivered[peer]!>=m.createdAt?s.delivered[peer]:null)):null,
   readAt:m.sender===account.actor&&s.read[peer]&&s.read[peer]!>=m.createdAt?s.read[peer]:null}));
  const permission=(s:State)=>({status:s.callPermission?.status||'none' as const,direction:s.callPermission?.invitedBy?(s.callPermission.invitedBy===account.actor?'outgoing' as const:'incoming' as const):undefined});
@@ -250,12 +250,12 @@ export function pairSource(account:TestSession,viewer:()=>Profile,onProfile?:(pr
   async typingState(id){if(id!=='tester-pair'){await available(id);return local.typingState!(id);}return testRequest<boolean>('typing_state',account.session);},
   async deleteMessage(id,messageId){if(id!=='tester-pair'){await available(id);return local.deleteMessage!(id,messageId);}revision++;const saved=await testRequest<State|{ok:true}>('message_delete',account.session,{id:messageId});revision++;cached='messages' in saved?saved:null;at=cached?Date.now():0;listeners.forEach(f=>f());},
   async reactToMessage(id,messageId,reaction){if(id!=='tester-pair'){await available(id);return local.reactToMessage!(id,messageId,reaction);}const saved=await mutate('message_react',{id:messageId,reaction});return messages(saved).find(message=>message.id===messageId)?.reactions??[];},
-  async send(id,body,clientId,replyToId){if(id!=='tester-pair'){await available(id);return local.send(id,body,clientId,replyToId);}await available(id);await mutate('send',{body,clientId,replyToId});return clientId;},
-  async sendMedia(id,file,kind,clientId,duration,viewOnce=false){
-   if(id!=='tester-pair'){await available(id);return local.sendMedia!(id,file,kind,clientId,duration,viewOnce);}
+  async send(id,body,clientId,replyToId,atSeconds){if(id!=='tester-pair'){await available(id);return local.send(id,body,clientId,replyToId,atSeconds);}await available(id);await mutate('send',{body,clientId,replyToId,atSeconds});return clientId;},
+  async sendMedia(id,file,kind,clientId,duration,viewOnce=false,replyToId,atSeconds){
+   if(id!=='tester-pair'){await available(id);return local.sendMedia!(id,file,kind,clientId,duration,viewOnce,replyToId,atSeconds);}
    if(!file.size||file.size>8*1024*1024)throw Error('الحد الأقصى للملف ٨ ميغابايت.');
    if(viewOnce&&kind!=='photo')throw Error('العرض لمرة واحدة متاح للصور فقط.');
-   const response=await fetch(endpoint+'?action=upload',{method:'POST',headers:{apikey:marriagePublishableKey,'Content-Type':file.type.split(';')[0],'x-test-session':account.session,'x-client-id':clientId,'x-view-once':String(viewOnce),...(kind==='audio'&&duration?{'x-duration-ms':String(Math.round(duration*1000))}:{})},body:file,signal:AbortSignal.timeout(45000)});
+   const response=await fetch(endpoint+'?action=upload',{method:'POST',headers:{apikey:marriagePublishableKey,'Content-Type':file.type.split(';')[0],'x-test-session':account.session,'x-client-id':clientId,'x-view-once':String(viewOnce), ...(replyToId && {'x-reply-to':replyToId}), ...(atSeconds !== undefined && {'x-reply-at':String(atSeconds)}),...(kind==='audio'&&duration?{'x-duration-ms':String(Math.round(duration*1000))}:{})},body:file,signal:AbortSignal.timeout(45000)});
    const data=await response.json();if(!response.ok)throw Error(data.error||'تعذّر إرسال الملف.');revision++;cached=data;at=Date.now();listeners.forEach(f=>f());return clientId;
   },
   async mediaUrl(id,attachmentId){if(id!=='tester-pair'){await available(id);return local.mediaUrl!(id,attachmentId);}return mediaDownload(id,attachmentId,false);},

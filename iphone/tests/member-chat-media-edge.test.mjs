@@ -8,12 +8,12 @@ import {validateTestMedia,validateOncePhoto,testMediaLimit} from '../supabase/fu
 const code=ts.transpileModule((await readFile(new URL('../supabase/functions/member-chat-media/index.ts',import.meta.url),'utf8')).replace(/^import .*;\r?\n/gm,''),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
 const id='11111111-1111-4111-8111-111111111111',requestId='22222222-2222-4222-8222-222222222222';
 function fixture({denied=false,commitLost=false,storageFault=false}={}) {
- let handler,published=false,opened=false,bytes;const calls=[],removals=[];
+ let handler,published=false,opened=false,bytes;const calls=[],removals=[],prepares=[];
  const storage={upload:async(path,data)=>{bytes=data;return {error:null}},remove:async paths=>{removals.push(...paths);return {error:null}},download:async()=>{calls.push('download');return {data:new Blob(storageFault?[]:[bytes],{type:'image/jpeg'}),error:null}}};
  const client={auth:{getUser:async token=>({data:{user:token==='valid'?{id:'owner'}:null},error:token==='valid'?null:{message:'invalid'}})},storage:{from:()=>storage},rpc:async(name,p)=>{
   calls.push(p?.action||name);if(name==='marriage_chat_media_cleanup')return {data:[],error:null};
   if(denied)return {error:{code:'42501'}};
-  if(p.action==='prepare')return {data:{id,path:'safe/path',already:published}};
+  if(p.action==='prepare'){prepares.push(p.payload);return {data:{id,path:'safe/path',already:published}};}
   if(p.action==='commit'){published=true;if(commitLost)return {error:{code:'network'}};return {data:{id}};}
   if(p.action==='abort')return {data:{path:published?null:'safe/path'}};
   if(p.action==='open'){if(opened)return {error:{code:'42501'}};opened=true;}
@@ -22,9 +22,9 @@ function fixture({denied=false,commitLost=false,storageFault=false}={}) {
  const context=vm.createContext({Deno:{env:{get:n=>n==='SUPABASE_URL'?'https://wupkifqbwhhebwrgvwai.supabase.co':'key'},serve:h=>handler=h},createClient:()=>client,validateTestMedia,validateOncePhoto,testMediaLimit,Response,Uint8Array,TextDecoder,URL});
  vm.runInContext(code,context);
  const jpeg=new Uint8Array(20);jpeg.set([255,216,255]);
- const upload=(token='valid',body=jpeg)=>handler(new Request('https://edge.test/?action=upload',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'image/jpeg','x-request-id':requestId,'x-client-id':id},body}));
+ const upload=(token='valid',body=jpeg,headers={})=>handler(new Request('https://edge.test/?action=upload',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'image/jpeg','x-request-id':requestId,'x-client-id':id,...headers},body}));
  const download=once=>handler(new Request('https://edge.test/?action=download',{method:'POST',headers:{Authorization:'Bearer valid','Content-Type':'application/json'},body:JSON.stringify({requestId,mediaId:id,viewOnce:once})}));
- return {upload,download,calls,removals};
+ return {upload,download,calls,removals,prepares};
 }
 test('member media endpoint validates auth and bytes before storage and respects RPC denial',async()=>{
  const f=fixture();assert.equal((await f.upload('invalid')).status,401);assert.equal(f.calls.length,0);
@@ -47,4 +47,13 @@ test('incomplete stored photo leaves redemption unused',async()=>{
  const f=fixture({storageFault:true});await f.upload();
  assert.equal((await f.download(true)).status,503);
  assert.deepEqual(f.calls.slice(-2),['inspect','download']);assert(!f.calls.includes('open'));
+});
+
+test('member upload carries the quoted voice offset and rejects malformed reply metadata before reservation',async()=>{
+ const f=fixture(), headers={'x-reply-to':requestId,'x-reply-at':'0'};
+ assert.equal((await f.upload('valid',undefined,headers)).status,200);
+ assert.equal(f.prepares[0].replyToId,requestId);assert.equal(f.prepares[0].atSeconds,0);
+ for(const invalid of [{'x-reply-at':'4'},{'x-reply-to':'bad'},{...headers,'x-reply-at':'1.25'},{...headers,'x-reply-at':'60'}])
+   assert.equal((await f.upload('valid',undefined,invalid)).status,400);
+ assert.equal(f.prepares.length,1);
 });
